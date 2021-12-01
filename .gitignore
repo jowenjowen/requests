@@ -27,7 +27,7 @@ env/
 .idea
 *.iml
 .python-version
-
+venv/
 
 t.py
 
