@@ -22,7 +22,7 @@ from urllib3.exceptions import (
     DecodeError, ReadTimeoutError, ProtocolError, LocationParseError)
 
 from io import UnsupportedOperation
-from .hooks import default_hooks
+from .domain import Hooks
 from .structures import CaseInsensitiveDict
 
 from .auth import HTTPBasicAuth
@@ -236,7 +236,7 @@ class Request(RequestHooksMixin):
         params = {} if params is None else params
         hooks = {} if hooks is None else hooks
 
-        self.hooks = default_hooks()
+        self.hooks = Hooks().default_hooks()
         for (k, v) in list(hooks.items()):
             self.register_hook(event=k, hook=v)
 
@@ -305,7 +305,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
         #: request body to send to the server.
         self.body = None
         #: dictionary of callback hooks, for internal usage.
-        self.hooks = default_hooks()
+        self.hooks = Hooks().default_hooks()
         #: integer denoting starting position of a readable file-like body.
         self._body_position = None
 

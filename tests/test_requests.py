@@ -29,7 +29,7 @@ from requests.models import PreparedRequest
 from requests.structures import CaseInsensitiveDict
 from requests.sessions import SessionRedirectMixin
 from requests.models import urlencode
-from requests.hooks import default_hooks
+from requests.domain import Hooks
 from requests.compat import MutableMapping
 
 from .compat import StringIO, u
@@ -1352,7 +1352,7 @@ class TestRequests:
         assert resp.status_code == 200
 
     def test_prepared_request_with_hook_is_pickleable(self, httpbin):
-        r = requests.Request('GET', httpbin('get'), hooks=default_hooks())
+        r = requests.Request('GET', httpbin('get'), hooks=Hooks().default_hooks())
         p = r.prepare()
 
         # Verify PreparedRequest can be pickled
@@ -2362,7 +2362,7 @@ def test_data_argument_accepts_tuples(data):
         method='GET',
         url='http://www.example.com',
         data=data,
-        hooks=default_hooks()
+        hooks=Hooks().default_hooks()
     )
     assert p.body == urlencode(data)
 
@@ -2374,13 +2374,13 @@ def test_data_argument_accepts_tuples(data):
             'method': 'GET',
             'url': 'http://www.example.com',
             'data': 'foo=bar',
-            'hooks': default_hooks()
+            'hooks': Hooks().default_hooks()
         },
         {
             'method': 'GET',
             'url': 'http://www.example.com',
             'data': 'foo=bar',
-            'hooks': default_hooks(),
+            'hooks': Hooks().default_hooks(),
             'cookies': {'foo': 'bar'}
         },
         {

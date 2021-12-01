@@ -18,7 +18,7 @@ from .compat import cookielib, is_py3, urljoin, urlparse, Mapping
 from .cookies import (
     cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar, merge_cookies)
 from .models import Request, PreparedRequest, DEFAULT_REDIRECT_LIMIT
-from .hooks import default_hooks, dispatch_hook
+from .domain import Hooks
 from ._internal_utils import to_native_string
 from .utils import to_key_val_list, default_headers, DEFAULT_PORTS
 from .exceptions import (
@@ -376,7 +376,7 @@ class Session(SessionRedirectMixin):
         self.proxies = {}
 
         #: Event-handling hooks.
-        self.hooks = default_hooks()
+        self.hooks = Hooks().default_hooks()
 
         #: Dictionary of querystring data to attach to each
         #: :class:`Request <Request>`. The dictionary values may be lists for
@@ -659,7 +659,7 @@ class Session(SessionRedirectMixin):
         r.elapsed = timedelta(seconds=elapsed)
 
         # Response manipulation hooks
-        r = dispatch_hook('response', hooks, r, **kwargs)
+        r = Hooks().dispatch_hook('response', hooks, r, **kwargs)
 
         # Persist cookies
         if r.history:
