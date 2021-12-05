@@ -32,7 +32,7 @@ from .utils import (
     get_auth_from_url, rewind_body
 )
 
-from .status_codes import codes
+from .domain import StatusCodes
 
 # formerly defined here, reexposed here for backward compatibility
 from .models import REDIRECT_STATI
@@ -194,7 +194,7 @@ class SessionRedirectMixin(object):
             self.rebuild_method(prepared_request, resp)
 
             # https://github.com/psf/requests/issues/1084
-            if resp.status_code not in (codes.temporary_redirect, codes.permanent_redirect):
+            if resp.status_code not in (StatusCodes().get('temporary_redirect'), StatusCodes().get('permanent_redirect')):
                 # https://github.com/psf/requests/issues/3490
                 purged_headers = ('Content-Length', 'Content-Type', 'Transfer-Encoding')
                 for header in purged_headers:
@@ -318,17 +318,17 @@ class SessionRedirectMixin(object):
         method = prepared_request.method
 
         # https://tools.ietf.org/html/rfc7231#section-6.4.4
-        if response.status_code == codes.see_other and method != 'HEAD':
+        if response.status_code == StatusCodes().get('see_other') and method != 'HEAD':
             method = 'GET'
 
         # Do what the browsers do, despite standards...
         # First, turn 302s into GETs.
-        if response.status_code == codes.found and method != 'HEAD':
+        if response.status_code == StatusCodes().get('found') and method != 'HEAD':
             method = 'GET'
 
         # Second, if a POST is responded to with a 301, turn it into a GET.
         # This bizarre behaviour is explained in Issue 1704.
-        if response.status_code == codes.moved and method == 'POST':
+        if response.status_code == StatusCodes().get('moved') and method == 'POST':
             method = 'GET'
 
         prepared_request.method = method

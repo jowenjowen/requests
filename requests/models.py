@@ -42,16 +42,16 @@ from .compat import (
     cookielib, urlunparse, urlsplit, urlencode, str, bytes,
     is_py2, chardet, builtin_str, basestring, JSONDecodeError)
 from .compat import json as complexjson
-from .status_codes import codes
+from .domain import StatusCodes
 
 #: The set of HTTP status codes that indicate an automatically
 #: processable redirect.
 REDIRECT_STATI = (
-    codes.moved,               # 301
-    codes.found,               # 302
-    codes.other,               # 303
-    codes.temporary_redirect,  # 307
-    codes.permanent_redirect,  # 308
+    StatusCodes().get('moved'),              # 301
+    StatusCodes().get('found'),               # 302
+    StatusCodes().get('other'),               # 303
+    StatusCodes().get('temporary_redirect'),  # 307
+    StatusCodes().get('permanent_redirect'),  # 308
 )
 
 DEFAULT_REDIRECT_LIMIT = 30
@@ -724,7 +724,7 @@ class Response(object):
     @property
     def is_permanent_redirect(self):
         """True if this Response one of the permanent versions of redirect."""
-        return ('location' in self.headers and self.status_code in (codes.moved_permanently, codes.permanent_redirect))
+        return ('location' in self.headers and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
     @property
     def next(self):
