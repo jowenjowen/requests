@@ -286,6 +286,13 @@ class TestExtractZippedPaths:
         assert path == extract_zipped_paths(path)
 
     def test_zipped_paths_extracted(self, tmpdir):
+        def cleanup():
+            import tempfile
+            tmp = tempfile.gettempdir()
+            extracted_path = os.path.join(tmp, __file__.split('/')[-1])
+            if os.path.exists(extracted_path):
+                os.remove(extracted_path)
+        cleanup()
         zipped_py = tmpdir.join('test.zip')
         with zipfile.ZipFile(zipped_py.strpath, 'w') as f:
             f.write(__file__)
