@@ -11,7 +11,7 @@ from collections import deque
 import pytest
 from requests import compat
 from requests.cookies import RequestsCookieJar
-from requests.structures import CaseInsensitiveDict
+from requests.domain import CaseInsensitiveDict
 from requests.utils import (
     address_in_network, dotted_netmask, extract_zipped_paths,
     get_auth_from_url, _parse_content_type_header, get_encoding_from_headers,

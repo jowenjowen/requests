@@ -24,7 +24,7 @@ from .utils import to_key_val_list, default_headers, DEFAULT_PORTS
 from .exceptions import (
     TooManyRedirects, InvalidSchema, ChunkedEncodingError, ContentDecodingError)
 
-from .structures import CaseInsensitiveDict
+from .domain import CaseInsensitiveDict
 from .adapters import HTTPAdapter
 
 from .utils import (

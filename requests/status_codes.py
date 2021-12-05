@@ -20,7 +20,7 @@ the names are allowed. For example, ``codes.ok``, ``codes.OK``, and
 ``codes.okay`` all correspond to the HTTP status code 200.
 """
 
-from .structures import LookupDict
+from .domain import LookupDict
 
 _codes = {
 

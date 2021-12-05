@@ -6,6 +6,9 @@ import sys
 
 import idna
 import urllib3
+from collections import OrderedDict as XOrderedDict
+from .compat import Mapping as XMapping
+from .compat import MutableMapping as XMutableMapping
 
 try:
     import charset_normalizer
@@ -116,5 +119,3 @@ class XSys:
 class XUrllib3:
     def version(self):
         return urllib3.__version__
-
-

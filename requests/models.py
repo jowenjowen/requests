@@ -23,7 +23,7 @@ from urllib3.exceptions import (
 
 from io import UnsupportedOperation
 from .domain import Hooks
-from .structures import CaseInsensitiveDict
+from .domain import CaseInsensitiveDict
 
 from .auth import HTTPBasicAuth
 from .cookies import cookiejar_from_dict, get_cookie_header, _copy_cookie_jar

@@ -26,7 +26,7 @@ from requests.exceptions import (
     MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
     ProxyError, InvalidHeader, UnrewindableBodyError, SSLError, InvalidProxyURL, InvalidJSONError)
 from requests.models import PreparedRequest
-from requests.structures import CaseInsensitiveDict
+from requests.domain import CaseInsensitiveDict
 from requests.sessions import SessionRedirectMixin
 from requests.models import urlencode
 from requests.domain import Hooks

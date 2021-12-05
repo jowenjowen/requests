@@ -32,7 +32,7 @@ from .compat import (
     proxy_bypass, urlunparse, basestring, integer_types, is_py3,
     proxy_bypass_environment, getproxies_environment, Mapping)
 from .cookies import cookiejar_from_dict
-from .structures import CaseInsensitiveDict
+from .domain import CaseInsensitiveDict
 from .exceptions import (
     InvalidURL, InvalidHeader, FileModeWarning, UnrewindableBodyError)
 
@@ -844,7 +844,7 @@ def default_user_agent(name="python-requests"):
 
 def default_headers():
     """
-    :rtype: requests.structures.CaseInsensitiveDict
+    :rtype: requests.domain.CaseInsensitiveDict
     """
     return CaseInsensitiveDict({
         'User-Agent': default_user_agent(),
