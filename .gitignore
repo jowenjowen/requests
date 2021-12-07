@@ -28,6 +28,7 @@ env/
 *.iml
 .python-version
 venv/
+venv27/
 
 t.py
 
