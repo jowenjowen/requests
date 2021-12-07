@@ -492,10 +492,10 @@ Requests allows you to specify your own authentication mechanism.
 Any callable which is passed as the ``auth`` argument to a request method will
 have the opportunity to modify the request before it is dispatched.
 
-Authentication implementations are subclasses of :class:`AuthBase <requests.auth.AuthBase>`,
+Authentication implementations are subclasses of :class:`AuthBase <requests.domain.AuthBase>`,
 and are easy to define. Requests provides two common authentication scheme
-implementations in ``requests.auth``: :class:`HTTPBasicAuth <requests.auth.HTTPBasicAuth>` and
-:class:`HTTPDigestAuth <requests.auth.HTTPDigestAuth>`.
+implementations in ``requests.auth``: :class:`HTTPBasicAuth <requests.domain.HTTPBasicAuth>` and
+:class:`HTTPDigestAuth <requests.domain.HTTPDigestAuth>`.
 
 Let's pretend that we have a web service that will only respond if the
 ``X-Pizza`` header is set to a password value. Unlikely, but just go with it.

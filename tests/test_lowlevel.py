@@ -47,7 +47,7 @@ def test_digestauth_401_count_reset_on_redirect():
                        b'realm="me@kennethreitz.com", '
                        b'nonce="6bf5d6e4da1ce66918800195d6b9130d", uri="/"')
 
-    auth = requests.auth.HTTPDigestAuth('user', 'pass')
+    auth = requests.domain.HTTPDigestAuth('user', 'pass')
 
     def digest_response_handler(sock):
         # Respond to initial GET with a challenge.
@@ -103,7 +103,7 @@ def test_digestauth_401_only_sent_once():
                        b'realm="me@kennethreitz.com", '
                        b'nonce="6bf5d6e4da1ce66918800195d6b9130d", uri="/"')
 
-    auth = requests.auth.HTTPDigestAuth('user', 'pass')
+    auth = requests.domain.HTTPDigestAuth('user', 'pass')
 
     def digest_failed_response_handler(sock):
         # Respond to initial GET with a challenge.
@@ -146,7 +146,7 @@ def test_digestauth_only_on_4xx():
                      b', opaque="372825293d1c26955496c80ed6426e9e", '
                      b'realm="me@kennethreitz.com", qop=auth\r\n\r\n')
 
-    auth = requests.auth.HTTPDigestAuth('user', 'pass')
+    auth = requests.domain.HTTPDigestAuth('user', 'pass')
 
     def digest_response_handler(sock):
         # Respond to GET with a 200 containing www-authenticate header.

@@ -38,7 +38,7 @@ from .cookies import extract_cookies_to_jar
 from .exceptions import (ConnectionError, ConnectTimeout, ReadTimeout, SSLError,
                          ProxyError, RetryError, InvalidSchema, InvalidProxyURL,
                          InvalidURL)
-from .auth import _basic_auth_str
+from .domain import Auth
 
 try:
     from urllib3.contrib.socks import SOCKSProxyManager
@@ -386,8 +386,8 @@ class HTTPAdapter(BaseAdapter):
         username, password = get_auth_from_url(proxy)
 
         if username:
-            headers['Proxy-Authorization'] = _basic_auth_str(username,
-                                                             password)
+            headers['Proxy-Authorization'] = Auth().basic_auth_str(username,
+                                                                   password)
 
         return headers
 

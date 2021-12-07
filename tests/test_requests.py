@@ -15,7 +15,7 @@ import io
 import requests
 import pytest
 from requests.adapters import HTTPAdapter
-from requests.auth import HTTPDigestAuth, _basic_auth_str
+from requests.domain import HTTPDigestAuth, Auth
 from requests.compat import (
     Morsel, cookielib, getproxies, str, urlparse,
     builtin_str)
@@ -511,7 +511,7 @@ class TestRequests:
         r = requests.Request('GET', url, auth=auth)
         p = r.prepare()
 
-        assert p.headers['Authorization'] == _basic_auth_str(username, password)
+        assert p.headers['Authorization'] == Auth().basic_auth_str(username, password)
 
     def test_basicauth_encodes_byte_strings(self):
         """Ensure b'test' formats as the byte string "test" rather
@@ -1026,7 +1026,7 @@ class TestRequests:
         assert hasattr(resp, 'hook_working')
 
     def test_prepared_from_session(self, httpbin):
-        class DummyAuth(requests.auth.AuthBase):
+        class DummyAuth(requests.domain.AuthBase):
             def __call__(self, r):
                 r.headers['Dummy-Auth-Test'] = 'dummy-auth-test-ok'
                 return r
@@ -1804,7 +1804,7 @@ class TestRequests:
             (u'имя'.encode('utf-8'), u'пароль'.encode('utf-8'), 'Basic 0LjQvNGPOtC/0LDRgNC+0LvRjA=='),
         ))
     def test_basic_auth_str_is_always_native(self, username, password, auth_str):
-        s = _basic_auth_str(username, password)
+        s = Auth().basic_auth_str(username, password)
         assert isinstance(s, builtin_str)
         assert s == auth_str
 

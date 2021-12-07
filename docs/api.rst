@@ -72,10 +72,10 @@ Lower-Lower-Level Classes
 Authentication
 --------------
 
-.. autoclass:: requests.auth.AuthBase
-.. autoclass:: requests.auth.HTTPBasicAuth
-.. autoclass:: requests.auth.HTTPProxyAuth
-.. autoclass:: requests.auth.HTTPDigestAuth
+.. autoclass:: requests.domain.AuthBase
+.. autoclass:: requests.domain.HTTPBasicAuth
+.. autoclass:: requests.domain.HTTPProxyAuth
+.. autoclass:: requests.domain.HTTPDigestAuth
 
 
 

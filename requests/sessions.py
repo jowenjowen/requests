@@ -13,7 +13,7 @@ import time
 from datetime import timedelta
 from collections import OrderedDict
 
-from .auth import _basic_auth_str
+from .domain import Auth
 from .compat import cookielib, is_py3, urljoin, urlparse, Mapping
 from .cookies import (
     cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar, merge_cookies)
@@ -307,7 +307,7 @@ class SessionRedirectMixin(object):
             username, password = None, None
 
         if username and password:
-            headers['Proxy-Authorization'] = _basic_auth_str(username, password)
+            headers['Proxy-Authorization'] = Auth().basic_auth_str(username, password)
 
         return new_proxies
 

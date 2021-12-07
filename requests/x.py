@@ -9,6 +9,19 @@ import urllib3
 from collections import OrderedDict as XOrderedDict
 from .compat import Mapping as XMapping
 from .compat import MutableMapping as XMutableMapping
+from .compat import basestring
+import warnings
+from base64 import b64encode
+
+# imports for XWarnings, XBase64, XCompat, XThreading, XHashLib
+from .compat import is_py2, builtin_str, str
+import threading
+import hashlib
+
+from .compat import urlparse
+import time
+import os
+import re
 
 try:
     import charset_normalizer
@@ -29,6 +42,69 @@ except ImportError:
 else:
     import OpenSSL
     import cryptography
+
+
+class XRe:
+    def compile(self, pattern, flags=0):
+        return re.compile(pattern, flags)
+
+    def IGNORECASE(self):
+        return re.IGNORECASE
+
+
+class XOs:
+    def urandom(self, a):
+        return os.urandom(a)
+
+
+class XTime:
+    def ctime(self):
+        return time.ctime()
+
+
+class XHashLib:
+    def sha256(self, a):
+        return hashlib.sha256(a)
+
+    def md5(self, a):
+        return hashlib.md5(a)
+
+    def sha1(self, a):
+        return hashlib.sha1(a)
+
+    def sha512(self, a):
+        return hashlib.sha512(a)
+
+
+class XThreading:
+    def local(self):
+        return threading.local()
+
+
+class XCompat:
+    def is_py2(self):
+        return is_py2
+
+    def is_builtin_str_instance(self,string):
+        return isinstance(string, builtin_str)
+
+    def urlparse(self, a):
+        return urlparse(a)
+
+
+class XBase64:
+    def b64encode(self, s, altchars=None):
+        return b64encode(s, altchars)
+
+
+class XWarnings:
+    def warn(self, *args, **kwargs):
+        return warnings.warn(*args, **kwargs)
+
+
+class XBaseString:
+    def type(self):
+        return basestring
 
 
 class PyPyVersionInfo:
