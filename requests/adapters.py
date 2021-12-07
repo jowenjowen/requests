@@ -35,7 +35,7 @@ from .utils import (DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths,
                     get_auth_from_url, urldefragauth, select_proxy)
 from .domain import CaseInsensitiveDict
 from .cookies import extract_cookies_to_jar
-from .exceptions import (ConnectionError, ConnectTimeout, ReadTimeout, SSLError,
+from .domain import (ConnectionError, ConnectTimeout, ReadTimeout, SSLError,
                          ProxyError, RetryError, InvalidSchema, InvalidProxyURL,
                          InvalidURL)
 from .domain import Auth

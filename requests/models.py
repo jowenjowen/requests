@@ -27,11 +27,11 @@ from .domain import CaseInsensitiveDict
 
 from .domain import HTTPBasicAuth
 from .cookies import cookiejar_from_dict, get_cookie_header, _copy_cookie_jar
-from .exceptions import (
+from .domain import (
     HTTPError, MissingSchema, InvalidURL, ChunkedEncodingError,
     ContentDecodingError, ConnectionError, StreamConsumedError,
     InvalidJSONError)
-from .exceptions import JSONDecodeError as RequestsJSONDecodeError
+from .domain import JSONDecodeError as RequestsJSONDecodeError
 from ._internal_utils import to_native_string, unicode_is_ascii
 from .utils import (
     guess_filename, get_auth_from_url, requote_uri,

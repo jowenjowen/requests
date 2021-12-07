@@ -21,7 +21,7 @@ from requests.compat import (
     builtin_str)
 from requests.cookies import (
     cookiejar_from_dict, morsel_to_cookie)
-from requests.exceptions import (
+from requests.domain import (
     ConnectionError, ConnectTimeout, InvalidSchema, InvalidURL,
     MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
     ProxyError, InvalidHeader, UnrewindableBodyError, SSLError, InvalidProxyURL, InvalidJSONError)
@@ -824,7 +824,7 @@ class TestRequests:
 
     def test_status_raising(self, httpbin):
         r = requests.get(httpbin('status', '404'))
-        with pytest.raises(requests.exceptions.HTTPError):
+        with pytest.raises(requests.domain.HTTPError):
             r.raise_for_status()
 
         r = requests.get(httpbin('status', '500'))
@@ -1286,7 +1286,7 @@ class TestRequests:
         r.reason = reason.encode('latin-1')
         r.status_code = 500
         r.encoding = None
-        with pytest.raises(requests.exceptions.HTTPError) as e:
+        with pytest.raises(requests.domain.HTTPError) as e:
             r.raise_for_status()
         assert reason in e.value.args[0]
 
@@ -1373,12 +1373,12 @@ class TestRequests:
             requests.Session().send(r)
 
     def test_http_error(self):
-        error = requests.exceptions.HTTPError()
+        error = requests.domain.HTTPError()
         assert not error.response
         response = requests.Response()
-        error = requests.exceptions.HTTPError(response=response)
+        error = requests.domain.HTTPError(response=response)
         assert error.response == response
-        error = requests.exceptions.HTTPError('message', response=response)
+        error = requests.domain.HTTPError('message', response=response)
         assert str(error) == 'message'
         assert error.response == response
 
@@ -2185,7 +2185,7 @@ class TestTimeout:
     def test_stream_timeout(self, httpbin):
         try:
             requests.get(httpbin('delay/10'), timeout=2.0)
-        except requests.exceptions.Timeout as e:
+        except requests.domain.Timeout as e:
             assert 'Read timed out' in e.args[0].args[0]
 
     @pytest.mark.parametrize(
@@ -2484,7 +2484,7 @@ class TestPreparingURLs(object):
     )
     def test_preparing_bad_url(self, url):
         r = requests.Request('GET', url=url)
-        with pytest.raises(requests.exceptions.InvalidURL):
+        with pytest.raises(requests.domain.InvalidURL):
             r.prepare()
 
     @pytest.mark.parametrize(
@@ -2569,10 +2569,10 @@ class TestPreparingURLs(object):
 
     def test_post_json_nan(self, httpbin):
         data = {"foo": float("nan")}
-        with pytest.raises(requests.exceptions.InvalidJSONError):
+        with pytest.raises(requests.domain.InvalidJSONError):
           r = requests.post(httpbin('post'), json=data)
 
     def test_json_decode_compatibility(self, httpbin):
         r = requests.get(httpbin('bytes/20'))
-        with pytest.raises(requests.exceptions.JSONDecodeError):
+        with pytest.raises(requests.domain.JSONDecodeError):
             r.json()

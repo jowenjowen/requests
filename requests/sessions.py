@@ -21,7 +21,7 @@ from .models import Request, PreparedRequest, DEFAULT_REDIRECT_LIMIT
 from .domain import Hooks
 from ._internal_utils import to_native_string
 from .utils import to_key_val_list, default_headers, DEFAULT_PORTS
-from .exceptions import (
+from .domain import (
     TooManyRedirects, InvalidSchema, ChunkedEncodingError, ContentDecodingError)
 
 from .domain import CaseInsensitiveDict

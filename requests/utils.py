@@ -33,7 +33,7 @@ from .compat import (
     proxy_bypass_environment, getproxies_environment, Mapping)
 from .cookies import cookiejar_from_dict
 from .domain import CaseInsensitiveDict
-from .exceptions import (
+from .domain import (
     InvalidURL, InvalidHeader, FileModeWarning, UnrewindableBodyError)
 
 NETRC_FILES = ('.netrc', '_netrc')

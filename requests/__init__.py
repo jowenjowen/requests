@@ -42,7 +42,7 @@ is at <https://requests.readthedocs.io>.
 
 import urllib3
 import warnings
-from .exceptions import RequestsDependencyWarning
+from .domain import RequestsDependencyWarning
 
 try:
     from charset_normalizer import __version__ as charset_normalizer_version
@@ -135,7 +135,7 @@ from . import packages
 from .models import Request, Response, PreparedRequest
 from .api import request, get, head, post, patch, put, delete, options
 from .sessions import session, Session
-from .exceptions import (
+from .domain import (
     RequestException, Timeout, URLRequired,
     TooManyRedirects, HTTPError, ConnectionError,
     FileModeWarning, ConnectTimeout, ReadTimeout, JSONDecodeError
