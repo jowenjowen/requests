@@ -23,7 +23,7 @@ from collections import OrderedDict
 from urllib3.util import make_headers
 
 from .__version__ import __version__
-from . import certs
+from .domain import Certs
 # to_native_string is unused here, but imported here for backwards compatibility
 from ._internal_utils import to_native_string
 from .compat import parse_http_list as _parse_list_header
@@ -38,7 +38,7 @@ from .domain import (
 
 NETRC_FILES = ('.netrc', '_netrc')
 
-DEFAULT_CA_BUNDLE_PATH = certs.where()
+DEFAULT_CA_BUNDLE_PATH = Certs().where()
 
 DEFAULT_PORTS = {'http': 80, 'https': 443}
 

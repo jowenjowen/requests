@@ -20,6 +20,9 @@ from .compat import parse_http_list as _parse_list_header
 from urllib3.exceptions import HTTPError as BaseHTTPError
 from .compat import JSONDecodeError as CompatJSONDecodeError
 
+# imports needed for Certs
+from certifi import where as certifi_where
+
 from . import __version__ as requests_version
 
 #         Help
@@ -353,6 +356,25 @@ class HTTPDigestAuth(AuthBase):
 
     def __ne__(self, other):
         return not self == other
+
+
+# *************************** classes in Certs section *****************
+
+class Certs:  # ./Certs/Certs.py
+    """
+    requests.certs
+    ~~~~~~~~~~~~~~
+
+    This module returns the preferred default CA certificate bundle. There is
+    only one — the one from the certifi package.
+
+    If you are packaging Requests, e.g., for a Linux distribution or a managed
+    environment, you can change the definition of where() to return a separately
+    packaged CA bundle.
+    """
+
+    def where(self):
+        return certifi_where()
 
 
 # *************************** classes in Cookies section *****************
