@@ -34,7 +34,7 @@ from .utils import (DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths,
                     get_encoding_from_headers, prepend_scheme_if_needed,
                     get_auth_from_url, urldefragauth, select_proxy)
 from .domain import CaseInsensitiveDict
-from .cookies import extract_cookies_to_jar
+from .domain import Cookies2, Cookies
 from .domain import (ConnectionError, ConnectTimeout, ReadTimeout, SSLError,
                          ProxyError, RetryError, InvalidSchema, InvalidProxyURL,
                          InvalidURL)
@@ -281,7 +281,7 @@ class HTTPAdapter(BaseAdapter):
             response.url = req.url
 
         # Add new cookies from the server.
-        extract_cookies_to_jar(response.cookies, req, resp)
+        Cookies().extract_cookies_to_jar(response.cookies, req, resp)
 
         # Give the Response some context.
         response.request = req

@@ -31,7 +31,7 @@ from .compat import (
     quote, urlparse, bytes, str, unquote, getproxies,
     proxy_bypass, urlunparse, basestring, integer_types, is_py3,
     proxy_bypass_environment, getproxies_environment, Mapping)
-from .cookies import cookiejar_from_dict
+from .domain import Cookies2
 from .domain import CaseInsensitiveDict
 from .domain import (
     InvalidURL, InvalidHeader, FileModeWarning, UnrewindableBodyError)
@@ -463,7 +463,7 @@ def add_dict_to_cookiejar(cj, cookie_dict):
     :rtype: CookieJar
     """
 
-    return cookiejar_from_dict(cookie_dict, cj)
+    return Cookies2().cookiejar_from_dict(cookie_dict, cj)
 
 
 def get_encodings_from_content(content):

@@ -19,8 +19,7 @@ from requests.domain import HTTPDigestAuth, Auth
 from requests.compat import (
     Morsel, cookielib, getproxies, str, urlparse,
     builtin_str)
-from requests.cookies import (
-    cookiejar_from_dict, morsel_to_cookie)
+from requests.domain import Cookies2
 from requests.domain import (
     ConnectionError, ConnectTimeout, InvalidSchema, InvalidURL,
     MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
@@ -375,7 +374,7 @@ class TestRequests:
 
     def test_generic_cookiejar_works(self, httpbin):
         cj = cookielib.CookieJar()
-        cookiejar_from_dict({'foo': 'bar'}, cj)
+        Cookies2().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.session()
         s.cookies = cj
         r = s.get(httpbin('cookies'))
@@ -386,7 +385,7 @@ class TestRequests:
 
     def test_param_cookiejar_works(self, httpbin):
         cj = cookielib.CookieJar()
-        cookiejar_from_dict({'foo': 'bar'}, cj)
+        Cookies2().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.session()
         r = s.get(httpbin('cookies'), cookies=cj)
         # Make sure the cookie was sent
@@ -398,9 +397,9 @@ class TestRequests:
 
         See GH #3579
         """
-        cj = cookiejar_from_dict({'foo': 'bar'}, cookielib.CookieJar())
+        cj = Cookies2().cookiejar_from_dict({'foo': 'bar'}, cookielib.CookieJar())
         s = requests.Session()
-        s.cookies = cookiejar_from_dict({'cookie': 'tasty'})
+        s.cookies = Cookies2().cookiejar_from_dict({'cookie': 'tasty'})
 
         # Prepare request without using Session
         req = requests.Request('GET', httpbin('headers'), cookies=cj)
@@ -416,7 +415,7 @@ class TestRequests:
         # Verify CookieJar isn't being converted to RequestsCookieJar
         assert isinstance(prep_req._cookies, cookielib.CookieJar)
         assert isinstance(resp.request._cookies, cookielib.CookieJar)
-        assert not isinstance(resp.request._cookies, requests.cookies.RequestsCookieJar)
+        assert not isinstance(resp.request._cookies, requests.domain.RequestsCookieJar)
 
         cookies = {}
         for c in resp.request._cookies:
@@ -1053,11 +1052,11 @@ class TestRequests:
         s = requests.Session()
         resp = s.request(
             'GET',
-            httpbin('cookies/set?cookie=value'),
+            httpbin('cookie/set?cookie=value'),
             allow_redirects=False,
             headers={'Host': b'httpbin.org'}
         )
-        assert resp.cookies.get('cookie') == 'value'
+        assert resp.cookies.get('domain') == 'value'
 
     def test_links(self):
         r = requests.Response()
@@ -1090,7 +1089,7 @@ class TestRequests:
         domain = 'test.com'
         rest = {'HttpOnly': True}
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value, secure=secure, domain=domain, rest=rest)
 
         assert len(jar) == 1
@@ -1108,7 +1107,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1128,7 +1127,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1147,7 +1146,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1163,7 +1162,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1179,7 +1178,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1194,7 +1193,7 @@ class TestRequests:
         domain1 = 'test1.com'
         domain2 = 'test2.com'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value, domain=domain1)
         jar.set(key, value, domain=domain2)
         assert key in jar
@@ -1202,7 +1201,7 @@ class TestRequests:
         assert len(items) == 2
 
         # Verify that CookieConflictError is raised if domain is not specified
-        with pytest.raises(requests.cookies.CookieConflictError):
+        with pytest.raises(requests.domain.CookieConflictError):
             jar.get(key)
 
         # Verify that CookieConflictError is not raised if domain is specified
@@ -1214,17 +1213,17 @@ class TestRequests:
         value = 'some_value'
         path = 'some_path'
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set(key, value, path=path)
         jar.set(key, value)
-        with pytest.raises(requests.cookies.CookieConflictError):
+        with pytest.raises(requests.domain.CookieConflictError):
             jar.get(key)
 
     def test_cookie_policy_copy(self):
         class MyCookiePolicy(cookielib.DefaultCookiePolicy):
             pass
 
-        jar = requests.cookies.RequestsCookieJar()
+        jar = requests.domain.RequestsCookieJar()
         jar.set_policy(MyCookiePolicy())
         assert isinstance(jar.copy().get_policy(), MyCookiePolicy)
 
@@ -2135,7 +2134,7 @@ class TestMorselToCookieExpires:
 
         morsel = Morsel()
         morsel['expires'] = 'Thu, 01-Jan-1970 00:00:01 GMT'
-        cookie = morsel_to_cookie(morsel)
+        cookie = Cookies2().morsel_to_cookie(morsel)
         assert cookie.expires == 1
 
     @pytest.mark.parametrize(
@@ -2148,14 +2147,14 @@ class TestMorselToCookieExpires:
         morsel = Morsel()
         morsel['expires'] = value
         with pytest.raises(exception):
-            morsel_to_cookie(morsel)
+            Cookies2().morsel_to_cookie(morsel)
 
     def test_expires_none(self):
         """Test case where expires is None."""
 
         morsel = Morsel()
         morsel['expires'] = None
-        cookie = morsel_to_cookie(morsel)
+        cookie = Cookies2().morsel_to_cookie(morsel)
         assert cookie.expires is None
 
 
@@ -2168,7 +2167,7 @@ class TestMorselToCookieMaxAge:
 
         morsel = Morsel()
         morsel['max-age'] = 60
-        cookie = morsel_to_cookie(morsel)
+        cookie = Cookies2().morsel_to_cookie(morsel)
         assert isinstance(cookie.expires, int)
 
     def test_max_age_invalid_str(self):
@@ -2177,7 +2176,7 @@ class TestMorselToCookieMaxAge:
         morsel = Morsel()
         morsel['max-age'] = 'woops'
         with pytest.raises(TypeError):
-            morsel_to_cookie(morsel)
+            Cookies2().morsel_to_cookie(morsel)
 
 
 class TestTimeout:
