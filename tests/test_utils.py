@@ -10,7 +10,7 @@ from collections import deque
 
 import pytest
 from requests import compat
-from requests.cookies import RequestsCookieJar
+from requests.domain import RequestsCookieJar
 from requests.domain import CaseInsensitiveDict
 from requests.utils import (
     address_in_network, dotted_netmask, extract_zipped_paths,

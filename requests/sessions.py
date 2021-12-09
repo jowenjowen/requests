@@ -15,8 +15,7 @@ from collections import OrderedDict
 
 from .domain import Auth
 from .compat import cookielib, is_py3, urljoin, urlparse, Mapping
-from .cookies import (
-    cookiejar_from_dict, extract_cookies_to_jar, RequestsCookieJar, merge_cookies)
+from .domain import Cookies2, Cookies, RequestsCookieJar
 from .models import Request, PreparedRequest, DEFAULT_REDIRECT_LIMIT
 from .domain import Hooks
 from ._internal_utils import to_native_string
@@ -207,8 +206,8 @@ class SessionRedirectMixin(object):
             # Extract any cookies sent on the response to the cookiejar
             # in the new request. Because we've mutated our copied prepared
             # request, use the old one that we haven't yet touched.
-            extract_cookies_to_jar(prepared_request._cookies, req, resp.raw)
-            merge_cookies(prepared_request._cookies, self.cookies)
+            Cookies().extract_cookies_to_jar(prepared_request._cookies, req, resp.raw)
+            Cookies2().merge_cookies(prepared_request._cookies, self.cookies)
             prepared_request.prepare_cookies(prepared_request._cookies)
 
             # Rebuild auth and proxy information.
@@ -245,7 +244,7 @@ class SessionRedirectMixin(object):
                     **adapter_kwargs
                 )
 
-                extract_cookies_to_jar(self.cookies, prepared_request, resp.raw)
+                Cookies().extract_cookies_to_jar(self.cookies, prepared_request, resp.raw)
 
                 # extract redirect url, if any, for the next loop
                 url = self.get_redirect_target(resp)
@@ -414,7 +413,7 @@ class Session(SessionRedirectMixin):
         #: session. By default it is a
         #: :class:`RequestsCookieJar <requests.cookies.RequestsCookieJar>`, but
         #: may be any other ``cookielib.CookieJar`` compatible object.
-        self.cookies = cookiejar_from_dict({})
+        self.cookies = Cookies2().cookiejar_from_dict({})
 
         # Default connection adapters.
         self.adapters = OrderedDict()
@@ -441,11 +440,11 @@ class Session(SessionRedirectMixin):
 
         # Bootstrap CookieJar.
         if not isinstance(cookies, cookielib.CookieJar):
-            cookies = cookiejar_from_dict(cookies)
+            cookies = Cookies2().cookiejar_from_dict(cookies)
 
         # Merge with session cookies
-        merged_cookies = merge_cookies(
-            merge_cookies(RequestsCookieJar(), self.cookies), cookies)
+        merged_cookies = Cookies2().merge_cookies(
+            Cookies2().merge_cookies(RequestsCookieJar(), self.cookies), cookies)
 
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth
@@ -666,9 +665,9 @@ class Session(SessionRedirectMixin):
 
             # If the hooks create history then we want those cookies too
             for resp in r.history:
-                extract_cookies_to_jar(self.cookies, resp.request, resp.raw)
+                Cookies().extract_cookies_to_jar(self.cookies, resp.request, resp.raw)
 
-        extract_cookies_to_jar(self.cookies, request, r.raw)
+        Cookies().extract_cookies_to_jar(self.cookies, request, r.raw)
 
         # Resolve redirects if allowed.
         if allow_redirects:
