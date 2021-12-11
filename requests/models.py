@@ -26,7 +26,7 @@ from .domain import Hooks
 from .domain import CaseInsensitiveDict
 
 from .domain import HTTPBasicAuth
-from .cookies import cookiejar_from_dict, get_cookie_header, _copy_cookie_jar
+from .domain import Cookies2, Cookies
 from .domain import (
     HTTPError, MissingSchema, InvalidURL, ChunkedEncodingError,
     ContentDecodingError, ConnectionError, StreamConsumedError,
@@ -335,7 +335,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
         p.method = self.method
         p.url = self.url
         p.headers = self.headers.copy() if self.headers is not None else None
-        p._cookies = _copy_cookie_jar(self._cookies)
+        p._cookies = Cookies2()._copy_cookie_jar(self._cookies)
         p.body = self.body
         p.hooks = self.hooks
         p._body_position = self._body_position
@@ -577,9 +577,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):
         if isinstance(cookies, cookielib.CookieJar):
             self._cookies = cookies
         else:
-            self._cookies = cookiejar_from_dict(cookies)
+            self._cookies = Cookies2().cookiejar_from_dict(cookies)
 
-        cookie_header = get_cookie_header(self._cookies, self)
+        cookie_header = Cookies().get_cookie_header(self._cookies, self)
         if cookie_header is not None:
             self.headers['Cookie'] = cookie_header
 
@@ -636,7 +636,7 @@ class Response(object):
         self.reason = None
 
         #: A CookieJar of Cookies the server sent back.
-        self.cookies = cookiejar_from_dict({})
+        self.cookies = Cookies2().cookiejar_from_dict({})
 
         #: The amount of time elapsed between sending the request
         #: and the arrival of the response (as a timedelta).
