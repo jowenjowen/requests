@@ -35,6 +35,8 @@ from .compat import StringIO, u
 from .utils import override_environ
 from urllib3.util import Timeout as Urllib3Timeout
 
+from requests.domain import HTTPError, AuthBase, JSONDecodeError, RequestsCookieJar, CookieConflictError
+
 # Requests to this URL should always fail with a connection timeout (nothing
 # listening on that port)
 TARPIT = 'http://10.255.255.1'
@@ -415,7 +417,7 @@ class TestRequests:
         # Verify CookieJar isn't being converted to RequestsCookieJar
         assert isinstance(prep_req._cookies, cookielib.CookieJar)
         assert isinstance(resp.request._cookies, cookielib.CookieJar)
-        assert not isinstance(resp.request._cookies, requests.domain.RequestsCookieJar)
+        assert not isinstance(resp.request._cookies, RequestsCookieJar)
 
         cookies = {}
         for c in resp.request._cookies:
@@ -823,7 +825,7 @@ class TestRequests:
 
     def test_status_raising(self, httpbin):
         r = requests.get(httpbin('status', '404'))
-        with pytest.raises(requests.domain.HTTPError):
+        with pytest.raises(HTTPError):
             r.raise_for_status()
 
         r = requests.get(httpbin('status', '500'))
@@ -1025,7 +1027,7 @@ class TestRequests:
         assert hasattr(resp, 'hook_working')
 
     def test_prepared_from_session(self, httpbin):
-        class DummyAuth(requests.domain.AuthBase):
+        class DummyAuth(AuthBase):
             def __call__(self, r):
                 r.headers['Dummy-Auth-Test'] = 'dummy-auth-test-ok'
                 return r
@@ -1089,7 +1091,7 @@ class TestRequests:
         domain = 'test.com'
         rest = {'HttpOnly': True}
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value, secure=secure, domain=domain, rest=rest)
 
         assert len(jar) == 1
@@ -1107,7 +1109,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1127,7 +1129,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1146,7 +1148,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1162,7 +1164,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1178,7 +1180,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1193,7 +1195,7 @@ class TestRequests:
         domain1 = 'test1.com'
         domain2 = 'test2.com'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value, domain=domain1)
         jar.set(key, value, domain=domain2)
         assert key in jar
@@ -1201,7 +1203,7 @@ class TestRequests:
         assert len(items) == 2
 
         # Verify that CookieConflictError is raised if domain is not specified
-        with pytest.raises(requests.domain.CookieConflictError):
+        with pytest.raises(CookieConflictError):
             jar.get(key)
 
         # Verify that CookieConflictError is not raised if domain is specified
@@ -1213,17 +1215,17 @@ class TestRequests:
         value = 'some_value'
         path = 'some_path'
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set(key, value, path=path)
         jar.set(key, value)
-        with pytest.raises(requests.domain.CookieConflictError):
+        with pytest.raises(CookieConflictError):
             jar.get(key)
 
     def test_cookie_policy_copy(self):
         class MyCookiePolicy(cookielib.DefaultCookiePolicy):
             pass
 
-        jar = requests.domain.RequestsCookieJar()
+        jar = RequestsCookieJar()
         jar.set_policy(MyCookiePolicy())
         assert isinstance(jar.copy().get_policy(), MyCookiePolicy)
 
@@ -1285,7 +1287,7 @@ class TestRequests:
         r.reason = reason.encode('latin-1')
         r.status_code = 500
         r.encoding = None
-        with pytest.raises(requests.domain.HTTPError) as e:
+        with pytest.raises(HTTPError) as e:
             r.raise_for_status()
         assert reason in e.value.args[0]
 
@@ -1372,12 +1374,12 @@ class TestRequests:
             requests.Session().send(r)
 
     def test_http_error(self):
-        error = requests.domain.HTTPError()
+        error = HTTPError()
         assert not error.response
         response = requests.Response()
-        error = requests.domain.HTTPError(response=response)
+        error = HTTPError(response=response)
         assert error.response == response
-        error = requests.domain.HTTPError('message', response=response)
+        error = HTTPError('message', response=response)
         assert str(error) == 'message'
         assert error.response == response
 
@@ -2184,7 +2186,7 @@ class TestTimeout:
     def test_stream_timeout(self, httpbin):
         try:
             requests.get(httpbin('delay/10'), timeout=2.0)
-        except requests.domain.Timeout as e:
+        except Timeout as e:
             assert 'Read timed out' in e.args[0].args[0]
 
     @pytest.mark.parametrize(
@@ -2483,7 +2485,7 @@ class TestPreparingURLs(object):
     )
     def test_preparing_bad_url(self, url):
         r = requests.Request('GET', url=url)
-        with pytest.raises(requests.domain.InvalidURL):
+        with pytest.raises(InvalidURL):
             r.prepare()
 
     @pytest.mark.parametrize(
@@ -2568,10 +2570,10 @@ class TestPreparingURLs(object):
 
     def test_post_json_nan(self, httpbin):
         data = {"foo": float("nan")}
-        with pytest.raises(requests.domain.InvalidJSONError):
+        with pytest.raises(InvalidJSONError):
           r = requests.post(httpbin('post'), json=data)
 
     def test_json_decode_compatibility(self, httpbin):
         r = requests.get(httpbin('bytes/20'))
-        with pytest.raises(requests.domain.JSONDecodeError):
+        with pytest.raises(JSONDecodeError):
             r.json()
