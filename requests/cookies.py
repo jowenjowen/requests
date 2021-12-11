@@ -162,6 +162,132 @@ def remove_cookie_by_name(cookiejar, name, domain=None, path=None):
         cookiejar.clear(domain, path, name)
 
 
+def _copy_cookie_jar(jar):
+    if jar is None:
+        return None
+
+    if hasattr(jar, 'copy'):
+        # We're dealing with an instance of RequestsCookieJar
+        return jar.copy()
+    # We're dealing with a generic CookieJar instance
+    new_jar = copy.copy(jar)
+    new_jar.clear()
+    for cookie in jar:
+        new_jar.set_cookie(copy.copy(cookie))
+    return new_jar
+
+
+def create_cookie(name, value, **kwargs):
+    """Make a cookie from underspecified parameters.
+
+    By default, the pair of `name` and `value` will be set for the domain ''
+    and sent on every request (this is sometimes called a "supercookie").
+    """
+    result = {
+        'version': 0,
+        'name': name,
+        'value': value,
+        'port': None,
+        'domain': '',
+        'path': '/',
+        'secure': False,
+        'expires': None,
+        'discard': True,
+        'comment': None,
+        'comment_url': None,
+        'rest': {'HttpOnly': None},
+        'rfc2109': False,
+    }
+
+    badargs = set(kwargs) - set(result)
+    if badargs:
+        err = 'create_cookie() got unexpected keyword arguments: %s'
+        raise TypeError(err % list(badargs))
+
+    result.update(kwargs)
+    result['port_specified'] = bool(result['port'])
+    result['domain_specified'] = bool(result['domain'])
+    result['domain_initial_dot'] = result['domain'].startswith('.')
+    result['path_specified'] = bool(result['path'])
+
+    return cookielib.Cookie(**result)
+
+
+def morsel_to_cookie(morsel):
+    """Convert a Morsel object into a Cookie containing the one k/v pair."""
+
+    expires = None
+    if morsel['max-age']:
+        try:
+            expires = int(time.time() + int(morsel['max-age']))
+        except ValueError:
+            raise TypeError('max-age: %s must be integer' % morsel['max-age'])
+    elif morsel['expires']:
+        time_template = '%a, %d-%b-%Y %H:%M:%S GMT'
+        expires = calendar.timegm(
+            time.strptime(morsel['expires'], time_template)
+        )
+    return create_cookie(
+        comment=morsel['comment'],
+        comment_url=bool(morsel['comment']),
+        discard=False,
+        domain=morsel['domain'],
+        expires=expires,
+        name=morsel.key,
+        path=morsel['path'],
+        port=None,
+        rest={'HttpOnly': morsel['httponly']},
+        rfc2109=False,
+        secure=bool(morsel['secure']),
+        value=morsel.value,
+        version=morsel['version'] or 0,
+    )
+
+
+def cookiejar_from_dict(cookie_dict, cookiejar=None, overwrite=True):
+    """Returns a CookieJar from a key/value dictionary.
+
+    :param cookie_dict: Dict of key/values to insert into CookieJar.
+    :param cookiejar: (optional) A cookiejar to add the cookies to.
+    :param overwrite: (optional) If False, will not replace cookies
+        already in the jar with new ones.
+    :rtype: CookieJar
+    """
+    if cookiejar is None:
+        cookiejar = RequestsCookieJar()
+
+    if cookie_dict is not None:
+        names_from_jar = [cookie.name for cookie in cookiejar]
+        for name in cookie_dict:
+            if overwrite or (name not in names_from_jar):
+                cookiejar.set_cookie(create_cookie(name, cookie_dict[name]))
+
+    return cookiejar
+
+
+def merge_cookies(cookiejar, cookies):
+    """Add cookies to cookiejar and returns a merged CookieJar.
+
+    :param cookiejar: CookieJar object to add the cookies to.
+    :param cookies: Dictionary or CookieJar object to be added.
+    :rtype: CookieJar
+    """
+    if not isinstance(cookiejar, cookielib.CookieJar):
+        raise ValueError('You can only merge into CookieJar')
+
+    if isinstance(cookies, dict):
+        cookiejar = cookiejar_from_dict(
+            cookies, cookiejar=cookiejar, overwrite=False)
+    elif isinstance(cookies, cookielib.CookieJar):
+        try:
+            cookiejar.update(cookies)
+        except AttributeError:
+            for cookie_in_jar in cookies:
+                cookiejar.set_cookie(cookie_in_jar)
+
+    return cookiejar
+
+
 class CookieConflictError(RuntimeError):
     """There are two cookies that meet the criteria specified in the cookie jar.
     Use .get and .set and include domain and path args in order to be more specific.
@@ -423,127 +549,3 @@ class RequestsCookieJar(cookielib.CookieJar, MutableMapping):
         return self._policy
 
 
-def _copy_cookie_jar(jar):
-    if jar is None:
-        return None
-
-    if hasattr(jar, 'copy'):
-        # We're dealing with an instance of RequestsCookieJar
-        return jar.copy()
-    # We're dealing with a generic CookieJar instance
-    new_jar = copy.copy(jar)
-    new_jar.clear()
-    for cookie in jar:
-        new_jar.set_cookie(copy.copy(cookie))
-    return new_jar
-
-
-def create_cookie(name, value, **kwargs):
-    """Make a cookie from underspecified parameters.
-
-    By default, the pair of `name` and `value` will be set for the domain ''
-    and sent on every request (this is sometimes called a "supercookie").
-    """
-    result = {
-        'version': 0,
-        'name': name,
-        'value': value,
-        'port': None,
-        'domain': '',
-        'path': '/',
-        'secure': False,
-        'expires': None,
-        'discard': True,
-        'comment': None,
-        'comment_url': None,
-        'rest': {'HttpOnly': None},
-        'rfc2109': False,
-    }
-
-    badargs = set(kwargs) - set(result)
-    if badargs:
-        err = 'create_cookie() got unexpected keyword arguments: %s'
-        raise TypeError(err % list(badargs))
-
-    result.update(kwargs)
-    result['port_specified'] = bool(result['port'])
-    result['domain_specified'] = bool(result['domain'])
-    result['domain_initial_dot'] = result['domain'].startswith('.')
-    result['path_specified'] = bool(result['path'])
-
-    return cookielib.Cookie(**result)
-
-
-def morsel_to_cookie(morsel):
-    """Convert a Morsel object into a Cookie containing the one k/v pair."""
-
-    expires = None
-    if morsel['max-age']:
-        try:
-            expires = int(time.time() + int(morsel['max-age']))
-        except ValueError:
-            raise TypeError('max-age: %s must be integer' % morsel['max-age'])
-    elif morsel['expires']:
-        time_template = '%a, %d-%b-%Y %H:%M:%S GMT'
-        expires = calendar.timegm(
-            time.strptime(morsel['expires'], time_template)
-        )
-    return create_cookie(
-        comment=morsel['comment'],
-        comment_url=bool(morsel['comment']),
-        discard=False,
-        domain=morsel['domain'],
-        expires=expires,
-        name=morsel.key,
-        path=morsel['path'],
-        port=None,
-        rest={'HttpOnly': morsel['httponly']},
-        rfc2109=False,
-        secure=bool(morsel['secure']),
-        value=morsel.value,
-        version=morsel['version'] or 0,
-    )
-
-
-def cookiejar_from_dict(cookie_dict, cookiejar=None, overwrite=True):
-    """Returns a CookieJar from a key/value dictionary.
-
-    :param cookie_dict: Dict of key/values to insert into CookieJar.
-    :param cookiejar: (optional) A cookiejar to add the cookies to.
-    :param overwrite: (optional) If False, will not replace cookies
-        already in the jar with new ones.
-    :rtype: CookieJar
-    """
-    if cookiejar is None:
-        cookiejar = RequestsCookieJar()
-
-    if cookie_dict is not None:
-        names_from_jar = [cookie.name for cookie in cookiejar]
-        for name in cookie_dict:
-            if overwrite or (name not in names_from_jar):
-                cookiejar.set_cookie(create_cookie(name, cookie_dict[name]))
-
-    return cookiejar
-
-
-def merge_cookies(cookiejar, cookies):
-    """Add cookies to cookiejar and returns a merged CookieJar.
-
-    :param cookiejar: CookieJar object to add the cookies to.
-    :param cookies: Dictionary or CookieJar object to be added.
-    :rtype: CookieJar
-    """
-    if not isinstance(cookiejar, cookielib.CookieJar):
-        raise ValueError('You can only merge into CookieJar')
-
-    if isinstance(cookies, dict):
-        cookiejar = cookiejar_from_dict(
-            cookies, cookiejar=cookiejar, overwrite=False)
-    elif isinstance(cookies, cookielib.CookieJar):
-        try:
-            cookiejar.update(cookies)
-        except AttributeError:
-            for cookie_in_jar in cookies:
-                cookiejar.set_cookie(cookie_in_jar)
-
-    return cookiejar
