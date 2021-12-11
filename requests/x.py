@@ -18,10 +18,16 @@ from .compat import is_py2, builtin_str, str
 import threading
 import hashlib
 
-from .compat import urlparse
+from .compat import urlparse, urlunparse
 import time
 import os
 import re
+
+#imports for cookies
+from .compat import cookielib
+from .compat import Morsel as XMorsel
+import copy
+import calendar
 
 try:
     import charset_normalizer
@@ -44,6 +50,16 @@ else:
     import cryptography
 
 
+class XCopy:
+    def copy(self, x):
+        return copy.copy(x)
+
+
+class XCalendar:
+    def timegm(self, tuple):
+        return calendar.timegm(tuple)
+
+
 class XRe:
     def compile(self, pattern, flags=0):
         return re.compile(pattern, flags)
@@ -60,6 +76,12 @@ class XOs:
 class XTime:
     def ctime(self):
         return time.ctime()
+
+    def time(self):
+        return time.time()
+
+    def strptime(self, string, format):
+        return time.strptime(string, format)
 
 
 class XHashLib:
@@ -80,6 +102,9 @@ class XThreading:
     def local(self):
         return threading.local()
 
+    def RLock(self, verbose=None):
+        return threading.RLock(verbose)
+
 
 class XCompat:
     def is_py2(self):
@@ -90,6 +115,12 @@ class XCompat:
 
     def urlparse(self, a):
         return urlparse(a)
+
+    def urlunparse(self, a):
+        return urlunparse(a)
+
+    def cookielib(self):
+        return cookielib
 
 
 class XBase64:
