@@ -19,14 +19,14 @@ from requests.domain import HTTPDigestAuth, Auth
 from requests.compat import (
     Morsel, cookielib, getproxies, str, urlparse,
     builtin_str)
-from requests.domain import Cookies2
+from requests.domain import Cookies2, Sessions
 from requests.domain import (
     ConnectionError, ConnectTimeout, InvalidSchema, InvalidURL,
     MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
     ProxyError, InvalidHeader, UnrewindableBodyError, SSLError, InvalidProxyURL, InvalidJSONError)
 from requests.models import PreparedRequest
 from requests.domain import CaseInsensitiveDict
-from requests.sessions import SessionRedirectMixin
+from requests.domain import SessionRedirectMixin
 from requests.models import urlencode
 from requests.domain import Hooks
 from requests.compat import MutableMapping
@@ -596,12 +596,12 @@ class TestRequests:
         wrong_auth = ('wronguser', 'wrongpass')
         url = httpbin('basic-auth', 'user', 'pass')
 
-        old_auth = requests.sessions.get_netrc_auth
+        old_auth = Sessions().get_netrc_auth
 
         try:
             def get_netrc_auth_mock(url):
                 return auth
-            requests.sessions.get_netrc_auth = get_netrc_auth_mock
+            Sessions().get_netrc_auth = get_netrc_auth_mock
 
             # Should use netrc and work.
             r = requests.get(url)
@@ -622,7 +622,7 @@ class TestRequests:
             r = s.get(url)
             assert r.status_code == 401
         finally:
-            requests.sessions.get_netrc_auth = old_auth
+            Sessions().get_netrc_auth = old_auth
 
     def test_DIGEST_HTTP_200_OK_GET(self, httpbin):
 

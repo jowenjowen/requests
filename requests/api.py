@@ -10,8 +10,7 @@ This module implements the Requests API.
 :license: Apache2, see LICENSE for more details.
 """
 
-from . import sessions
-
+from .domain import Sessions
 
 def request(method, url, **kwargs):
     """Constructs and sends a :class:`Request <Request>`.
@@ -57,7 +56,7 @@ def request(method, url, **kwargs):
     # By using the 'with' statement we are sure the session is closed, thus we
     # avoid leaving sockets open which can trigger a ResourceWarning in some
     # cases, and look like a memory leak in others.
-    with sessions.Session() as session:
+    with Sessions().Session() as session:
         return session.request(method=method, url=url, **kwargs)
 
 

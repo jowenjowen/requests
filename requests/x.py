@@ -18,7 +18,7 @@ from .compat import is_py2, builtin_str, str
 import threading
 import hashlib
 
-from .compat import urlparse, urlunparse
+from .compat import urlparse, urljoin, urlunparse
 import time
 import os
 import re
@@ -28,6 +28,14 @@ from .compat import cookielib
 from .compat import Morsel as XMorsel
 import copy
 import calendar
+
+#imports for sessions
+from .compat import is_py3, quote
+from datetime import timedelta
+
+#imports for utils
+import socket
+from .compat import integer_types
 
 try:
     import charset_normalizer
@@ -49,6 +57,13 @@ else:
     import OpenSSL
     import cryptography
 
+
+class XSocket:
+    def error(self):
+        return socket.error
+
+    def inet_aton(self, a):
+        return socket.inet_aton(a)
 
 class XCopy:
     def copy(self, x):
@@ -72,6 +87,17 @@ class XOs:
     def urandom(self, a):
         return os.urandom(a)
 
+    def environ(self, a):
+        return os.environ
+
+    def path(self):
+        return os.path
+
+
+class XDateTime:
+    def timedelta(self):
+        return timedelta
+
 
 class XTime:
     def ctime(self):
@@ -82,6 +108,17 @@ class XTime:
 
     def strptime(self, string, format):
         return time.strptime(string, format)
+
+    # Preferred clock, based on which one is more accurate on a given system.
+    def clock_method(self):
+        if sys.platform == 'win32':
+            try:  # Python 3.4+
+                preferred_clock = time.perf_counter
+            except AttributeError:  # Earlier than Python 3.
+                preferred_clock = time.clock
+        else:
+            preferred_clock = time.time
+        return preferred_clock
 
 
 class XHashLib:
@@ -116,11 +153,23 @@ class XCompat:
     def urlparse(self, a):
         return urlparse(a)
 
+    def urljoin(self, base, url, allow_fragments=True):
+        return urljoin(base, url, allow_fragments)
+
     def urlunparse(self, a):
         return urlunparse(a)
 
     def cookielib(self):
         return cookielib
+
+    def is_py3(self):
+        return is_py3
+
+    def quote(self):
+        return quote
+
+    def integer_types(self):
+        return integer_types
 
 
 class XBase64:

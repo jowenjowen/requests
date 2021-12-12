@@ -15,6 +15,7 @@ from requests.x import XCompat, XThreading # is_py2, builtin_str, str
 
 # imports needed for Utils
 from .compat import parse_http_list as _parse_list_header
+from .x import XSocket
 
 # imports needed for Exceptions
 from urllib3.exceptions import HTTPError as BaseHTTPError
@@ -28,37 +29,9 @@ from .x import XCopy, XCalendar
 from .x import XMorsel
 
 # imports needed for Sessions
-import os
-import sys
-import time
-from datetime import timedelta
-from collections import OrderedDict
-
-from .compat import cookielib, is_py3, urljoin
+from .x import XDateTime
 from .models import Request, PreparedRequest, DEFAULT_REDIRECT_LIMIT
-from ._internal_utils import to_native_string
-from .utils import default_headers, DEFAULT_PORTS
-
 from .adapters import HTTPAdapter
-
-from .utils import (
-    requote_uri, get_environ_proxies, get_netrc_auth, should_bypass_proxies,
-    get_auth_from_url, rewind_body
-)
-
-
-# formerly defined here, reexposed here for backward compatibility
-from .models import REDIRECT_STATI
-
-# Preferred clock, based on which one is more accurate on a given system.
-if sys.platform == 'win32':
-    try:  # Python 3.4+
-        preferred_clock = time.perf_counter
-    except AttributeError:  # Earlier than Python 3.
-        preferred_clock = time.clock
-else:
-    preferred_clock = time.time
-
 from . import __version__ as requests_version
 
 #         Help
@@ -1303,7 +1276,10 @@ class Sessions:  # ./Sessions/Sessions.py
     This module provides a Session object to manage and persist settings across
     requests (cookies, auth, proxies).
     """
-    def merge_setting(self, request_setting, session_setting, dict_class=OrderedDict):
+    def preferred_clock(self):
+        return XTime().clock_method()
+
+    def merge_setting(self, request_setting, session_setting, dict_class=XOrderedDict):
         """Determines appropriate setting for a given request, taking into account
         the explicit setting on that request, and the setting in the session. If a
         setting is a dictionary, they will be merged together using `dict_class`
@@ -1333,7 +1309,7 @@ class Sessions:  # ./Sessions/Sessions.py
 
         return merged_setting
 
-    def merge_hooks(self, request_hooks, session_hooks, dict_class=OrderedDict):
+    def merge_hooks(self, request_hooks, session_hooks, dict_class=XOrderedDict):
         """Properly merges both requests and session hooks.
 
         This is necessary because when request_hooks == {'response': []}, the
@@ -1347,6 +1323,19 @@ class Sessions:  # ./Sessions/Sessions.py
 
         return self.merge_setting(request_hooks, session_hooks, dict_class)
 
+    def session(self):  # ./Sessions/Session.py
+        """
+        Returns a :class:`Session` for context-management.
+
+        .. deprecated:: 1.0.0
+
+            This method has been deprecated since version 1.0.0 and is only kept for
+            backwards compatibility. New code should use :class:`~requests.sessions.Session`
+            to create a session. This may be removed at a future date.
+
+        :rtype: Session
+        """
+        return Session()
 
 class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
@@ -1366,15 +1355,15 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # It is more likely to get UTF8 header rather than latin1.
             # This causes incorrect handling of UTF8 encoded location headers.
             # To solve this, we re-encode the location in latin1.
-            if is_py3:
+            if XCompat().is_py3():
                 location = location.encode('latin1')
             return _Internal_utils().to_native_string(location, 'utf8')
         return None
 
-    def should_strip_auth(self, old_url, new_url):
+    def should_strip_auth(self, old_url, new_url):  # ./Sessions/SessionRedirectMixin.py
         """Decide whether Authorization header should be removed when redirecting"""
-        old_parsed = urlparse(old_url)
-        new_parsed = urlparse(new_url)
+        old_parsed = XCompat().urlparse(old_url)
+        new_parsed = XCompat().urlparse(new_url)
         if old_parsed.hostname != new_parsed.hostname:
             return True
         # Special case: allow http -> https redirect when using the standard
@@ -1388,7 +1377,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         # Handle default port usage corresponding to scheme.
         changed_port = old_parsed.port != new_parsed.port
         changed_scheme = old_parsed.scheme != new_parsed.scheme
-        default_port = (DEFAULT_PORTS.get(old_parsed.scheme, None), None)
+        default_port = (Utils().DEFAULT_PORTS().get(old_parsed.scheme, None), None)
         if (not changed_scheme and old_parsed.port in default_port
                 and new_parsed.port in default_port):
             return False
@@ -1398,6 +1387,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
     def resolve_redirects(self, resp, req, stream=False, timeout=None,
                           verify=True, cert=None, proxies=None, yield_requests=False, **adapter_kwargs):
+        # ./Sessions/SessionRedirectMixin.py
         """Receives a Response. Returns a generator of Responses or Requests."""
 
         hist = []  # keep track of history
@@ -1440,9 +1430,9 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
             # Compliant with RFC3986, we percent encode the url.
             if not parsed.netloc:
-                url = urljoin(resp.url, requote_uri(url))
+                url = XCompat().urljoin(resp.url, Utils().requote_uri(url))
             else:
-                url = requote_uri(url)
+                url = Utils().requote_uri(url)
 
             prepared_request.url = _Internal_utils().to_native_string(url)
 
@@ -1481,7 +1471,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
             # Attempt to rewind consumed file-like object.
             if rewindable:
-                rewind_body(prepared_request)
+                Utils().rewind_body(prepared_request)
 
             # Override the original request.
             req = prepared_request
@@ -1507,7 +1497,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                 url = self.get_redirect_target(resp)
                 yield resp
 
-    def rebuild_auth(self, prepared_request, response):
+    def rebuild_auth(self, prepared_request, response):  # ./Sessions/SessionRedirectMixin.py
         """When being redirected we may want to strip authentication from the
         request to avoid leaking credentials. This method intelligently removes
         and reapplies authentication where possible to avoid credential loss.
@@ -1521,11 +1511,11 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             del headers['Authorization']
 
         # .netrc might have more auth for us on our new host.
-        new_auth = get_netrc_auth(url) if self.trust_env else None
+        new_auth = Utils().get_netrc_auth(url) if self.trust_env else None
         if new_auth is not None:
             prepared_request.prepare_auth(new_auth)
 
-    def rebuild_proxies(self, prepared_request, proxies):
+    def rebuild_proxies(self, prepared_request, proxies):  # ./Sessions/SessionRedirectMixin.py
         """This method re-evaluates the proxy configuration by considering the
         environment variables. If we are redirected to a URL covered by
         NO_PROXY, we strip the proxy configuration. Otherwise, we set missing
@@ -1546,7 +1536,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
         bypass_proxy = should_bypass_proxies(url, no_proxy=no_proxy)
         if self.trust_env and not bypass_proxy:
-            environ_proxies = get_environ_proxies(url, no_proxy=no_proxy)
+            environ_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
 
             proxy = environ_proxies.get(scheme, environ_proxies.get('all'))
 
@@ -1557,7 +1547,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             del headers['Proxy-Authorization']
 
         try:
-            username, password = get_auth_from_url(new_proxies[scheme])
+            username, password = Utils().get_auth_from_url(new_proxies[scheme])
         except KeyError:
             username, password = None, None
 
@@ -1566,7 +1556,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
         return new_proxies
 
-    def rebuild_method(self, prepared_request, response):
+    def rebuild_method(self, prepared_request, response):  # ./Sessions/SessionRedirectMixin.py
         """When being redirected we may want to change the method of the request
         based on certain specs or browser behavior.
         """
@@ -1618,7 +1608,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: A case-insensitive dictionary of headers to be sent on each
         #: :class:`Request <Request>` sent from this
         #: :class:`Session <Session>`.
-        self.headers = default_headers()
+        self.headers = Utils().default_headers()
 
         #: Default Authentication tuple or object to attach to
         #: :class:`Request <Request>`.
@@ -1671,17 +1661,17 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         self.cookies = Cookies2().cookiejar_from_dict({})
 
         # Default connection adapters.
-        self.adapters = OrderedDict()
+        self.adapters = XOrderedDict()
         self.mount('https://', HTTPAdapter())
         self.mount('http://', HTTPAdapter())
 
-    def __enter__(self):
+    def __enter__(self):   # ./Sessions/Session.py
         return self
 
     def __exit__(self, *args):
         self.close()
 
-    def prepare_request(self, request):
+    def prepare_request(self, request):  # ./Sessions/Session.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for
         transmission and returns it. The :class:`PreparedRequest` has settings
         merged from the :class:`Request <Request>` instance and those of the
@@ -1694,7 +1684,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         cookies = request.cookies or {}
 
         # Bootstrap CookieJar.
-        if not isinstance(cookies, cookielib.CookieJar):
+        if not isinstance(cookies, XCompat().cookielib.CookieJar):
             cookies = Cookies2().cookiejar_from_dict(cookies)
 
         # Merge with session cookies
@@ -1704,7 +1694,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth
         if self.trust_env and not auth and not self.auth:
-            auth = get_netrc_auth(request.url)
+            auth = Utils().get_netrc_auth(request.url)
 
         p = PreparedRequest()
         p.prepare(
@@ -1724,7 +1714,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     def request(self, method, url,
                 params=None, data=None, headers=None, cookies=None, files=None,
                 auth=None, timeout=None, allow_redirects=True, proxies=None,
-                hooks=None, stream=None, verify=None, cert=None, json=None):
+                hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
         """Constructs a :class:`Request <Request>`, prepares it and sends it.
         Returns :class:`Response <Response>` object.
 
@@ -1797,7 +1787,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         return resp
 
-    def get(self, url, **kwargs):
+    def get(self, url, **kwargs):  # ./Sessions/Session.py
         r"""Sends a GET request. Returns :class:`Response` object.
 
         :param url: URL for the new :class:`Request` object.
@@ -1819,7 +1809,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         kwargs.setdefault('allow_redirects', True)
         return self.request('OPTIONS', url, **kwargs)
 
-    def head(self, url, **kwargs):
+    def head(self, url, **kwargs):  # ./Sessions/Session.py
         r"""Sends a HEAD request. Returns :class:`Response` object.
 
         :param url: URL for the new :class:`Request` object.
@@ -1830,7 +1820,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         kwargs.setdefault('allow_redirects', False)
         return self.request('HEAD', url, **kwargs)
 
-    def post(self, url, data=None, json=None, **kwargs):
+    def post(self, url, data=None, json=None, **kwargs):  # ./Sessions/Session.py
         r"""Sends a POST request. Returns :class:`Response` object.
 
         :param url: URL for the new :class:`Request` object.
@@ -1843,7 +1833,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         return self.request('POST', url, data=data, json=json, **kwargs)
 
-    def put(self, url, data=None, **kwargs):
+    def put(self, url, data=None, **kwargs):  # ./Sessions/Session.py
         r"""Sends a PUT request. Returns :class:`Response` object.
 
         :param url: URL for the new :class:`Request` object.
@@ -1855,7 +1845,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         return self.request('PUT', url, data=data, **kwargs)
 
-    def patch(self, url, data=None, **kwargs):
+    def patch(self, url, data=None, **kwargs):  # ./Sessions/Session.py
         r"""Sends a PATCH request. Returns :class:`Response` object.
 
         :param url: URL for the new :class:`Request` object.
@@ -1867,7 +1857,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         return self.request('PATCH', url, data=data, **kwargs)
 
-    def delete(self, url, **kwargs):
+    def delete(self, url, **kwargs):  # ./Sessions/Session.py
         r"""Sends a DELETE request. Returns :class:`Response` object.
 
         :param url: URL for the new :class:`Request` object.
@@ -1877,7 +1867,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         return self.request('DELETE', url, **kwargs)
 
-    def send(self, request, **kwargs):
+    def send(self, request, **kwargs):  # ./Sessions/Session.py
         """Send a given PreparedRequest.
 
         :rtype: requests.Response
@@ -1903,14 +1893,14 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         adapter = self.get_adapter(url=request.url)
 
         # Start time (approximately) of the request
-        start = preferred_clock()
+        start = Sessions().preferred_clock()
 
         # Send the request
         r = adapter.send(request, **kwargs)
 
         # Total elapsed time of the request (approximately)
-        elapsed = preferred_clock() - start
-        r.elapsed = timedelta(seconds=elapsed)
+        elapsed = Sessions().preferred_clock() - start
+        r.elapsed = XDateTime().timedelta(seconds=elapsed)
 
         # Response manipulation hooks
         r = Hooks().dispatch_hook('response', hooks, r, **kwargs)
@@ -1952,7 +1942,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         return r
 
-    def merge_environment_settings(self, url, proxies, stream, verify, cert):
+    def merge_environment_settings(self, url, proxies, stream, verify, cert):  # ./Sessions/Session.py
         """
         Check the environment and merge it with some settings.
 
@@ -1969,8 +1959,8 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             # Look for requests environment configuration and be compatible
             # with cURL.
             if verify is True or verify is None:
-                verify = (os.environ.get('REQUESTS_CA_BUNDLE') or
-                          os.environ.get('CURL_CA_BUNDLE'))
+                verify = (XOs().environ().get('REQUESTS_CA_BUNDLE') or
+                          XOs().environ().get('CURL_CA_BUNDLE'))
 
         # Merge all the kwargs.
         proxies = merge_setting(proxies, self.proxies)
@@ -1981,7 +1971,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         return {'verify': verify, 'proxies': proxies, 'stream': stream,
                 'cert': cert}
 
-    def get_adapter(self, url):
+    def get_adapter(self, url):  # ./Sessions/Session.py
         """
         Returns the appropriate connection adapter for the given URL.
 
@@ -2000,7 +1990,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         for v in self.adapters.values():
             v.close()
 
-    def mount(self, prefix, adapter):
+    def mount(self, prefix, adapter):  # ./Sessions/Session.py
         """Registers a connection adapter to a prefix.
 
         Adapters are sorted in descending order by prefix length.
@@ -2018,22 +2008,6 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     def __setstate__(self, state):
         for attr, value in state.items():
             setattr(self, attr, value)
-
-class Sessions2:  # ./Sessions/Sessions.py
-
-    def session(self):
-        """
-        Returns a :class:`Session` for context-management.
-
-        .. deprecated:: 1.0.0
-
-            This method has been deprecated since version 1.0.0 and is only kept for
-            backwards compatibility. New code should use :class:`~requests.sessions.Session`
-            to create a session. This may be removed at a future date.
-
-        :rtype: Session
-        """
-        return Session()
 
 
 # *************************** classes in StatusCodes section *****************
@@ -2161,6 +2135,24 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
 # *************************** classes in Utils section *****************
 
 class Utils:  # ./Utils/utils.py
+    _UNRESERVED_SET = frozenset(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
+
+    # Ensure that ', ' is used to preserve previous delimiter behavior.
+    _DEFAULT_ACCEPT_ENCODING = ", ".join(
+        re.split(r",\s*", make_headers(accept_encoding=True)["accept-encoding"])
+    )
+
+    def DEFAULT_PORTS(self):
+        return {'http': 80, 'https': 443}
+
+    # The unreserved URI characters (RFC 3986)
+    def UNRESERVED_SET(self):
+        return self._UNRESERVED_SET
+
+    def DEFAULT_ACCEPT_ENCODING(self):
+        return self._DEFAULT_ACCEPT_ENCODING
+
     # From mitsuhiko/werkzeug (used with permission).
     def parse_dict_header(self, value):
         """Parse lists of key, value pairs as described by RFC 2068 Section 2 and
@@ -2248,7 +2240,316 @@ class Utils:  # ./Utils/utils.py
 
         return list(value)
 
+    def requote_uri(self, uri):
+        """Re-quote the given URI.
 
+        This function passes the given URI through an unquote/quote cycle to
+        ensure that it is fully and consistently quoted.
 
+        :rtype: str
+        """
+        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
+        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
+        try:
+            # Unquote only the unreserved characters
+            # Then quote only illegal characters (do not quote reserved,
+            # unreserved, or '%')
+            return XCompat().quote(Utils().unquote_unreserved(uri), safe=safe_with_percent)
+        except InvalidURL:
+            # We couldn't unquote the given URI, so let's try quoting it, but
+            # there may be unquoted '%'s in the URI. We need to make sure they're
+            # properly quoted so they do not cause issues elsewhere.
+            return XCompat().quote(uri, safe=safe_without_percent)
+
+    def unquote_unreserved(self, uri):
+        """Un-escape any percent-escape sequences in a URI that are unreserved
+        characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
+
+        :rtype: str
+        """
+        parts = uri.split('%')
+        for i in range(1, len(parts)):
+            h = parts[i][0:2]
+            if len(h) == 2 and h.isalnum():
+                try:
+                    c = chr(int(h, 16))
+                except ValueError:
+                    raise InvalidURL("Invalid percent-escape sequence: '%s'" % h)
+
+                if c in self.UNRESERVED_SET():
+                    parts[i] = c + parts[i][2:]
+                else:
+                    parts[i] = '%' + parts[i]
+            else:
+                parts[i] = '%' + parts[i]
+        return ''.join(parts)
+
+    def default_headers():
+        """
+        :rtype: requests.domain.CaseInsensitiveDict
+        """
+        return CaseInsensitiveDict({
+            'User-Agent': default_user_agent(),
+            'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
+            'Accept': '*/*',
+            'Connection': 'keep-alive',
+        })
+
+    def default_user_agent(name="python-requests"):
+        """
+        Return a string representing the default user agent.
+
+        :rtype: str
+        """
+        return '%s/%s' % (name, __version__)
+
+    def get_environ_proxies(url, no_proxy=None):
+        """
+        Return a dict of environment proxies.
+
+        :rtype: dict
+        """
+        if should_bypass_proxies(url, no_proxy=no_proxy):
+            return {}
+        else:
+            return getproxies()
+
+    def should_bypass_proxies(url, no_proxy):
+        """
+        Returns whether we should bypass proxies or not.
+
+        :rtype: bool
+        """
+        # Prioritize lowercase environment variables over uppercase
+        # to keep a consistent behaviour with other http projects (curl, wget).
+        get_proxy = lambda k: XOs.environ().get(k) or XOs.environ().get(k.upper())
+
+        # First check whether no_proxy is defined. If it is, check that the URL
+        # we're getting isn't in the no_proxy list.
+        no_proxy_arg = no_proxy
+        if no_proxy is None:
+            no_proxy = get_proxy('no_proxy')
+        parsed = XCompat().urlparse(url)
+
+        if parsed.hostname is None:
+            # URLs don't always have hostnames, e.g. file:/// urls.
+            return True
+
+        if no_proxy:
+            # We need to check whether we match here. We need to see if we match
+            # the end of the hostname, both with and without the port.
+            no_proxy = (
+                host for host in no_proxy.replace(' ', '').split(',') if host
+            )
+
+            if is_ipv4_address(parsed.hostname):
+                for proxy_ip in no_proxy:
+                    if is_valid_cidr(proxy_ip):
+                        if address_in_network(parsed.hostname, proxy_ip):
+                            return True
+                    elif parsed.hostname == proxy_ip:
+                        # If no_proxy ip was defined in plain IP notation instead of cidr notation &
+                        # matches the IP of the index
+                        return True
+            else:
+                host_with_port = parsed.hostname
+                if parsed.port:
+                    host_with_port += ':{}'.format(parsed.port)
+
+                for host in no_proxy:
+                    if parsed.hostname.endswith(host) or host_with_port.endswith(host):
+                        # The URL does match something in no_proxy, so we don't want
+                        # to apply the proxies on this URL.
+                        return True
+
+        with set_environ('no_proxy', no_proxy_arg):
+            # parsed.hostname can be `None` in cases such as a file URI.
+            try:
+                bypass = proxy_bypass(parsed.hostname)
+            except (TypeError, socket.gaierror):
+                bypass = False
+
+        if bypass:
+            return True
+
+        return False
+
+    def is_ipv4_address(string_ip):
+        """
+        :rtype: bool
+        """
+        try:
+            XSocket().inet_aton(string_ip)
+        except XSocket().error():
+            return False
+        return True
+
+    def get_netrc_auth(url, raise_errors=False):
+        """Returns the Requests tuple auth for a given url from netrc."""
+
+        netrc_file = XOs.environ().get('NETRC')
+        if netrc_file is not None:
+            netrc_locations = (netrc_file,)
+        else:
+            netrc_locations = ('~/{}'.format(f) for f in NETRC_FILES)
+
+        try:
+            from netrc import netrc, NetrcParseError
+
+            netrc_path = None
+
+            for f in netrc_locations:
+                try:
+                    loc = XOs().path().expanduser(f)
+                except KeyError:
+                    # os.path.expanduser can fail when $HOME is undefined and
+                    # getpwuid fails. See https://bugs.python.org/issue20164 &
+                    # https://github.com/psf/requests/issues/1846
+                    return
+
+                if XOs().path().exists(loc):
+                    netrc_path = loc
+                    break
+
+            # Abort early if there isn't one.
+            if netrc_path is None:
+                return
+
+            ri = XCompat().urlparse(url)
+
+            # Strip port numbers from netloc. This weird `if...encode`` dance is
+            # used for Python 3.2, which doesn't support unicode literals.
+            splitstr = b':'
+            if isinstance(url, str):
+                splitstr = splitstr.decode('ascii')
+            host = ri.netloc.split(splitstr)[0]
+
+            try:
+                _netrc = netrc(netrc_path).authenticators(host)
+                if _netrc:
+                    # Return with login / password
+                    login_i = (0 if _netrc[0] else 1)
+                    return (_netrc[login_i], _netrc[2])
+            except (NetrcParseError, IOError):
+                # If there was a parsing error or a permissions issue reading the file,
+                # we'll just skip netrc auth unless explicitly asked to raise errors.
+                if raise_errors:
+                    raise
+
+        # App Engine hackiness.
+        except (ImportError, AttributeError):
+            pass
+
+    def should_bypass_proxies(url, no_proxy):
+        """
+        Returns whether we should bypass proxies or not.
+
+        :rtype: bool
+        """
+        # Prioritize lowercase environment variables over uppercase
+        # to keep a consistent behaviour with other http projects (curl, wget).
+        get_proxy = lambda k: XOs().environ().get(k) or XOs().environ().get(k.upper())
+
+        # First check whether no_proxy is defined. If it is, check that the URL
+        # we're getting isn't in the no_proxy list.
+        no_proxy_arg = no_proxy
+        if no_proxy is None:
+            no_proxy = get_proxy('no_proxy')
+        parsed = XCompat().urlparse(url)
+
+        if parsed.hostname is None:
+            # URLs don't always have hostnames, e.g. file:/// urls.
+            return True
+
+        if no_proxy:
+            # We need to check whether we match here. We need to see if we match
+            # the end of the hostname, both with and without the port.
+            no_proxy = (
+                host for host in no_proxy.replace(' ', '').split(',') if host
+            )
+
+            if Utils().is_ipv4_address(parsed.hostname):
+                for proxy_ip in no_proxy:
+                    if is_valid_cidr(proxy_ip):
+                        if address_in_network(parsed.hostname, proxy_ip):
+                            return True
+                    elif parsed.hostname == proxy_ip:
+                        # If no_proxy ip was defined in plain IP notation instead of cidr notation &
+                        # matches the IP of the index
+                        return True
+            else:
+                host_with_port = parsed.hostname
+                if parsed.port:
+                    host_with_port += ':{}'.format(parsed.port)
+
+                for host in no_proxy:
+                    if parsed.hostname.endswith(host) or host_with_port.endswith(host):
+                        # The URL does match something in no_proxy, so we don't want
+                        # to apply the proxies on this URL.
+                        return True
+
+        with set_environ('no_proxy', no_proxy_arg):
+            # parsed.hostname can be `None` in cases such as a file URI.
+            try:
+                bypass = proxy_bypass(parsed.hostname)
+            except (TypeError, socket.gaierror):
+                bypass = False
+
+        if bypass:
+            return True
+
+        return False
+
+    def is_valid_cidr(string_network):
+        """
+        Very simple check of the cidr format in no_proxy variable.
+
+        :rtype: bool
+        """
+        if string_network.count('/') == 1:
+            try:
+                mask = int(string_network.split('/')[1])
+            except ValueError:
+                return False
+
+            if mask < 1 or mask > 32:
+                return False
+
+            try:
+                XSocket().inet_aton(string_network.split('/')[0])
+            except XCompat().error():
+                return False
+        else:
+            return False
+        return True
+
+    def get_auth_from_url(url):
+        """Given a url with authentication components, extract them into a tuple of
+        username,password.
+
+        :rtype: (str,str)
+        """
+        parsed = XCompat().urlparse(url)
+
+        try:
+            auth = (XCompat().unquote(parsed.username), XCompat().unquote(parsed.password))
+        except (AttributeError, TypeError):
+            auth = ('', '')
+
+        return auth
+
+    def rewind_body(prepared_request):
+        """Move file pointer back to its recorded starting position
+        so it can be read again on redirect.
+        """
+        body_seek = getattr(prepared_request.body, 'seek', None)
+        if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
+            try:
+                body_seek(prepared_request._body_position)
+            except (IOError, OSError):
+                raise UnrewindableBodyError("An error occurred when rewinding request "
+                                            "body for redirect.")
+        else:
+            raise UnrewindableBodyError("Unable to rewind request body for redirect.")
 
 
