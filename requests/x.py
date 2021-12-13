@@ -1,4 +1,5 @@
 # x.py contains all the external libraries used wrapped in objects
+import io
 import json
 import platform
 import ssl
@@ -14,11 +15,11 @@ import warnings
 from base64 import b64encode
 
 # imports for XWarnings, XBase64, XCompat, XThreading, XHashLib
-from .compat import is_py2, builtin_str, str
+from .compat import is_py2, builtin_str, str, bytes
 import threading
 import hashlib
 
-from .compat import urlparse, urljoin, urlunparse
+from .compat import urlparse, urljoin, urlunparse, urlsplit, urlencode
 import time
 import os
 import re
@@ -36,6 +37,7 @@ from datetime import timedelta
 #imports for utils
 import socket
 from .compat import integer_types
+import codecs
 
 try:
     import charset_normalizer
@@ -56,6 +58,23 @@ except ImportError:
 else:
     import OpenSSL
     import cryptography
+
+
+class XCodecs:
+    def getincrementaldecoder(self, encoding):
+        return codecs.getincrementaldecoder(encoding)
+
+    def BOM_UTF32_LE(self):
+        return codecs.BOM_UTF32_LE
+
+    def BOM_UTF32_BE(self):
+        return codecs.BOM_UTF32_BE
+
+    def BOM_UTF8(self):
+        return codecs.BOM_UTF8
+
+    def BOM_UTF16_LE(self):
+        return codecs.BOM_UTF16_LE
 
 
 class XSocket:
@@ -93,11 +112,23 @@ class XOs:
     def path(self):
         return os.path
 
+    def fstat(self, a):
+        return os.fstat(a)
 
 class XDateTime:
-    def timedelta(self):
-        return timedelta
+    def timedelta(self, a):
+        return timedelta(a)
 
+
+class XUrllib3:
+    def fields(self):
+        return urllib3.fields
+
+    def filepost(self):
+        return urllib3.filepost
+
+    def exceptions(self):
+        return urllib3.exceptions
 
 class XTime:
     def ctime(self):
@@ -153,8 +184,14 @@ class XCompat:
     def urlparse(self, a):
         return urlparse(a)
 
+    def urlsplit(self, url, scheme='', allow_fragments=True):
+        return urlsplit(url, scheme, allow_fragments)
+
     def urljoin(self, base, url, allow_fragments=True):
         return urljoin(base, url, allow_fragments)
+
+    def urlencode(self):
+        return urlencode()
 
     def urlunparse(self, a):
         return urlunparse(a)
@@ -171,6 +208,36 @@ class XCompat:
     def integer_types(self):
         return integer_types
 
+    def Callable(self):
+        return Callable
+
+    def str_class(self):
+        return str
+
+    def is_str_instance(self,string):
+        return isinstance(string, str)
+
+    def bytes_class(self):
+        return bytes
+
+    def is_bytes_instance(self,string):
+        return isinstance(string, bytes)
+
+    def builtin_str_class(self):
+        return bytes
+
+    def builtin_str(self, x):
+        return builtin_str(x)
+
+    def basestring_class(self):
+        return basestring
+
+    def is_basestring_instance(self, string):
+        return isinstance(string, basestring)
+
+    def str(self, a):
+        return str(a)
+
 
 class XBase64:
     def b64encode(self, s, altchars=None):
@@ -180,11 +247,6 @@ class XBase64:
 class XWarnings:
     def warn(self, *args, **kwargs):
         return warnings.warn(*args, **kwargs)
-
-
-class XBaseString:
-    def type(self):
-        return basestring
 
 
 class PyPyVersionInfo:
@@ -208,6 +270,9 @@ class XCharDet:
     def version(self):
         return chardet.__version__
 
+    def detect(self, x):
+        return chardet.detect(x)
+
 
 class XCharSetNormalizer:
     def import_works(self):
@@ -222,9 +287,20 @@ class XCryptography:
         return getattr(cryptography, '__version__', '')
 
 
+class XIo:
+    def UnsupportedOperation(self):
+        return io.UnsupportedOperation
+
+
 class XIdna:
     def version(self):
         return getattr(idna, '__version__', '')
+
+    def encode(self, s, strict=False, uts46=False, std3_rules=False, transitional=False):
+        return idna.encode(s, strict, uts46, std3_rules, transitional)
+
+    def IDNAError(self):
+        return idna.IDNAError
 
 
 class XJson:

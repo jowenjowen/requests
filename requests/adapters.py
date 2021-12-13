@@ -28,13 +28,13 @@ from urllib3.exceptions import SSLError as _SSLError
 from urllib3.exceptions import ResponseError
 from urllib3.exceptions import LocationValueError
 
-from .models import Response
+from .domain import Response
 from .compat import urlparse, basestring
 from .utils import (DEFAULT_CA_BUNDLE_PATH, extract_zipped_paths,
                     get_encoding_from_headers, prepend_scheme_if_needed,
                     get_auth_from_url, urldefragauth, select_proxy)
 from .domain import CaseInsensitiveDict
-from .domain import Cookies2, Cookies
+from .domain import Cookies
 from .domain import (ConnectionError, ConnectTimeout, ReadTimeout, SSLError,
                          ProxyError, RetryError, InvalidSchema, InvalidProxyURL,
                          InvalidURL)

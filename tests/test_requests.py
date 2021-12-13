@@ -24,10 +24,10 @@ from requests.domain import (
     ConnectionError, ConnectTimeout, InvalidSchema, InvalidURL,
     MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
     ProxyError, InvalidHeader, UnrewindableBodyError, SSLError, InvalidProxyURL, InvalidJSONError)
-from requests.models import PreparedRequest
+from requests.domain import PreparedRequest
 from requests.domain import CaseInsensitiveDict
 from requests.domain import SessionRedirectMixin
-from requests.models import urlencode
+from requests.x import XCompat
 from requests.domain import Hooks
 from requests.compat import MutableMapping
 
@@ -1955,9 +1955,9 @@ class TestRequests:
         3. the custom session catches the edge case and follows the redirect
         """
         url_final = httpbin('html')
-        querystring_malformed = urlencode({'location': url_final})
+        querystring_malformed = XCompat().urlencode({'location': url_final})
         url_redirect_malformed = httpbin('response-headers?%s' % querystring_malformed)
-        querystring_redirect = urlencode({'url': url_redirect_malformed})
+        querystring_redirect = XCompat().urlencode({'url': url_redirect_malformed})
         url_redirect = httpbin('redirect-to?%s' % querystring_redirect)
         urls_test = [url_redirect,
                      url_redirect_malformed,
@@ -2365,7 +2365,7 @@ def test_data_argument_accepts_tuples(data):
         data=data,
         hooks=Hooks().default_hooks()
     )
-    assert p.body == urlencode(data)
+    assert p.body == XCompat().urlencode(data)
 
 
 @pytest.mark.parametrize(
