@@ -14,7 +14,7 @@ import re
 import io
 import requests
 import pytest
-from requests.adapters import HTTPAdapter
+from requests.domain import HTTPAdapter
 from requests.domain import HTTPDigestAuth, Auth
 from requests.compat import (
     Morsel, cookielib, getproxies, str, urlparse,

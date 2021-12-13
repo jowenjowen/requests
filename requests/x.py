@@ -38,6 +38,8 @@ from datetime import timedelta
 import socket
 from .compat import integer_types
 import codecs
+import zipfile
+import tempfile
 
 try:
     import charset_normalizer
@@ -98,6 +100,9 @@ class XRe:
     def compile(self, pattern, flags=0):
         return re.compile(pattern, flags)
 
+    def split(self, pattern, string, maxsplit=0, flags=0):
+        return re.split(pattern, string, maxsplit, flags)
+
     def IGNORECASE(self):
         return re.IGNORECASE
 
@@ -129,6 +134,7 @@ class XUrllib3:
 
     def exceptions(self):
         return urllib3.exceptions
+
 
 class XTime:
     def ctime(self):
@@ -351,3 +357,33 @@ class XSys:
 class XUrllib3:
     def version(self):
         return urllib3.__version__
+
+    def poolmanager(self):
+        return urllib3.poolmanager
+
+    def response(self):
+        return urllib3.response
+
+    def util(self):
+        return urllib3.util
+
+    def exceptions(self):
+        return urllib3.exceptions
+
+    def SOCKSProxyManager(self):
+        return urllib3.contrib
+        try:
+            from urllib3.contrib.socks import SOCKSProxyManager
+            return SOCKSProxyManager()
+        except ImportError:
+            return None
+
+
+class XTempFile:
+    def gettempdir(self):
+        return tempfile.gettempdir
+
+
+class XZipfile:
+    def ZipFile(self):
+        return zipfile.ZipFile

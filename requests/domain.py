@@ -14,7 +14,7 @@ from requests.x import XCompat, XThreading
 
 # imports needed for Utils
 from .compat import parse_http_list as _parse_list_header
-from .x import XSocket, XCodecs, XIo
+from .x import XSocket, XCodecs, XIo, XTempFile
 
 # imports needed for Exceptions
 from urllib3.exceptions import HTTPError as BaseHTTPError
@@ -29,7 +29,6 @@ from .x import XMorsel
 
 # imports needed for Sessions
 from .x import XDateTime
-from .adapters import HTTPAdapter
 from . import __version__ as requests_version
 
 #         Help
@@ -41,6 +40,10 @@ from . import __version__ as requests_version
 
 # imports needed for Models
 from .compat import json as complexjson
+
+#imports needed for adapters
+from .x import XZipfile
+import contextlib
 
 # *************************** classes in InternalUtilities section *****************
 class _Internal_utils:  # ./InternalUtils/internal_utils.py
@@ -80,6 +83,729 @@ class _Internal_utils:  # ./InternalUtils/internal_utils.py
             return True
         except UnicodeEncodeError:
             return False
+
+# *************************** classes in Structures section *****************
+
+class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.py
+
+    """A case-insensitive ``dict``-like object.
+
+    Implements all methods and operations of
+    ``MutableMapping`` as well as dict's ``copy``. Also
+    provides ``lower_items``.
+
+    All keys are expected to be strings. The structure remembers the
+    case of the last key to be set, and ``iter(instance)``,
+    ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
+    will contain case-sensitive keys. However, querying and contains
+    testing is case insensitive::
+
+        cid = CaseInsensitiveDict()
+        cid['Accept'] = 'application/json'
+        cid['aCCEPT'] == 'application/json'  # True
+        list(cid) == ['Accept']  # True
+
+    For example, ``headers['content-encoding']`` will return the
+    value of a ``'Content-Encoding'`` response header, regardless
+    of how the header name was originally stored.
+
+    If the constructor, ``.update``, or equality comparison
+    operations are given keys that have equal ``.lower()``s, the
+    behavior is undefined.
+    """
+
+    def __init__(self, data=None, **kwargs):
+        self._store = XOrderedDict()
+        if data is None:
+            data = {}
+        self.update(data, **kwargs)
+
+    def __setitem__(self, key, value):
+        # Use the lowercased key for lookups, but store the actual
+        # key alongside the value.
+        self._store[key.lower()] = (key, value)
+
+    def __getitem__(self, key):
+        return self._store[key.lower()][1]
+
+    def __delitem__(self, key):
+        del self._store[key.lower()]
+
+    def __iter__(self):
+        return (casedkey for casedkey, mappedvalue in self._store.values())
+
+    def __len__(self):
+        return len(self._store)
+
+    def lower_items(self):
+        """Like iteritems(), but with all lowercase keys."""
+        return (
+            (lowerkey, keyval[1])
+            for (lowerkey, keyval)
+            in self._store.items()
+        )
+
+    def __eq__(self, other):
+        if isinstance(other, XMapping):
+            other = CaseInsensitiveDict(other)
+        else:
+            return NotImplemented
+        # Compare insensitively
+        return dict(self.lower_items()) == dict(other.lower_items())
+
+    # Copy is required
+    def copy(self):
+        return CaseInsensitiveDict(self._store.values())
+
+    def __repr__(self):
+        return XCompat().str(dict(self.items()))
+
+class LookupDict(dict):  # ./Structures/LookupDict.py
+    """Dictionary lookup object."""
+
+    def __init__(self, name=None):
+        self.name = name
+        super(LookupDict, self).__init__()
+
+    def __repr__(self):
+        return '<lookup \'%s\'>' % (self.name)
+
+    def __getitem__(self, key):
+        # We allow fall-through here, so values default to None
+
+        return self.__dict__.get(key, None)
+
+    def get(self, key, default=None):
+        return self.__dict__.get(key, default)
+
+
+# *************************** classes in StatusCodes section *****************
+
+class StatusCodes:  # ./StatusCodes/status_codes.py
+
+    """
+    The ``codes`` object defines a mapping from common names for HTTP statuses
+    to their numerical codes, accessible either as attributes or as dictionary
+    items.
+
+    Example::
+
+        >>> import requests
+        >>> requests.codes['temporary_redirect']
+        307
+        >>> requests.codes.teapot
+        418
+        >>> requests.codes['\o/']
+        200
+
+    Some codes have multiple names, and both upper- and lower-case versions of
+    the names are allowed. For example, ``codes.ok``, ``codes.OK``, and
+    ``codes.okay`` all correspond to the HTTP status code 200.
+    """
+    _codes = {
+
+        # Informational.
+        100: ('continue',),
+        101: ('switching_protocols',),
+        102: ('processing',),
+        103: ('checkpoint',),
+        122: ('uri_too_long', 'request_uri_too_long'),
+        200: ('ok', 'okay', 'all_ok', 'all_okay', 'all_good', '\\o/', '✓'),
+        201: ('created',),
+        202: ('accepted',),
+        203: ('non_authoritative_info', 'non_authoritative_information'),
+        204: ('no_content',),
+        205: ('reset_content', 'reset'),
+        206: ('partial_content', 'partial'),
+        207: ('multi_status', 'multiple_status', 'multi_stati', 'multiple_stati'),
+        208: ('already_reported',),
+        226: ('im_used',),
+
+        # Redirection.
+        300: ('multiple_choices',),
+        301: ('moved_permanently', 'moved', '\\o-'),
+        302: ('found',),
+        303: ('see_other', 'other'),
+        304: ('not_modified',),
+        305: ('use_proxy',),
+        306: ('switch_proxy',),
+        307: ('temporary_redirect', 'temporary_moved', 'temporary'),
+        308: ('permanent_redirect',
+              'resume_incomplete', 'resume',),  # These 2 to be removed in 3.0
+
+        # Client Error.
+        400: ('bad_request', 'bad'),
+        401: ('unauthorized',),
+        402: ('payment_required', 'payment'),
+        403: ('forbidden',),
+        404: ('not_found', '-o-'),
+        405: ('method_not_allowed', 'not_allowed'),
+        406: ('not_acceptable',),
+        407: ('proxy_authentication_required', 'proxy_auth', 'proxy_authentication'),
+        408: ('request_timeout', 'timeout'),
+        409: ('conflict',),
+        410: ('gone',),
+        411: ('length_required',),
+        412: ('precondition_failed', 'precondition'),
+        413: ('request_entity_too_large',),
+        414: ('request_uri_too_large',),
+        415: ('unsupported_media_type', 'unsupported_media', 'media_type'),
+        416: ('requested_range_not_satisfiable', 'requested_range', 'range_not_satisfiable'),
+        417: ('expectation_failed',),
+        418: ('im_a_teapot', 'teapot', 'i_am_a_teapot'),
+        421: ('misdirected_request',),
+        422: ('unprocessable_entity', 'unprocessable'),
+        423: ('locked',),
+        424: ('failed_dependency', 'dependency'),
+        425: ('unordered_collection', 'unordered'),
+        426: ('upgrade_required', 'upgrade'),
+        428: ('precondition_required', 'precondition'),
+        429: ('too_many_requests', 'too_many'),
+        431: ('header_fields_too_large', 'fields_too_large'),
+        444: ('no_response', 'none'),
+        449: ('retry_with', 'retry'),
+        450: ('blocked_by_windows_parental_controls', 'parental_controls'),
+        451: ('unavailable_for_legal_reasons', 'legal_reasons'),
+        499: ('client_closed_request',),
+
+        # Server Error.
+        500: ('internal_server_error', 'server_error', '/o\\', '✗'),
+        501: ('not_implemented',),
+        502: ('bad_gateway',),
+        503: ('service_unavailable', 'unavailable'),
+        504: ('gateway_timeout',),
+        505: ('http_version_not_supported', 'http_version'),
+        506: ('variant_also_negotiates',),
+        507: ('insufficient_storage',),
+        509: ('bandwidth_limit_exceeded', 'bandwidth'),
+        510: ('not_extended',),
+        511: ('network_authentication_required', 'network_auth', 'network_authentication'),
+    }
+
+    _codes_dict = LookupDict(name='status_codes')
+
+    def __init__(self):
+        if self._codes_dict.__dict__.__len__() > 10:
+            return
+        for code, titles in self._codes.items():
+            for title in titles:
+                setattr(self._codes_dict, title, code)
+                if not title.startswith(('\\', '/')):
+                    setattr(self._codes_dict, title.upper(), code)
+        pass
+
+    def doc(self, code):
+        names = ', '.join('``%s``' % n for n in _codes[code])
+        return '* %d: %s' % (code, names)
+
+    def get(self, name):
+        return self._codes_dict.get(name)
+
+# *************************** classes in Adapters section *****************
+class Adapters:  # ./Adapters/Adapters.py
+    """
+    requests.adapters
+    ~~~~~~~~~~~~~~~~~
+
+    This module contains the transport adapters that Requests uses to define
+    and maintain connections.
+    """
+    def DEFAULT_POOLBLOCK(self):
+        return False
+
+    def DEFAULT_POOLSIZE(self):
+        return 10
+
+    def DEFAULT_RETRIES(self):
+        return 0
+
+    def DEFAULT_POOL_TIMEOUT(self):
+        return None
+
+    def SOCKSProxyManager(self, *args, **kwargs):
+        result = XUrllib3().SOCKSProxyManager()
+        if not result:
+            raise InvalidSchema("Missing dependencies for SOCKS support.")
+
+class BaseAdapter(object):  # ./Adapters/BaseAdapter.py
+    """The Base Transport Adapter"""
+
+    def __init__(self):  # ./Adapters/BaseAdapter.py
+        super(BaseAdapter, self).__init__()
+
+    def send(self, request, stream=False, timeout=None, verify=True,
+             cert=None, proxies=None):  # ./Adapters/BaseAdapter.py
+        """Sends PreparedRequest object. Returns Response object.
+
+        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
+        :param stream: (optional) Whether to stream the request content.
+        :param timeout: (optional) How long to wait for the server to send
+            data before giving up, as a float, or a :ref:`(connect timeout,
+            read timeout) <timeouts>` tuple.
+        :type timeout: float or tuple
+        :param verify: (optional) Either a boolean, in which case it controls whether we verify
+            the server's TLS certificate, or a string, in which case it must be a path
+            to a CA bundle to use
+        :param cert: (optional) Any user-provided SSL certificate to be trusted.
+        :param proxies: (optional) The proxies dictionary to apply to the request.
+        """
+        raise NotImplementedError
+
+    def close(self):  # ./Adapters/BaseAdapter.py
+        """Cleans up adapter specific items."""
+        raise NotImplementedError
+
+
+class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
+    """The built-in HTTP Adapter for urllib3.
+
+    Provides a general-case interface for Requests sessions to contact HTTP and
+    HTTPS urls by implementing the Transport Adapter interface. This class will
+    usually be created by the :class:`Session <Session>` class under the
+    covers.
+
+    :param pool_connections: The number of urllib3 connection pools to cache.
+    :param pool_maxsize: The maximum number of connections to save in the pool.
+    :param max_retries: The maximum number of retries each connection
+        should attempt. Note, this applies only to failed DNS lookups, socket
+        connections and connection timeouts, never to requests where data has
+        made it to the server. By default, Requests does not retry failed
+        connections. If you need granular control over the conditions under
+        which we retry a request, import urllib3's ``Retry`` class and pass
+        that instead.
+    :param pool_block: Whether the connection pool should block for connections.
+
+    Usage::
+
+      >>> import requests
+      >>> s = requests.Session()
+      >>> a = requests.adapters.HTTPAdapter(max_retries=3)
+      >>> s.mount('http://', a)
+    """
+    __attrs__ = ['max_retries', 'config', '_pool_connections', '_pool_maxsize',
+                 '_pool_block']
+
+    def __init__(self, pool_connections=Adapters().DEFAULT_POOLSIZE(),
+                 pool_maxsize=Adapters().DEFAULT_POOLSIZE(), max_retries=Adapters().DEFAULT_RETRIES(),
+                 pool_block=Adapters().DEFAULT_POOLBLOCK()):  # ./Adapters/HTTPAdapter.py
+        if max_retries == Adapters().DEFAULT_RETRIES():
+            self.max_retries = XUrllib3.util().retry.Retry(0, read=False)
+        else:
+            self.max_retries = XUrllib3.util().retry.Retry.from_int(max_retries)
+        self.config = {}
+        self.proxy_manager = {}
+
+        super(HTTPAdapter, self).__init__()
+
+        self._pool_connections = pool_connections
+        self._pool_maxsize = pool_maxsize
+        self._pool_block = pool_block
+
+        self.init_poolmanager(pool_connections, pool_maxsize, block=pool_block)
+
+    def __getstate__(self):  # ./Adapters/HTTPAdapter.py
+        return {attr: getattr(self, attr, None) for attr in self.__attrs__}
+
+    def __setstate__(self, state):  # ./Adapters/HTTPAdapter.py
+        # Can't handle by adding 'proxy_manager' to self.__attrs__ because
+        # self.poolmanager uses a lambda function, which isn't pickleable.
+        self.proxy_manager = {}
+        self.config = {}
+
+        for attr, value in state.items():
+            setattr(self, attr, value)
+
+        self.init_poolmanager(self._pool_connections, self._pool_maxsize,
+                              block=self._pool_block)
+
+    def init_poolmanager(self, connections, maxsize, block=Adapters().DEFAULT_POOLBLOCK(), **pool_kwargs):  # ./Adapters/HTTPAdapter.py
+        """Initializes a urllib3 PoolManager.
+
+        This method should not be called from user code, and is only
+        exposed for use when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param connections: The number of urllib3 connection pools to cache.
+        :param maxsize: The maximum number of connections to save in the pool.
+        :param block: Block when no free connections are available.
+        :param pool_kwargs: Extra keyword arguments used to initialize the Pool Manager.
+        """
+        # save these values for pickling
+        self._pool_connections = connections
+        self._pool_maxsize = maxsize
+        self._pool_block = block
+
+        self.poolmanager = XUrllib3().poolmanager().PoolManager(num_pools=connections, maxsize=maxsize,
+                                       block=block, strict=True, **pool_kwargs)
+
+    def proxy_manager_for(self, proxy, **proxy_kwargs):  # ./Adapters/HTTPAdapter.py
+        """Return urllib3 ProxyManager for the given proxy.
+
+        This method should not be called from user code, and is only
+        exposed for use when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param proxy: The proxy to return a urllib3 ProxyManager for.
+        :param proxy_kwargs: Extra keyword arguments used to configure the Proxy Manager.
+        :returns: ProxyManager
+        :rtype: urllib3.ProxyManager
+        """
+        if proxy in self.proxy_manager:
+            manager = self.proxy_manager[proxy]
+        elif proxy.lower().startswith('socks'):
+            username, password = Utils().get_auth_from_url(proxy)
+            manager = self.proxy_manager[proxy] = SOCKSProxyManager(
+                proxy,
+                username=username,
+                password=password,
+                num_pools=self._pool_connections,
+                maxsize=self._pool_maxsize,
+                block=self._pool_block,
+                **proxy_kwargs
+            )
+        else:
+            proxy_headers = self.proxy_headers(proxy)
+            manager = self.proxy_manager[proxy] = XUrllib3().poolmanager().proxy_from_url(
+                proxy,
+                proxy_headers=proxy_headers,
+                num_pools=self._pool_connections,
+                maxsize=self._pool_maxsize,
+                block=self._pool_block,
+                **proxy_kwargs)
+
+        return manager
+
+    def cert_verify(self, conn, url, verify, cert):  # ./Adapters/HTTPAdapter.py
+        """Verify a SSL certificate. This method should not be called from user
+        code, and is only exposed for use when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param conn: The urllib3 connection object associated with the cert.
+        :param url: The requested URL.
+        :param verify: Either a boolean, in which case it controls whether we verify
+            the server's TLS certificate, or a string, in which case it must be a path
+            to a CA bundle to use
+        :param cert: The SSL certificate to verify.
+        """
+        if url.lower().startswith('https') and verify:
+
+            cert_loc = None
+
+            # Allow self-specified cert location.
+            if verify is not True:
+                cert_loc = verify
+
+            if not cert_loc:
+                cert_loc = Utils().extract_zipped_paths(Utils().DEFAULT_CA_BUNDLE_PATH())
+
+            if not cert_loc or not XOs().path.exists(cert_loc):
+                raise IOError("Could not find a suitable TLS CA certificate bundle, "
+                              "invalid path: {}".format(cert_loc))
+
+            conn.cert_reqs = 'CERT_REQUIRED'
+
+            if not XOs().path.isdir(cert_loc):
+                conn.ca_certs = cert_loc
+            else:
+                conn.ca_cert_dir = cert_loc
+        else:
+            conn.cert_reqs = 'CERT_NONE'
+            conn.ca_certs = None
+            conn.ca_cert_dir = None
+
+        if cert:
+            if not XCompat().is_basestring_instance(cert):
+                conn.cert_file = cert[0]
+                conn.key_file = cert[1]
+            else:
+                conn.cert_file = cert
+                conn.key_file = None
+            if conn.cert_file and not XOs().path.exists(conn.cert_file):
+                raise IOError("Could not find the TLS certificate file, "
+                              "invalid path: {}".format(conn.cert_file))
+            if conn.key_file and not XOs().path.exists(conn.key_file):
+                raise IOError("Could not find the TLS key file, "
+                              "invalid path: {}".format(conn.key_file))
+
+    def build_response(self, req, resp):  # ./Adapters/HTTPAdapter.py
+        """Builds a :class:`Response <requests.Response>` object from a urllib3
+        response. This should not be called from user code, and is only exposed
+        for use when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`
+
+        :param req: The :class:`PreparedRequest <PreparedRequest>` used to generate the response.
+        :param resp: The urllib3 response object.
+        :rtype: requests.Response
+        """
+        response = Response()
+
+        # Fallback to None if there's no status_code, for whatever reason.
+        response.status_code = getattr(resp, 'status', None)
+
+        # Make headers case-insensitive.
+        response.headers = CaseInsensitiveDict(getattr(resp, 'headers', {}))
+
+        # Set encoding.
+        response.encoding = Utils().get_encoding_from_headers(response.headers)
+        response.raw = resp
+        response.reason = response.raw.reason
+
+        if isinstance(req.url, bytes):
+            response.url = req.url.decode('utf-8')
+        else:
+            response.url = req.url
+
+        # Add new cookies from the server.
+        Cookies().extract_cookies_to_jar(response.cookies, req, resp)
+
+        # Give the Response some context.
+        response.request = req
+        response.connection = self
+
+        return response
+
+    def get_connection(self, url, proxies=None):  # ./Adapters/HTTPAdapter.py
+        """Returns a urllib3 connection for the given URL. This should not be
+        called from user code, and is only exposed for use when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param url: The URL to connect to.
+        :param proxies: (optional) A Requests-style dictionary of proxies used on this request.
+        :rtype: urllib3.ConnectionPool
+        """
+        proxy = Utils().select_proxy(url, proxies)
+
+        if proxy:
+            proxy = Utils().prepend_scheme_if_needed(proxy, 'http')
+            proxy_url = XUrllib3().util().parse_url(proxy)
+            if not proxy_url.host:
+                raise InvalidProxyURL("Please check proxy URL. It is malformed"
+                                      " and could be missing the host.")
+            proxy_manager = self.proxy_manager_for(proxy)
+            conn = proxy_manager.connection_from_url(url)
+        else:
+            # Only scheme should be lower case
+            parsed = XCompat().urlparse(url)
+            url = parsed.geturl()
+            conn = self.poolmanager.connection_from_url(url)
+
+        return conn
+
+    def close(self):  # ./Adapters/HTTPAdapter.py
+        """Disposes of any internal state.
+
+        Currently, this closes the PoolManager and any active ProxyManager,
+        which closes any pooled connections.
+        """
+        self.poolmanager.clear()
+        for proxy in self.proxy_manager.values():
+            proxy.clear()
+
+    def request_url(self, request, proxies):  # ./Adapters/HTTPAdapter.py
+        """Obtain the url to use when making the final request.
+
+        If the message is being sent through a HTTP proxy, the full URL has to
+        be used. Otherwise, we should only use the path portion of the URL.
+
+        This should not be called from user code, and is only exposed for use
+        when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
+        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs.
+        :rtype: str
+        """
+        proxy = Utils().select_proxy(request.url, proxies)
+        scheme = XCompat().urlparse(request.url).scheme
+
+        is_proxied_http_request = (proxy and scheme != 'https')
+        using_socks_proxy = False
+        if proxy:
+            proxy_scheme = XCompat().urlparse(proxy).scheme.lower()
+            using_socks_proxy = proxy_scheme.startswith('socks')
+
+        url = request.path_url
+        if is_proxied_http_request and not using_socks_proxy:
+            url = Utils().urldefragauth(request.url)
+
+        return url
+
+    def add_headers(self, request, **kwargs):  # ./Adapters/HTTPAdapter.py
+        """Add any headers needed by the connection. As of v2.0 this does
+        nothing by default, but is left for overriding by users that subclass
+        the :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        This should not be called from user code, and is only exposed for use
+        when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param request: The :class:`PreparedRequest <PreparedRequest>` to add headers to.
+        :param kwargs: The keyword arguments from the call to send().
+        """
+        pass
+
+    def proxy_headers(self, proxy):  # ./Adapters/HTTPAdapter.py
+        """Returns a dictionary of the headers to add to any request sent
+        through a proxy. This works with urllib3 magic to ensure that they are
+        correctly sent to the proxy, rather than in a tunnelled request if
+        CONNECT is being used.
+
+        This should not be called from user code, and is only exposed for use
+        when subclassing the
+        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+
+        :param proxy: The url of the proxy being used for this request.
+        :rtype: dict
+        """
+        headers = {}
+        username, password = Utils().get_auth_from_url(proxy)
+
+        if username:
+            headers['Proxy-Authorization'] = Auth().basic_auth_str(username,
+                                                                   password)
+
+        return headers
+
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):  # ./Adapters/HTTPAdapter.py
+        """Sends PreparedRequest object. Returns Response object.
+
+        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
+        :param stream: (optional) Whether to stream the request content.
+        :param timeout: (optional) How long to wait for the server to send
+            data before giving up, as a float, or a :ref:`(connect timeout,
+            read timeout) <timeouts>` tuple.
+        :type timeout: float or tuple or urllib3 Timeout object
+        :param verify: (optional) Either a boolean, in which case it controls whether
+            we verify the server's TLS certificate, or a string, in which case it
+            must be a path to a CA bundle to use
+        :param cert: (optional) Any user-provided SSL certificate to be trusted.
+        :param proxies: (optional) The proxies dictionary to apply to the request.
+        :rtype: requests.Response
+        """
+
+        try:
+            conn = self.get_connection(request.url, proxies)
+        except XUrllib3().exceptions().LocationValueError as e:
+            raise InvalidURL(e, request=request)
+
+        self.cert_verify(conn, request.url, verify, cert)
+        url = self.request_url(request, proxies)
+        self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
+
+        chunked = not (request.body is None or 'Content-Length' in request.headers)
+
+        if isinstance(timeout, tuple):
+            try:
+                connect, read = timeout
+                timeout = XUrllib3().util().Timeout(connect=connect, read=read)
+            except ValueError as e:
+                # this may raise a string formatting error.
+                err = ("Invalid timeout {}. Pass a (connect, read) "
+                       "timeout tuple, or a single float to set "
+                       "both timeouts to the same value".format(timeout))
+                raise ValueError(err)
+        elif isinstance(timeout, XUrllib3().util().Timeout):
+            pass
+        else:
+            timeout = XUrllib3().util().Timeout(connect=timeout, read=timeout)
+
+        try:
+            if not chunked:
+                resp = conn.urlopen(
+                    method=request.method,
+                    url=url,
+                    body=request.body,
+                    headers=request.headers,
+                    redirect=False,
+                    assert_same_host=False,
+                    preload_content=False,
+                    decode_content=False,
+                    retries=self.max_retries,
+                    timeout=timeout
+                )
+
+            # Send the request.
+            else:
+                if hasattr(conn, 'proxy_pool'):
+                    conn = conn.proxy_pool
+
+                low_conn = conn._get_conn(timeout=Adapters().DEFAULT_POOL_TIMEOUT())
+
+                try:
+                    low_conn.putrequest(request.method,
+                                        url,
+                                        skip_accept_encoding=True)
+
+                    for header, value in request.headers.items():
+                        low_conn.putheader(header, value)
+
+                    low_conn.endheaders()
+
+                    for i in request.body:
+                        low_conn.send(hex(len(i))[2:].encode('utf-8'))
+                        low_conn.send(b'\r\n')
+                        low_conn.send(i)
+                        low_conn.send(b'\r\n')
+                    low_conn.send(b'0\r\n\r\n')
+
+                    # Receive the response from the server
+                    try:
+                        # For Python 2.7, use buffering of HTTP responses
+                        r = low_conn.getresponse(buffering=True)
+                    except TypeError:
+                        # For compatibility with Python 3.3+
+                        r = low_conn.getresponse()
+
+                    resp = XUrllib3().response().HTTPResponse.from_httplib(
+                        r,
+                        pool=conn,
+                        connection=low_conn,
+                        preload_content=False,
+                        decode_content=False
+                    )
+                except:
+                    # If we hit any problems here, clean up the connection.
+                    # Then, reraise so that we can handle the actual exception.
+                    low_conn.close()
+                    raise
+
+        except (XUrllib3().exceptions().ProtocolError, XSocket().error) as err:
+            raise ConnectionError(err, request=request)
+
+        except XUrllib3().exceptions().MaxRetryError as e:
+            if isinstance(e.reason, XUrllib3().exceptions().ConnectTimeoutError):
+                # TODO: Remove this in 3.0.0: see #2811
+                if not isinstance(e.reason, XUrllib3().exceptions().NewConnectionError):
+                    raise ConnectTimeout(e, request=request)
+
+            if isinstance(e.reason, XUrllib3().exceptions().ResponseError):
+                raise RetryError(e, request=request)
+
+            if isinstance(e.reason, XUrllib3().exceptions().ProxyError):
+                raise ProxyError(e, request=request)
+
+            if isinstance(e.reason, XUrllib3().exceptions().SSLError):
+                # This branch is for urllib3 v1.22 and later.
+                raise SSLError(e, request=request)
+
+            raise ConnectionError(e, request=request)
+
+        except XUrllib3().exceptions().ClosedPoolError as e:
+            raise ConnectionError(e, request=request)
+
+        except XUrllib3().exceptions().ProxyError as e:
+            raise ProxyError(e)
+
+        except (XUrllib3().exceptions().SSLError, XUrllib3().exceptions().HTTPError) as e:
+            if isinstance(e, XUrllib3().exceptions().SSLError):
+                # This branch is for urllib3 versions earlier than v1.22
+                raise SSLError(e, request=request)
+            elif isinstance(e, XUrllib3().exceptions().ReadTimeoutError):
+                raise ReadTimeout(e, request=request)
+            else:
+                raise
+
+        return self.build_response(request, resp)
 
 
 # *************************** classes in Auth section *****************
@@ -1040,101 +1766,6 @@ class FileModeWarning(RequestsWarning, DeprecationWarning):
 class RequestsDependencyWarning(RequestsWarning):
     """An imported dependency doesn't match the expected version range."""
 
-# *************************** classes in Structures section *****************
-
-class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.py
-
-    """A case-insensitive ``dict``-like object.
-
-    Implements all methods and operations of
-    ``MutableMapping`` as well as dict's ``copy``. Also
-    provides ``lower_items``.
-
-    All keys are expected to be strings. The structure remembers the
-    case of the last key to be set, and ``iter(instance)``,
-    ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
-    will contain case-sensitive keys. However, querying and contains
-    testing is case insensitive::
-
-        cid = CaseInsensitiveDict()
-        cid['Accept'] = 'application/json'
-        cid['aCCEPT'] == 'application/json'  # True
-        list(cid) == ['Accept']  # True
-
-    For example, ``headers['content-encoding']`` will return the
-    value of a ``'Content-Encoding'`` response header, regardless
-    of how the header name was originally stored.
-
-    If the constructor, ``.update``, or equality comparison
-    operations are given keys that have equal ``.lower()``s, the
-    behavior is undefined.
-    """
-
-    def __init__(self, data=None, **kwargs):
-        self._store = XOrderedDict()
-        if data is None:
-            data = {}
-        self.update(data, **kwargs)
-
-    def __setitem__(self, key, value):
-        # Use the lowercased key for lookups, but store the actual
-        # key alongside the value.
-        self._store[key.lower()] = (key, value)
-
-    def __getitem__(self, key):
-        return self._store[key.lower()][1]
-
-    def __delitem__(self, key):
-        del self._store[key.lower()]
-
-    def __iter__(self):
-        return (casedkey for casedkey, mappedvalue in self._store.values())
-
-    def __len__(self):
-        return len(self._store)
-
-    def lower_items(self):
-        """Like iteritems(), but with all lowercase keys."""
-        return (
-            (lowerkey, keyval[1])
-            for (lowerkey, keyval)
-            in self._store.items()
-        )
-
-    def __eq__(self, other):
-        if isinstance(other, XMapping):
-            other = CaseInsensitiveDict(other)
-        else:
-            return NotImplemented
-        # Compare insensitively
-        return dict(self.lower_items()) == dict(other.lower_items())
-
-    # Copy is required
-    def copy(self):
-        return CaseInsensitiveDict(self._store.values())
-
-    def __repr__(self):
-        return XCompat().str(dict(self.items()))
-
-class LookupDict(dict):  # ./Structures/LookupDict.py
-    """Dictionary lookup object."""
-
-    def __init__(self, name=None):
-        self.name = name
-        super(LookupDict, self).__init__()
-
-    def __repr__(self):
-        return '<lookup \'%s\'>' % (self.name)
-
-    def __getitem__(self, key):
-        # We allow fall-through here, so values default to None
-
-        return self.__dict__.get(key, None)
-
-    def get(self, key, default=None):
-        return self.__dict__.get(key, default)
-
-
 # *************************** classes in Help section *****************
 
 class Help:  # ./Help/help.py
@@ -1833,7 +2464,7 @@ class Response(object):  # ./Models/Response.py
         'encoding', 'reason', 'cookies', 'elapsed', 'request'
     ]
 
-    def __init__(self):
+    def __init__(self):  # ./Models/Response.py
         self._content = False
         self._content_consumed = False
         self._next = None
@@ -1880,13 +2511,13 @@ class Response(object):  # ./Models/Response.py
         #: is a response.
         self.request = None
 
-    def __enter__(self):
+    def __enter__(self):  # ./Models/Response.py
         return self
 
-    def __exit__(self, *args):
+    def __exit__(self, *args):  # ./Models/Response.py
         self.close()
 
-    def __getstate__(self):
+    def __getstate__(self):  # ./Models/Response.py
         # Consume everything; accessing the content attribute makes
         # sure the content has been fully read.
         if not self._content_consumed:
@@ -1894,7 +2525,7 @@ class Response(object):  # ./Models/Response.py
 
         return {attr: getattr(self, attr, None) for attr in self.__attrs__}
 
-    def __setstate__(self, state):
+    def __setstate__(self, state):  # ./Models/Response.py
         for name, value in state.items():
             setattr(self, name, value)
 
@@ -1902,10 +2533,10 @@ class Response(object):  # ./Models/Response.py
         setattr(self, '_content_consumed', True)
         setattr(self, 'raw', None)
 
-    def __repr__(self):
+    def __repr__(self):  # ./Models/Response.py
         return '<Response [%s]>' % (self.status_code)
 
-    def __bool__(self):
+    def __bool__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
 
         This attribute checks if the status code of the response is between
@@ -1915,7 +2546,7 @@ class Response(object):  # ./Models/Response.py
         """
         return self.ok
 
-    def __nonzero__(self):
+    def __nonzero__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
 
         This attribute checks if the status code of the response is between
@@ -1925,12 +2556,12 @@ class Response(object):  # ./Models/Response.py
         """
         return self.ok
 
-    def __iter__(self):
+    def __iter__(self):  # ./Models/Response.py
         """Allows you to use a response as an iterator."""
         return self.iter_content(128)
 
     @property
-    def ok(self):
+    def ok(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400, False if not.
 
         This attribute checks if the status code of the response is between
@@ -1945,28 +2576,28 @@ class Response(object):  # ./Models/Response.py
         return True
 
     @property
-    def is_redirect(self):
+    def is_redirect(self):  # ./Models/Response.py
         """True if this Response is a well-formed HTTP redirect that could have
         been processed automatically (by :meth:`Session.resolve_redirects`).
         """
         return ('location' in self.headers and self.status_code in REDIRECT_STATI)
 
     @property
-    def is_permanent_redirect(self):
+    def is_permanent_redirect(self):  # ./Models/Response.py
         """True if this Response one of the permanent versions of redirect."""
         return ('location' in self.headers and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
     @property
-    def next(self):
+    def next(self):  # ./Models/Response.py
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
         return self._next
 
     @property
-    def apparent_encoding(self):
+    def apparent_encoding(self):  # ./Models/Response.py
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
         return XCharDet().detect(self.content)['encoding']
 
-    def iter_content(self, chunk_size=1, decode_unicode=False):
+    def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
         """Iterates over the response data.  When stream=True is set on the
         request, this avoids reading the content at once into memory for
         large responses.  The chunk size is the number of bytes it should
@@ -1983,7 +2614,7 @@ class Response(object):  # ./Models/Response.py
         available encoding based on the response.
         """
 
-        def generate():
+        def generate(self):  # ./Models/Response.py
             # Special case for urllib3.
             if hasattr(self.raw, 'stream'):
                 try:
@@ -2021,13 +2652,16 @@ class Response(object):  # ./Models/Response.py
 
         return chunks
 
-    def iter_lines(self, chunk_size=ITER_CHUNK_SIZE, decode_unicode=False, delimiter=None):
+    def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./Models/Response.py
         """Iterates over the response data, one line at a time.  When
         stream=True is set on the request, this avoids reading the
         content at once into memory for large responses.
 
         .. note:: This method is not reentrant safe.
         """
+
+        if chunk_size == -1:
+            chunk_size = self.ITER_CHUNK_SIZE
 
         pending = None
 
@@ -2053,7 +2687,7 @@ class Response(object):  # ./Models/Response.py
             yield pending
 
     @property
-    def content(self):
+    def content(self):  # ./Models/Response.py
         """Content of the response, in bytes."""
 
         if self._content is False:
@@ -2065,7 +2699,7 @@ class Response(object):  # ./Models/Response.py
             if self.status_code == 0 or self.raw is None:
                 self._content = None
             else:
-                self._content = b''.join(self.iter_content(CONTENT_CHUNK_SIZE)) or b''
+                self._content = b''.join(self.iter_content(self.CONTENT_CHUNK_SIZE)) or b''
 
         self._content_consumed = True
         # don't need to release the connection; that's been handled by urllib3
@@ -2073,7 +2707,7 @@ class Response(object):  # ./Models/Response.py
         return self._content
 
     @property
-    def text(self):
+    def text(self):  # ./Models/Response.py
         """Content of the response, in unicode.
 
         If Response.encoding is None, encoding will be guessed using
@@ -2110,7 +2744,7 @@ class Response(object):  # ./Models/Response.py
 
         return content
 
-    def json(self, **kwargs):
+    def json(self, **kwargs):  # ./Models/Response.py
         r"""Returns the json-encoded content of a response, if any.
 
         :param \*\*kwargs: Optional arguments that ``json.loads`` takes.
@@ -2147,7 +2781,7 @@ class Response(object):  # ./Models/Response.py
                 raise RequestsJSONDecodeError(e.msg, e.doc, e.pos)
 
     @property
-    def links(self):
+    def links(self):  # ./Models/Response.py
         """Returns the parsed header links of the response, if any."""
 
         header = self.headers.get('link')
@@ -2164,7 +2798,7 @@ class Response(object):  # ./Models/Response.py
 
         return l
 
-    def raise_for_status(self):
+    def raise_for_status(self):  # ./Models/Response.py
         """Raises :class:`HTTPError`, if one occurred."""
 
         http_error_msg = ''
@@ -2189,7 +2823,7 @@ class Response(object):  # ./Models/Response.py
         if http_error_msg:
             raise HTTPError(http_error_msg, response=self)
 
-    def close(self):
+    def close(self):  # ./Models/Response.py
         """Releases the connection back to the pool. Once this method has been
         called the underlying ``raw`` object must not be accessed again.
 
@@ -2947,137 +3581,17 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             setattr(self, attr, value)
 
 
-# *************************** classes in StatusCodes section *****************
-
-class StatusCodes:  # ./StatusCodes/status_codes.py
-
-    """
-    The ``codes`` object defines a mapping from common names for HTTP statuses
-    to their numerical codes, accessible either as attributes or as dictionary
-    items.
-
-    Example::
-
-        >>> import requests
-        >>> requests.codes['temporary_redirect']
-        307
-        >>> requests.codes.teapot
-        418
-        >>> requests.codes['\o/']
-        200
-
-    Some codes have multiple names, and both upper- and lower-case versions of
-    the names are allowed. For example, ``codes.ok``, ``codes.OK``, and
-    ``codes.okay`` all correspond to the HTTP status code 200.
-    """
-    _codes = {
-
-        # Informational.
-        100: ('continue',),
-        101: ('switching_protocols',),
-        102: ('processing',),
-        103: ('checkpoint',),
-        122: ('uri_too_long', 'request_uri_too_long'),
-        200: ('ok', 'okay', 'all_ok', 'all_okay', 'all_good', '\\o/', '✓'),
-        201: ('created',),
-        202: ('accepted',),
-        203: ('non_authoritative_info', 'non_authoritative_information'),
-        204: ('no_content',),
-        205: ('reset_content', 'reset'),
-        206: ('partial_content', 'partial'),
-        207: ('multi_status', 'multiple_status', 'multi_stati', 'multiple_stati'),
-        208: ('already_reported',),
-        226: ('im_used',),
-
-        # Redirection.
-        300: ('multiple_choices',),
-        301: ('moved_permanently', 'moved', '\\o-'),
-        302: ('found',),
-        303: ('see_other', 'other'),
-        304: ('not_modified',),
-        305: ('use_proxy',),
-        306: ('switch_proxy',),
-        307: ('temporary_redirect', 'temporary_moved', 'temporary'),
-        308: ('permanent_redirect',
-              'resume_incomplete', 'resume',),  # These 2 to be removed in 3.0
-
-        # Client Error.
-        400: ('bad_request', 'bad'),
-        401: ('unauthorized',),
-        402: ('payment_required', 'payment'),
-        403: ('forbidden',),
-        404: ('not_found', '-o-'),
-        405: ('method_not_allowed', 'not_allowed'),
-        406: ('not_acceptable',),
-        407: ('proxy_authentication_required', 'proxy_auth', 'proxy_authentication'),
-        408: ('request_timeout', 'timeout'),
-        409: ('conflict',),
-        410: ('gone',),
-        411: ('length_required',),
-        412: ('precondition_failed', 'precondition'),
-        413: ('request_entity_too_large',),
-        414: ('request_uri_too_large',),
-        415: ('unsupported_media_type', 'unsupported_media', 'media_type'),
-        416: ('requested_range_not_satisfiable', 'requested_range', 'range_not_satisfiable'),
-        417: ('expectation_failed',),
-        418: ('im_a_teapot', 'teapot', 'i_am_a_teapot'),
-        421: ('misdirected_request',),
-        422: ('unprocessable_entity', 'unprocessable'),
-        423: ('locked',),
-        424: ('failed_dependency', 'dependency'),
-        425: ('unordered_collection', 'unordered'),
-        426: ('upgrade_required', 'upgrade'),
-        428: ('precondition_required', 'precondition'),
-        429: ('too_many_requests', 'too_many'),
-        431: ('header_fields_too_large', 'fields_too_large'),
-        444: ('no_response', 'none'),
-        449: ('retry_with', 'retry'),
-        450: ('blocked_by_windows_parental_controls', 'parental_controls'),
-        451: ('unavailable_for_legal_reasons', 'legal_reasons'),
-        499: ('client_closed_request',),
-
-        # Server Error.
-        500: ('internal_server_error', 'server_error', '/o\\', '✗'),
-        501: ('not_implemented',),
-        502: ('bad_gateway',),
-        503: ('service_unavailable', 'unavailable'),
-        504: ('gateway_timeout',),
-        505: ('http_version_not_supported', 'http_version'),
-        506: ('variant_also_negotiates',),
-        507: ('insufficient_storage',),
-        509: ('bandwidth_limit_exceeded', 'bandwidth'),
-        510: ('not_extended',),
-        511: ('network_authentication_required', 'network_auth', 'network_authentication'),
-    }
-
-    _codes_dict = LookupDict(name='status_codes')
-
-    def __init__(self):
-        if self._codes_dict.__dict__.__len__() > 10:
-            return
-        for code, titles in self._codes.items():
-            for title in titles:
-                setattr(self._codes_dict, title, code)
-                if not title.startswith(('\\', '/')):
-                    setattr(self._codes_dict, title.upper(), code)
-        pass
-
-    def doc(self, code):
-        names = ', '.join('``%s``' % n for n in _codes[code])
-        return '* %d: %s' % (code, names)
-
-    def get(self, name):
-        return self._codes_dict.get(name)
-
 # *************************** classes in Utils section *****************
 
 class Utils:  # ./Utils/utils.py
     _UNRESERVED_SET = frozenset(
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
 
+    _DEFAULT_CA_BUNDLE_PATH = Certs().where()
+
     # Ensure that ', ' is used to preserve previous delimiter behavior.
     _DEFAULT_ACCEPT_ENCODING = ", ".join(
-        re.split(r",\s*", make_headers(accept_encoding=True)["accept-encoding"])
+        XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
     )
 
     # Null bytes; no need to recreate these on each call to guess_json_utf
@@ -3086,8 +3600,8 @@ class Utils:  # ./Utils/utils.py
     _null3 = _null * 3
 
     # Moved outside of function to avoid recompile every call
-    _CLEAN_HEADER_REGEX_BYTE = re.compile(b'^\\S[^\\r\\n]*$|^$')
-    _CLEAN_HEADER_REGEX_STR = re.compile(r'^\S[^\r\n]*$|^$')
+    _CLEAN_HEADER_REGEX_BYTE = XRe().compile(b'^\\S[^\\r\\n]*$|^$')
+    _CLEAN_HEADER_REGEX_STR = XRe().compile(r'^\S[^\r\n]*$|^$')
 
     def DEFAULT_PORTS(self):  # ./Utils/utils.py
         return {'http': 80, 'https': 443}
@@ -3098,6 +3612,9 @@ class Utils:  # ./Utils/utils.py
 
     def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/utils.py
         return self._DEFAULT_ACCEPT_ENCODING
+
+    def DEFAULT_CA_BUNDLE_PATH(self):
+        return self._DEFAULT_CA_BUNDLE_PATH
 
     # From mitsuhiko/werkzeug (used with permission).
     def parse_dict_header(self, value):  # ./Utils/utils.py
@@ -3681,5 +4198,172 @@ class Utils:  # ./Utils/utils.py
             raise InvalidHeader("Value for header {%s: %s} must be of type str or "
                                 "bytes, not %s" % (name, value, type(value)))
 
+    def extract_zipped_paths(self, path):  # ./Utils/utils.py
+        """Replace nonexistent paths that look like they refer to a member of a zip
+        archive with the location of an extracted copy of the target, or else
+        just return the provided path unchanged.
+        """
+        if XOs().path().exists(path):
+            # this is already a valid path, no need to do anything further
+            return path
+
+        # find the first valid part of the provided path and treat that as a zip archive
+        # assume the rest of the path is the name of a member in the archive
+        archive, member = XOs().path().split(path)
+        while archive and not XOs().path().exists(archive):
+            archive, prefix = XOs().path().split(archive)
+            if not prefix:
+                # If we don't check for an empty prefix after the split (in other words, archive remains unchanged after the split),
+                # we _can_ end up in an infinite loop on a rare corner case affecting a small number of users
+                break
+            member = '/'.join([prefix, member])
+
+        if not zipfile.is_zipfile(archive):
+            return path
+
+        zip_file = XZipfile().ZipFile(archive)
+        if member not in zip_file.namelist():
+            return path
+
+        # we have a valid zip archive and a valid member of that archive
+        tmp = XTempFile().gettempdir()
+        extracted_path = os.path.join(tmp, member.split('/')[-1])
+        if not os.path.exists(extracted_path):
+            # use read + write to avoid the creating nested folders, we only want the file, avoids mkdir racing condition
+            with Utils().atomic_open(extracted_path) as file_handler:
+                file_handler.write(zip_file.read(member))
+        return extracted_path
+
+    def get_encoding_from_headers(self, headers):  # ./Utils/utils.py
+        """Returns encodings from given HTTP Header Dict.
+
+        :param headers: dictionary to extract encoding from.
+        :rtype: str
+        """
+
+        content_type = headers.get('content-type')
+
+        if not content_type:
+            return None
+
+        content_type, params = self._parse_content_type_header(content_type)
+
+        if 'charset' in params:
+            return params['charset'].strip("'\"")
+
+        if 'text' in content_type:
+            return 'ISO-8859-1'
+
+        if 'application/json' in content_type:
+            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
+            return 'utf-8'
+
+    def _parse_content_type_header(self, header):  # ./Utils/utils.py
+        """Returns content type and parameters from given header
+
+        :param header: string
+        :return: tuple containing content type and dictionary of
+             parameters
+        """
+        tokens = header.split(';')
+        content_type, params = tokens[0].strip(), tokens[1:]
+        params_dict = {}
+        items_to_strip = "\"' "
+
+        for param in params:
+            param = param.strip()
+            if param:
+                key, value = param, True
+                index_of_equals = param.find("=")
+                if index_of_equals != -1:
+                    key = param[:index_of_equals].strip(items_to_strip)
+                    value = param[index_of_equals + 1:].strip(items_to_strip)
+                params_dict[key.lower()] = value
+        return content_type, params_dict
+
+    @contextlib.contextmanager
+    def atomic_open(self, filename):  # ./Utils/utils.py
+        """Write a file to the disk in an atomic fashion"""
+        replacer = XOs().rename if XSys().version_info[0] == 2 else os.replace
+        tmp_descriptor, tmp_name = XTempFile().mkstemp(dir=XOs().path().dirname(filename))
+        try:
+            with XOs().fdopen(tmp_descriptor, 'wb') as tmp_handler:
+                yield tmp_handler
+            replacer(tmp_name, filename)
+        except BaseException:
+            os.remove(tmp_name)
+            raise
+
+    def prepend_scheme_if_needed(self, url, new_scheme):  # ./Utils/utils.py
+        """Given a URL that may or may not have a scheme, prepend the given scheme.
+        Does not replace a present scheme with the one provided as an argument.
+
+        :rtype: str
+        """
+        scheme, netloc, path, params, query, fragment = urlparse(url, new_scheme)
+
+        # urlparse is a finicky beast, and sometimes decides that there isn't a
+        # netloc present. Assume that it's being over-cautious, and switch netloc
+        # and path if urlparse decided there was no netloc.
+        if not netloc:
+            netloc, path = path, netloc
+
+        return XCompat().urlunparse((scheme, netloc, path, params, query, fragment))
+
+    def get_auth_from_url(self, url):  # ./Utils/utils.py
+        """Given a url with authentication components, extract them into a tuple of
+        username,password.
+
+        :rtype: (str,str)
+        """
+        parsed = XCompat().urlparse(url)
+
+        try:
+            auth = (XCompat().unquote(parsed.username), XCompat().unquote(parsed.password))
+        except (AttributeError, TypeError):
+            auth = ('', '')
+
+        return auth
+
+    def urldefragauth(self, url):  # ./Utils/utils.py
+        """
+        Given a url remove the fragment and the authentication part.
+
+        :rtype: str
+        """
+        scheme, netloc, path, params, query, fragment = urlparse(url)
+
+        # see func:`prepend_scheme_if_needed`
+        if not netloc:
+            netloc, path = path, netloc
+
+        netloc = netloc.rsplit('@', 1)[-1]
+
+        return XCompat().urlunparse((scheme, netloc, path, params, query, ''))
+
+    def select_proxy(self, url, proxies):  # ./Utils/utils.py
+        """Select a proxy for the url, if applicable.
+
+        :param url: The url being for the request
+        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
+        """
+        proxies = proxies or {}
+        urlparts = XCompat().urlparse(url)
+        if urlparts.hostname is None:
+            return proxies.get(urlparts.scheme, proxies.get('all'))
+
+        proxy_keys = [
+            urlparts.scheme + '://' + urlparts.hostname,
+            urlparts.scheme,
+            'all://' + urlparts.hostname,
+            'all',
+        ]
+        proxy = None
+        for proxy_key in proxy_keys:
+            if proxy_key in proxies:
+                proxy = proxies[proxy_key]
+                break
+
+        return proxy
 
 
