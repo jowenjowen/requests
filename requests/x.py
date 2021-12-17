@@ -36,10 +36,11 @@ from datetime import timedelta
 
 #imports for utils
 import socket
-from .compat import integer_types
+from .compat import Callable, integer_types, proxy_bypass, getproxies, unquote
 import codecs
 import zipfile
 import tempfile
+import struct
 
 try:
     import charset_normalizer
@@ -62,6 +63,14 @@ else:
     import cryptography
 
 
+class XStruct:
+    def unpack(self, fmt, string):
+        return struct.unpack(fmt, string)
+
+    def pack(self, param, bits):
+        return struct.pack(param, bits)
+
+
 class XCodecs:
     def getincrementaldecoder(self, encoding):
         return codecs.getincrementaldecoder(encoding)
@@ -78,6 +87,9 @@ class XCodecs:
     def BOM_UTF16_LE(self):
         return codecs.BOM_UTF16_LE
 
+    def BOM_UTF16_BE(self):
+        return codecs.BOM_UTF16_BE
+
 
 class XSocket:
     def error(self):
@@ -85,6 +97,13 @@ class XSocket:
 
     def inet_aton(self, a):
         return socket.inet_aton(a)
+
+    def gaierror(self):
+        return socket.gaierror
+
+    def inet_ntoa(self, a):
+        return socket.inet_ntoa(a)
+
 
 class XCopy:
     def copy(self, x):
@@ -106,12 +125,15 @@ class XRe:
     def IGNORECASE(self):
         return re.IGNORECASE
 
+    def I(self):
+        return re.I
+
 
 class XOs:
     def urandom(self, a):
         return os.urandom(a)
 
-    def environ(self, a):
+    def environ(self):
         return os.environ
 
     def path(self):
@@ -120,9 +142,22 @@ class XOs:
     def fstat(self, a):
         return os.fstat(a)
 
+    def rename(self, src, dst):
+        return os.rename(src, dst)
+
+    def replace(self, file, location):
+        return os.replace(file, location)
+
+    def remove(self, path):
+        return os.remove(path)
+
+    def fdopen(self, fd, *args, **kwargs):
+        return os.fdopen(fd, *args, **kwargs)
+
+
 class XDateTime:
-    def timedelta(self, a):
-        return timedelta(a)
+    def timedelta(self, *args, **kwargs):
+        return timedelta(*args, **kwargs)
 
 
 class XUrllib3:
@@ -187,8 +222,8 @@ class XCompat:
     def is_builtin_str_instance(self,string):
         return isinstance(string, builtin_str)
 
-    def urlparse(self, a):
-        return urlparse(a)
+    def urlparse(self, url, scheme='', allow_fragments=True):
+        return urlparse(url, scheme, allow_fragments)
 
     def urlsplit(self, url, scheme='', allow_fragments=True):
         return urlsplit(url, scheme, allow_fragments)
@@ -196,8 +231,8 @@ class XCompat:
     def urljoin(self, base, url, allow_fragments=True):
         return urljoin(base, url, allow_fragments)
 
-    def urlencode(self):
-        return urlencode()
+    def urlencode(self, query, doseq=0):
+        return urlencode(query, doseq)
 
     def urlunparse(self, a):
         return urlunparse(a)
@@ -208,14 +243,17 @@ class XCompat:
     def is_py3(self):
         return is_py3
 
-    def quote(self):
-        return quote
+    def quote(self, s, safe='/'):
+        return quote(s, safe)
+
+    def unquote(self, s):
+        return unquote(s)
 
     def integer_types(self):
         return integer_types
 
-    def Callable(self):
-        return Callable
+    def is_Callable_instance(self, value):
+        return isinstance(value, Callable)
 
     def str_class(self):
         return str
@@ -241,8 +279,14 @@ class XCompat:
     def is_basestring_instance(self, string):
         return isinstance(string, basestring)
 
-    def str(self, a):
-        return str(a)
+    def str(self, *args, **kwargs):
+        return str(*args, **kwargs)
+
+    def proxy_bypass(self, a):
+        return proxy_bypass(a)
+
+    def getproxies(self):
+        return getproxies()
 
 
 class XBase64:
@@ -353,6 +397,12 @@ class XSys:
     def pypy_version_info(self):
         return PyPyVersionInfo
 
+    def platform(self):
+        return sys.platform
+
+    def version_info(self):
+        return sys.version_info
+
 
 class XUrllib3:
     def version(self):
@@ -370,20 +420,52 @@ class XUrllib3:
     def exceptions(self):
         return urllib3.exceptions
 
-    def SOCKSProxyManager(self):
-        return urllib3.contrib
+    def SOCKSProxyManager(self, *args, **kwargs):
         try:
             from urllib3.contrib.socks import SOCKSProxyManager
-            return SOCKSProxyManager()
+            return SOCKSProxyManager(*args, **kwargs)
         except ImportError:
             return None
+
+    def fields(self):
+        return urllib3.fields
+
+    def filepost(self):
+        return urllib3.filepost
 
 
 class XTempFile:
     def gettempdir(self):
-        return tempfile.gettempdir
+        return tempfile.gettempdir()
+
+    def mkstemp(self, suffix="", prefix=tempfile.template, dir=None, text=False):
+        return tempfile.mkstemp(suffix, prefix, dir, text)
+
+    def template(self):
+        return tempfile.template
+
+
+if XSys().platform() == 'win32':
+
+
+    class XWinReg:
+        def __init__(self):
+            try:
+                if XCompat().is_py3():
+                    import winreg
+                else:
+                    import _winreg as winreg
+                return winreg
+
+            except ImportError:
+                return False
+
+
 
 
 class XZipfile:
-    def ZipFile(self):
-        return zipfile.ZipFile
+    def ZipFile(self, file):
+        return zipfile.ZipFile(file)
+
+    def is_zipfile(self, filename):
+        return zipfile.is_zipfile(filename)

@@ -14,8 +14,7 @@ from requests.x import XCompat, XThreading
 
 # imports needed for Utils
 from .compat import parse_http_list as _parse_list_header
-from .x import XSocket, XCodecs, XIo, XTempFile
-
+from .x import XSocket, XCodecs, XIo, XTempFile, XStruct
 # imports needed for Exceptions
 from urllib3.exceptions import HTTPError as BaseHTTPError
 from .compat import JSONDecodeError as CompatJSONDecodeError
@@ -45,6 +44,7 @@ from .compat import json as complexjson
 from .x import XZipfile
 import contextlib
 
+
 # *************************** classes in InternalUtilities section *****************
 class _Internal_utils:  # ./InternalUtils/internal_utils.py
     """
@@ -55,7 +55,7 @@ class _Internal_utils:  # ./InternalUtils/internal_utils.py
     which depend on extremely few external helpers (such as compat)
     """
 
-    def to_native_string(self, string, encoding='ascii'):
+    def to_native_string(self, string, encoding='ascii'):  # ./InternalUtils/internal_utils.py
         """Given a string object, regardless of type, returns a representation of
         that string in the native string type, encoding and decoding where
         necessary. This assumes ASCII unless told otherwise.
@@ -70,7 +70,7 @@ class _Internal_utils:  # ./InternalUtils/internal_utils.py
 
         return out
 
-    def unicode_is_ascii(self, u_string):
+    def unicode_is_ascii(self, u_string):  # ./InternalUtils/internal_utils.py
         """Determine if unicode string only contains ASCII characters.
 
         :param str u_string: unicode string to check. Must be unicode
@@ -323,9 +323,10 @@ class Adapters:  # ./Adapters/Adapters.py
         return None
 
     def SOCKSProxyManager(self, *args, **kwargs):
-        result = XUrllib3().SOCKSProxyManager()
+        result = XUrllib3().SOCKSProxyManager(*args, **kwargs)
         if not result:
             raise InvalidSchema("Missing dependencies for SOCKS support.")
+        return result
 
 class BaseAdapter(object):  # ./Adapters/BaseAdapter.py
     """The Base Transport Adapter"""
@@ -389,9 +390,9 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                  pool_maxsize=Adapters().DEFAULT_POOLSIZE(), max_retries=Adapters().DEFAULT_RETRIES(),
                  pool_block=Adapters().DEFAULT_POOLBLOCK()):  # ./Adapters/HTTPAdapter.py
         if max_retries == Adapters().DEFAULT_RETRIES():
-            self.max_retries = XUrllib3.util().retry.Retry(0, read=False)
+            self.max_retries = XUrllib3().util().retry.Retry(0, read=False)
         else:
-            self.max_retries = XUrllib3.util().retry.Retry.from_int(max_retries)
+            self.max_retries = XUrllib3().util().retry.Retry.from_int(max_retries)
         self.config = {}
         self.proxy_manager = {}
 
@@ -454,7 +455,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             manager = self.proxy_manager[proxy]
         elif proxy.lower().startswith('socks'):
             username, password = Utils().get_auth_from_url(proxy)
-            manager = self.proxy_manager[proxy] = SOCKSProxyManager(
+            manager = self.proxy_manager[proxy] = Adapters().SOCKSProxyManager(
                 proxy,
                 username=username,
                 password=password,
@@ -498,13 +499,13 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             if not cert_loc:
                 cert_loc = Utils().extract_zipped_paths(Utils().DEFAULT_CA_BUNDLE_PATH())
 
-            if not cert_loc or not XOs().path.exists(cert_loc):
+            if not cert_loc or not XOs().path().exists(cert_loc):
                 raise IOError("Could not find a suitable TLS CA certificate bundle, "
                               "invalid path: {}".format(cert_loc))
 
             conn.cert_reqs = 'CERT_REQUIRED'
 
-            if not XOs().path.isdir(cert_loc):
+            if not XOs().path().isdir(cert_loc):
                 conn.ca_certs = cert_loc
             else:
                 conn.ca_cert_dir = cert_loc
@@ -520,10 +521,10 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             else:
                 conn.cert_file = cert
                 conn.key_file = None
-            if conn.cert_file and not XOs().path.exists(conn.cert_file):
+            if conn.cert_file and not XOs().path().exists(conn.cert_file):
                 raise IOError("Could not find the TLS certificate file, "
                               "invalid path: {}".format(conn.cert_file))
-            if conn.key_file and not XOs().path.exists(conn.key_file):
+            if conn.key_file and not XOs().path().exists(conn.key_file):
                 raise IOError("Could not find the TLS key file, "
                               "invalid path: {}".format(conn.key_file))
 
@@ -806,6 +807,157 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 raise
 
         return self.build_response(request, resp)
+
+
+# *************************** classes in Api section *****************
+class Api:  # ./Api/api.py
+    """
+    requests.api
+    ~~~~~~~~~~~~
+
+    This module implements the Requests API.
+
+    :copyright: (c) 2012 by Kenneth Reitz.
+    :license: Apache2, see LICENSE for more details.
+    """
+
+    def request(self, method, url, **kwargs):  # ./Api/api.py
+        """Constructs and sends a :class:`Request <Request>`.
+
+        :param method: method for the new :class:`Request` object: ``GET``, ``OPTIONS``, ``HEAD``, ``POST``, ``PUT``, ``PATCH``, or ``DELETE``.
+        :param url: URL for the new :class:`Request` object.
+        :param params: (optional) Dictionary, list of tuples or bytes to send
+            in the query string for the :class:`Request`.
+        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+            object to send in the body of the :class:`Request`.
+        :param json: (optional) A JSON serializable Python object to send in the body of the :class:`Request`.
+        :param headers: (optional) Dictionary of HTTP Headers to send with the :class:`Request`.
+        :param cookies: (optional) Dict or CookieJar object to send with the :class:`Request`.
+        :param files: (optional) Dictionary of ``'name': file-like-objects`` (or ``{'name': file-tuple}``) for multipart encoding upload.
+            ``file-tuple`` can be a 2-tuple ``('filename', fileobj)``, 3-tuple ``('filename', fileobj, 'content_type')``
+            or a 4-tuple ``('filename', fileobj, 'content_type', custom_headers)``, where ``'content-type'`` is a string
+            defining the content type of the given file and ``custom_headers`` a dict-like object containing additional headers
+            to add for the file.
+        :param auth: (optional) Auth tuple to enable Basic/Digest/Custom HTTP Auth.
+        :param timeout: (optional) How many seconds to wait for the server to send data
+            before giving up, as a float, or a :ref:`(connect timeout, read
+            timeout) <timeouts>` tuple.
+        :type timeout: float or tuple
+        :param allow_redirects: (optional) Boolean. Enable/disable GET/OPTIONS/POST/PUT/PATCH/DELETE/HEAD redirection. Defaults to ``True``.
+        :type allow_redirects: bool
+        :param proxies: (optional) Dictionary mapping protocol to the URL of the proxy.
+        :param verify: (optional) Either a boolean, in which case it controls whether we verify
+                the server's TLS certificate, or a string, in which case it must be a path
+                to a CA bundle to use. Defaults to ``True``.
+        :param stream: (optional) if ``False``, the response content will be immediately downloaded.
+        :param cert: (optional) if String, path to ssl client cert file (.pem). If Tuple, ('cert', 'key') pair.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+
+        Usage::
+
+          >>> import requests
+          >>> req = requests.request('GET', 'https://httpbin.org/get')
+          >>> req
+          <Response [200]>
+        """
+
+        # By using the 'with' statement we are sure the session is closed, thus we
+        # avoid leaving sockets open which can trigger a ResourceWarning in some
+        # cases, and look like a memory leak in others.
+        with Sessions().session() as session:
+            return session.request(method=method, url=url, **kwargs)
+
+    def get(self, url, params=None, **kwargs):  # ./Api/api.py
+        r"""Sends a GET request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param params: (optional) Dictionary, list of tuples or bytes to send
+            in the query string for the :class:`Request`.
+        :param \*\*kwargs: Optional arguments that ``request`` takes.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        return self.request('get', url, params=params, **kwargs)
+
+    def options(self, url, **kwargs):  # ./Api/api.py
+        r"""Sends an OPTIONS request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param \*\*kwargs: Optional arguments that ``request`` takes.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        return self.request('options', url, **kwargs)
+
+    def head(self, url, **kwargs):  # ./Api/api.py
+        r"""Sends a HEAD request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param \*\*kwargs: Optional arguments that ``request`` takes. If
+            `allow_redirects` is not provided, it will be set to `False` (as
+            opposed to the default :meth:`request` behavior).
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        kwargs.setdefault('allow_redirects', False)
+        return self.request('head', url, **kwargs)
+
+    def post(self, url, data=None, json=None, **kwargs):  # ./Api/api.py
+        r"""Sends a POST request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+            object to send in the body of the :class:`Request`.
+        :param json: (optional) json data to send in the body of the :class:`Request`.
+        :param \*\*kwargs: Optional arguments that ``request`` takes.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        return self.request('post', url, data=data, json=json, **kwargs)
+
+    def put(self, url, data=None, **kwargs):  # ./Api/api.py
+        r"""Sends a PUT request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+            object to send in the body of the :class:`Request`.
+        :param json: (optional) json data to send in the body of the :class:`Request`.
+        :param \*\*kwargs: Optional arguments that ``request`` takes.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        return self.request('put', url, data=data, **kwargs)
+
+    def patch(self, url, data=None, **kwargs):  # ./Api/api.py
+        r"""Sends a PATCH request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
+            object to send in the body of the :class:`Request`.
+        :param json: (optional) json data to send in the body of the :class:`Request`.
+        :param \*\*kwargs: Optional arguments that ``request`` takes.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        return self.request('patch', url, data=data, **kwargs)
+
+    def delete(self, url, **kwargs):  # ./Api/api.py
+        r"""Sends a DELETE request.
+
+        :param url: URL for the new :class:`Request` object.
+        :param \*\*kwargs: Optional arguments that ``request`` takes.
+        :return: :class:`Response <Response>` object
+        :rtype: requests.Response
+        """
+
+        return self.request('delete', url, **kwargs)
 
 
 # *************************** classes in Auth section *****************
@@ -1909,7 +2061,7 @@ class Models:  # ./Models/models.py
 
     #: The set of HTTP status codes that indicate an automatically
     #: processable redirect.
-    REDIRECT_STATI = (
+    _REDIRECT_STATI = (
         StatusCodes().get('moved'),              # 301
         StatusCodes().get('found'),               # 302
         StatusCodes().get('other'),               # 303
@@ -1917,9 +2069,21 @@ class Models:  # ./Models/models.py
         StatusCodes().get('permanent_redirect'),  # 308
     )
 
-    DEFAULT_REDIRECT_LIMIT = 30
-    CONTENT_CHUNK_SIZE = 10 * 1024
-    ITER_CHUNK_SIZE = 512
+    _DEFAULT_REDIRECT_LIMIT = 30
+    _CONTENT_CHUNK_SIZE = 10 * 1024
+    _ITER_CHUNK_SIZE = 512
+
+    def REDIRECT_STATI(self):
+        return self._REDIRECT_STATI
+
+    def DEFAULT_REDIRECT_LIMIT(self):
+        return self._DEFAULT_REDIRECT_LIMIT
+
+    def CONTENT_CHUNK_SIZE(self):
+        return self._CONTENT_CHUNK_SIZE
+
+    def ITER_CHUNK_SIZE(self):
+        return self._ITER_CHUNK_SIZE
 
 
 class RequestEncodingMixin(object):  # ./Models/RequestEncodingMixin.py
@@ -2015,7 +2179,7 @@ class RequestEncodingMixin(object):  # ./Models/RequestEncodingMixin.py
                 else:
                     fn, fp, ft, fh = v
             else:
-                fn = guess_filename(v) or k
+                fn = Utils().guess_filename(v) or k
                 fp = v
 
             if isinstance(fp, (XCompat().str_class(), XCompat().bytes_class(), bytearray)):
@@ -2043,10 +2207,10 @@ class RequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
         if event not in self.hooks:
             raise ValueError('Unsupported event specified, with event name "%s"' % (event))
 
-        if isinstance(hook, XCompat().Callable()):
+        if XCompat().is_Callable_instance(hook):
             self.hooks[event].append(hook)
         elif hasattr(hook, '__iter__'):
-            self.hooks[event].extend(h for h in hook if isinstance(h, XCompat().Callable()))
+            self.hooks[event].extend(h for h in hook if XCompat().is_Callable_instance(h))
 
     def deregister_hook(self, event, hook):
         """Deregister a previously registered hook.
@@ -2155,7 +2319,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
       <Response [200]>
     """
 
-    def __init__(self):
+    def __init__(self):  # ./Models/PreparedRequest.py
         #: HTTP verb to send to the server.
         self.method = None
         #: HTTP URL to send the request to.
@@ -2174,7 +2338,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def prepare(self,
             method=None, url=None, headers=None, files=None, data=None,
-            params=None, auth=None, cookies=None, hooks=None, json=None):
+            params=None, auth=None, cookies=None, hooks=None, json=None):  # ./Models/PreparedRequest.py
         """Prepares the entire request with the given parameters."""
 
         self.prepare_method(method)
@@ -2190,10 +2354,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         # This MUST go after prepare_auth. Authenticators could add a hook
         self.prepare_hooks(hooks)
 
-    def __repr__(self):
+    def __repr__(self):  # ./Models/PreparedRequest.py
         return '<PreparedRequest [%s]>' % (self.method)
 
-    def copy(self):
+    def copy(self):  # ./Models/PreparedRequest.py
         p = PreparedRequest()
         p.method = self.method
         p.url = self.url
@@ -2204,21 +2368,21 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         p._body_position = self._body_position
         return p
 
-    def prepare_method(self, method):
+    def prepare_method(self, method):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP method."""
         self.method = method
         if self.method is not None:
             self.method = _Internal_utils().to_native_string(self.method.upper())
 
     @staticmethod
-    def _get_idna_encoded_host(host):
+    def _get_idna_encoded_host(host):  # ./Models/PreparedRequest.py
         try:
             host = XIdna().encode(host, uts46=True).decode('utf-8')
         except XIdna().IDNAError():
             raise UnicodeError
         return host
 
-    def prepare_url(self, url, params):
+    def prepare_url(self, url, params):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP URL."""
         #: Accept objects that have string representations.
         #: We're unable to blindly call unicode/str functions
@@ -2242,7 +2406,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         # Support for unicode domain names and paths.
         try:
-            scheme, auth, host, port, path, query, fragment = XCompat().parse_url(url)
+            scheme, auth, host, port, path, query, fragment = XUrllib3().util().parse_url(url)
         except XUrllib3().exceptions().LocationParseError as e:
             raise InvalidURL(*e.args)
 
@@ -2259,7 +2423,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         # non-ASCII characters. This allows users to automatically get the correct IDNA
         # behaviour. For strings containing only ASCII characters, we need to also verify
         # it doesn't start with a wildcard (*), before allowing the unencoded hostname.
-        if not unicode_is_ascii(host):
+        if not _Internal_utils().unicode_is_ascii(host):
             try:
                 host = self._get_idna_encoded_host(host)
             except UnicodeError:
@@ -2301,21 +2465,21 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             else:
                 query = enc_params
 
-        url = Utils().requote_uri(XCompat().urlunparse()([scheme, netloc, path, None, query, fragment]))
+        url = Utils().requote_uri(XCompat().urlunparse([scheme, netloc, path, None, query, fragment]))
         self.url = url
 
-    def prepare_headers(self, headers):
+    def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP headers."""
 
         self.headers = CaseInsensitiveDict()
         if headers:
             for header in headers.items():
                 # Raise exception on invalid header value.
-                check_header_validity(header)
+                Utils().check_header_validity(header)
                 name, value = header
                 self.headers[_Internal_utils().to_native_string(name)] = value
 
-    def prepare_body(self, data, files, json=None):
+    def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP body data."""
 
         # Check if file, fo, generator, iterator.
@@ -2345,7 +2509,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         if is_stream:
             try:
-                length = super_len(data)
+                length = Utils().super_len(data)
             except (TypeError, AttributeError, XIo().UnsupportedOperation()):
                 length = None
 
@@ -2389,10 +2553,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         self.body = body
 
-    def prepare_content_length(self, body):
+    def prepare_content_length(self, body):  # ./Models/PreparedRequest.py
         """Prepare Content-Length header based on request method and body"""
         if body is not None:
-            length = super_len(body)
+            length = Utils().super_len(body)
             if length:
                 # If length exists, set it. Otherwise, we fallback
                 # to Transfer-Encoding: chunked.
@@ -2402,7 +2566,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             # but don't provide one. (i.e. not GET or HEAD)
             self.headers['Content-Length'] = '0'
 
-    def prepare_auth(self, auth, url=''):
+    def prepare_auth(self, auth, url=''):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP auth data."""
 
         # If no Auth is explicitly provided, extract it from the URL first.
@@ -2424,7 +2588,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             # Recompute Content-Length
             self.prepare_content_length(self.body)
 
-    def prepare_cookies(self, cookies):
+    def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP cookie data.
 
         This function eventually generates a ``Cookie`` header from the
@@ -2444,7 +2608,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         if cookie_header is not None:
             self.headers['Cookie'] = cookie_header
 
-    def prepare_hooks(self, hooks):
+    def prepare_hooks(self, hooks):  # ./Models/PreparedRequest.py
         """Prepares the given hooks."""
         # hooks can be passed as None to the prepare method and to this
         # method. To prevent iterating over None, simply use an empty list
@@ -2580,7 +2744,7 @@ class Response(object):  # ./Models/Response.py
         """True if this Response is a well-formed HTTP redirect that could have
         been processed automatically (by :meth:`Session.resolve_redirects`).
         """
-        return ('location' in self.headers and self.status_code in REDIRECT_STATI)
+        return ('location' in self.headers and self.status_code in Models().REDIRECT_STATI())
 
     @property
     def is_permanent_redirect(self):  # ./Models/Response.py
@@ -2614,7 +2778,7 @@ class Response(object):  # ./Models/Response.py
         available encoding based on the response.
         """
 
-        def generate(self):  # ./Models/Response.py
+        def generate():
             # Special case for urllib3.
             if hasattr(self.raw, 'stream'):
                 try:
@@ -2661,7 +2825,7 @@ class Response(object):  # ./Models/Response.py
         """
 
         if chunk_size == -1:
-            chunk_size = self.ITER_CHUNK_SIZE
+            chunk_size = Models().ITER_CHUNK_SIZE()
 
         pending = None
 
@@ -2699,7 +2863,7 @@ class Response(object):  # ./Models/Response.py
             if self.status_code == 0 or self.raw is None:
                 self._content = None
             else:
-                self._content = b''.join(self.iter_content(self.CONTENT_CHUNK_SIZE)) or b''
+                self._content = b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
 
         self._content_consumed = True
         # don't need to release the connection; that's been handled by urllib3
@@ -2848,9 +3012,9 @@ class Sessions:  # ./Sessions/Sessions.py
     requests (cookies, auth, proxies).
     """
     def preferred_clock(self):
-        return XTime().clock_method()
+        return XTime().clock_method()()
 
-    def merge_setting(self, request_setting, session_setting, dict_class=XOrderedDict):
+    def merge_setting(self, request_setting, session_setting, dict_class=XOrderedDict):  # ./Sessions/Sessions.py
         """Determines appropriate setting for a given request, taking into account
         the explicit setting on that request, and the setting in the session. If a
         setting is a dictionary, they will be merged together using `dict_class`
@@ -2964,7 +3128,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         hist = []  # keep track of history
 
         url = self.get_redirect_target(resp)
-        previous_fragment = urlparse(req.url).fragment
+        previous_fragment = XCompat().urlparse(req.url).fragment
         while url:
             prepared_request = req.copy()
 
@@ -3101,11 +3265,11 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         proxies = proxies if proxies is not None else {}
         headers = prepared_request.headers
         url = prepared_request.url
-        scheme = urlparse(url).scheme
+        scheme = XCompat().urlparse(url).scheme
         new_proxies = proxies.copy()
         no_proxy = proxies.get('no_proxy')
 
-        bypass_proxy = should_bypass_proxies(url, no_proxy=no_proxy)
+        bypass_proxy = Utils().should_bypass_proxies(url, no_proxy=no_proxy)
         if self.trust_env and not bypass_proxy:
             environ_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
 
@@ -3219,7 +3383,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: limit, a :class:`TooManyRedirects` exception is raised.
         #: This defaults to requests.models.DEFAULT_REDIRECT_LIMIT, which is
         #: 30.
-        self.max_redirects = DEFAULT_REDIRECT_LIMIT
+        self.max_redirects = Models().DEFAULT_REDIRECT_LIMIT()
 
         #: Trust environment settings for proxy configuration, default
         #: authentication and similar.
@@ -3255,7 +3419,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         cookies = request.cookies or {}
 
         # Bootstrap CookieJar.
-        if not isinstance(cookies, XCompat().cookielib.CookieJar):
+        if not isinstance(cookies, XCompat().cookielib().CookieJar):
             cookies = Cookies2().cookiejar_from_dict(cookies)
 
         # Merge with session cookies
@@ -3274,11 +3438,11 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             files=request.files,
             data=request.data,
             json=request.json,
-            headers=merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict),
-            params=merge_setting(request.params, self.params),
-            auth=merge_setting(auth, self.auth),
+            headers=Sessions().merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict),
+            params=Sessions().merge_setting(request.params, self.params),
+            auth=Sessions().merge_setting(auth, self.auth),
             cookies=merged_cookies,
-            hooks=merge_hooks(request.hooks, self.hooks),
+            hooks=Sessions().merge_hooks(request.hooks, self.hooks),
         )
         return p
 
@@ -3523,7 +3687,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         if self.trust_env:
             # Set environment's proxies.
             no_proxy = proxies.get('no_proxy') if proxies is not None else None
-            env_proxies = get_environ_proxies(url, no_proxy=no_proxy)
+            env_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
             for (k, v) in env_proxies.items():
                 proxies.setdefault(k, v)
 
@@ -3534,10 +3698,10 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
                           XOs().environ().get('CURL_CA_BUNDLE'))
 
         # Merge all the kwargs.
-        proxies = merge_setting(proxies, self.proxies)
-        stream = merge_setting(stream, self.stream)
-        verify = merge_setting(verify, self.verify)
-        cert = merge_setting(cert, self.cert)
+        proxies = Sessions().merge_setting(proxies, self.proxies)
+        stream = Sessions().merge_setting(stream, self.stream)
+        verify = Sessions().merge_setting(verify, self.verify)
+        cert = Sessions().merge_setting(cert, self.cert)
 
         return {'verify': verify, 'proxies': proxies, 'stream': stream,
                 'cert': cert}
@@ -3584,15 +3748,20 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 # *************************** classes in Utils section *****************
 
 class Utils:  # ./Utils/utils.py
-    _UNRESERVED_SET = frozenset(
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
+    _NETRC_FILES = ('.netrc', '_netrc')
 
     _DEFAULT_CA_BUNDLE_PATH = Certs().where()
+
+    _DEFAULT_PORTS = {'http': 80, 'https': 443}
 
     # Ensure that ', ' is used to preserve previous delimiter behavior.
     _DEFAULT_ACCEPT_ENCODING = ", ".join(
         XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
     )
+
+
+    _UNRESERVED_SET = frozenset(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
 
     # Null bytes; no need to recreate these on each call to guess_json_utf
     _null = '\x00'.encode('ascii')  # encoding to ASCII for Python 3
@@ -3613,8 +3782,329 @@ class Utils:  # ./Utils/utils.py
     def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/utils.py
         return self._DEFAULT_ACCEPT_ENCODING
 
-    def DEFAULT_CA_BUNDLE_PATH(self):
+    def DEFAULT_CA_BUNDLE_PATH(self):  # ./Utils/utils.py
         return self._DEFAULT_CA_BUNDLE_PATH
+
+    if XSys().platform() == 'win32':
+        # provide a proxy_bypass version on Windows without DNS lookups
+        from .x import XWinReg
+
+        def proxy_bypass_registry(host):  # ./Utils/utils.py
+            winreg = XWinReg()
+
+            try:
+                internetSettings = winreg.OpenKey(winreg.HKEY_CURRENT_USER,
+                                                  r'Software\Microsoft\Windows\CurrentVersion\Internet Settings')
+                # ProxyEnable could be REG_SZ or REG_DWORD, normalizing it
+                proxyEnable = int(winreg.QueryValueEx(internetSettings,
+                                                      'ProxyEnable')[0])
+                # ProxyOverride is almost always a string
+                proxyOverride = winreg.QueryValueEx(internetSettings,
+                                                    'ProxyOverride')[0]
+            except OSError:
+                return False
+            if not proxyEnable or not proxyOverride:
+                return False
+
+            # make a check value list from the registry entry: replace the
+            # '<local>' string by the localhost entry and the corresponding
+            # canonical entry.
+            proxyOverride = proxyOverride.split(';')
+            # now check if we match one of the registry values.
+            for test in proxyOverride:
+                if test == '<local>':
+                    if '.' not in host:
+                        return True
+                test = test.replace(".", r"\.")  # mask dots
+                test = test.replace("*", r".*")  # change glob sequence
+                test = test.replace("?", r".")  # change glob char
+                if XRe().match(test, host, XRe().I()):
+                    return True
+            return False
+
+        def _proxy_bypass_win32(self, host):  # noqa  # ./Utils/utils.py
+            """Return True, if the host should be bypassed.
+
+            Checks proxy settings gathered from the environment, if specified,
+            or the registry.
+            """
+            if XCompat().getproxies_environment():
+                return XCompat().proxy_bypass_environment(host)
+            else:
+                return XCompat().proxy_bypass_registry(host)
+
+    def proxy_bypass(self, host):  # noqa  # ./Utils/utils.py
+        if XSys().platform() == 'win32':
+            return self._proxy_bypass_win32(host)
+        else:
+            return XCompat().proxy_bypass(host)
+
+    def dict_to_sequence(self, d):  # ./Utils/utils.py
+        """Returns an internal sequence dictionary update."""
+
+        if hasattr(d, 'items'):
+            d = d.items()
+
+        return d
+
+    def super_len(self, o):  # ./Utils/utils.py
+        total_length = None
+        current_position = 0
+
+        if hasattr(o, '__len__'):
+            total_length = len(o)
+
+        elif hasattr(o, 'len'):
+            total_length = o.len
+
+        elif hasattr(o, 'fileno'):
+            try:
+                fileno = o.fileno()
+            except (XIo().UnsupportedOperation(), AttributeError):
+                # AttributeError is a surprising exception, seeing as how we've just checked
+                # that `hasattr(o, 'fileno')`.  It happens for objects obtained via
+                # `Tarfile.extractfile()`, per issue 5229.
+                pass
+            else:
+                total_length = XOs().fstat(fileno).st_size
+
+                # Having used fstat to determine the file length, we need to
+                # confirm that this file was opened up in binary mode.
+                if 'b' not in o.mode:
+                    XWarnings().warn((
+                        "Requests has determined the content-length for this "
+                        "request using the binary size of the file: however, the "
+                        "file has been opened in text mode (i.e. without the 'b' "
+                        "flag in the mode). This may lead to an incorrect "
+                        "content-length. In Requests 3.0, support will be removed "
+                        "for files in text mode."),
+                        FileModeWarning
+                    )
+
+        if hasattr(o, 'tell'):
+            try:
+                current_position = o.tell()
+            except (OSError, IOError):
+                # This can happen in some weird situations, such as when the file
+                # is actually a special file descriptor like stdin. In this
+                # instance, we don't know what the length is, so set it to zero and
+                # let requests chunk it instead.
+                if total_length is not None:
+                    current_position = total_length
+            else:
+                if hasattr(o, 'seek') and total_length is None:
+                    # StringIO and BytesIO have seek but no useable fileno
+                    try:
+                        # seek to end of file
+                        o.seek(0, 2)
+                        total_length = o.tell()
+
+                        # seek back to current position to support
+                        # partially read file-like objects
+                        o.seek(current_position or 0)
+                    except (OSError, IOError):
+                        total_length = 0
+
+        if total_length is None:
+            total_length = 0
+
+        return max(0, total_length - current_position)
+
+    def get_netrc_auth(self, url, raise_errors=False):  # ./Utils/utils.py
+        """Returns the Requests tuple auth for a given url from netrc."""
+
+        netrc_file = XOs().environ().get('NETRC')
+        if netrc_file is not None:
+            netrc_locations = (netrc_file,)
+        else:
+            netrc_locations = ('~/{}'.format(f) for f in self._NETRC_FILES)
+
+        try:
+            from netrc import netrc, NetrcParseError
+
+            netrc_path = None
+
+            for f in netrc_locations:
+                try:
+                    loc = XOs().path().expanduser(f)
+                except KeyError:
+                    # os.path.expanduser can fail when $HOME is undefined and
+                    # getpwuid fails. See https://bugs.python.org/issue20164 &
+                    # https://github.com/psf/requests/issues/1846
+                    return
+
+                if XOs().path().exists(loc):
+                    netrc_path = loc
+                    break
+
+            # Abort early if there isn't one.
+            if netrc_path is None:
+                return
+
+            ri = XCompat().urlparse(url)
+
+            # Strip port numbers from netloc. This weird `if...encode`` dance is
+            # used for Python 3.2, which doesn't support unicode literals.
+            splitstr = b':'
+            if XCompat().is_str_instance(url):
+                splitstr = splitstr.decode('ascii')
+            host = ri.netloc.split(splitstr)[0]
+
+            try:
+                _netrc = netrc(netrc_path).authenticators(host)
+                if _netrc:
+                    # Return with login / password
+                    login_i = (0 if _netrc[0] else 1)
+                    return (_netrc[login_i], _netrc[2])
+            except (NetrcParseError, IOError):
+                # If there was a parsing error or a permissions issue reading the file,
+                # we'll just skip netrc auth unless explicitly asked to raise errors.
+                if raise_errors:
+                    raise
+
+        # App Engine hackiness.
+        except (ImportError, AttributeError):
+            pass
+
+    def guess_filename(self, obj):  # ./Utils/utils.py
+        """Tries to guess the filename of the given object."""
+        name = getattr(obj, 'name', None)
+        if (name and XCompat().is_basestring_instance(name) and name[0] != '<' and
+                name[-1] != '>'):
+            return XOs().path().basename(name)
+
+    def extract_zipped_paths(self, path):  # ./Utils/utils.py
+        """Replace nonexistent paths that look like they refer to a member of a zip
+        archive with the location of an extracted copy of the target, or else
+        just return the provided path unchanged.
+        """
+        if XOs().path().exists(path):
+            # this is already a valid path, no need to do anything further
+            return path
+
+        # find the first valid part of the provided path and treat that as a zip archive
+        # assume the rest of the path is the name of a member in the archive
+        archive, member = XOs().path().split(path)
+        while archive and not XOs().path().exists(archive):
+            archive, prefix = XOs().path().split(archive)
+            if not prefix:
+                # If we don't check for an empty prefix after the split (in other words, archive remains unchanged after the split),
+                # we _can_ end up in an infinite loop on a rare corner case affecting a small number of users
+                break
+            member = '/'.join([prefix, member])
+
+        if not XZipfile().is_zipfile(archive):
+            return path
+
+        zip_file = XZipfile().ZipFile(archive)
+        if member not in zip_file.namelist():
+            return path
+
+        # we have a valid zip archive and a valid member of that archive
+        tmp = XTempFile().gettempdir()
+        extracted_path = XOs().path().join(tmp, member.split('/')[-1])
+        if not XOs().path().exists(extracted_path):
+            # use read + write to avoid the creating nested folders, we only want the file, avoids mkdir racing condition
+            with Utils().atomic_open(extracted_path) as file_handler:
+                file_handler.write(zip_file.read(member))
+        return extracted_path
+
+    @contextlib.contextmanager
+    def atomic_open(self, filename):  # ./Utils/utils.py
+        """Write a file to the disk in an atomic fashion"""
+        replacer = XOs().rename if XSys().version_info()[0] == 2 else XOs().replace
+        tmp_descriptor, tmp_name = XTempFile().mkstemp(dir=XOs().path().dirname(filename))
+        try:
+            with XOs().fdopen(tmp_descriptor, 'wb') as tmp_handler:
+                yield tmp_handler
+            replacer(tmp_name, filename)
+        except BaseException:
+            XOs().remove(tmp_name)
+            raise
+
+        def from_key_val_list(self, value):  # ./Utils/utils.py
+            """Take an object and test to see if it can be represented as a
+            dictionary. Unless it can not be represented as such, return an
+            OrderedDict, e.g.,
+
+            ::
+
+                >>> from_key_val_list([('key', 'val')])
+                OrderedDict([('key', 'val')])
+                >>> from_key_val_list('string')
+                Traceback (most recent call last):
+                ...
+                ValueError: cannot encode objects that are not 2-tuples
+                >>> from_key_val_list({'key': 'val'})
+                OrderedDict([('key', 'val')])
+
+            :rtype: OrderedDict
+            """
+            if value is None:
+                return None
+
+            if isinstance(value, (str, bytes, bool, int)):
+                raise ValueError('cannot encode objects that are not 2-tuples')
+
+            return XOrderedDict(value)
+
+    def to_key_val_list(self, value):  # ./Utils/utils.py
+        """Take an object and test to see if it can be represented as a
+        dictionary. If it can be, return a list of tuples, e.g.,
+
+        ::
+
+            >>> to_key_val_list([('key', 'val')])
+            [('key', 'val')]
+            >>> to_key_val_list({'key': 'val'})
+            [('key', 'val')]
+            >>> to_key_val_list('string')
+            Traceback (most recent call last):
+            ...
+            ValueError: cannot encode objects that are not 2-tuples
+
+        :rtype: list
+        """
+        if value is None:
+            return None
+        if isinstance(value, (XCompat().str_class(), XCompat().bytes_class(), bool, int)):
+            raise ValueError('cannot encode objects that are not 2-tuples')
+
+        if isinstance(value, XMapping):
+            value = value.items()
+
+        return list(value)
+
+    # From mitsuhiko/werkzeug (used with permission).
+    def parse_list_header(self, value):  # ./Utils/utils.py
+        """Parse lists as described by RFC 2068 Section 2.
+
+        In particular, parse comma-separated lists where the elements of
+        the list may include quoted-strings.  A quoted-string could
+        contain a comma.  A non-quoted string could have quotes in the
+        middle.  Quotes are removed automatically after parsing.
+
+        It basically works like :func:`parse_set_header` just that items
+        may appear multiple times and case sensitivity is preserved.
+
+        The return value is a standard :class:`list`:
+
+        >>> parse_list_header('token, "quoted value"')
+        ['token', 'quoted value']
+
+        To create a header from the :class:`list` again, use the
+        :func:`dump_header` function.
+
+        :param value: a string with a list header.
+        :return: :class:`list`
+        :rtype: list
+        """
+        result = []
+        for item in _parse_list_header(value):
+            if item[:1] == item[-1:] == '"':
+                item = self.unquote_header_value(item[1:-1])
+            result.append(item)
+        return result
 
     # From mitsuhiko/werkzeug (used with permission).
     def parse_dict_header(self, value):  # ./Utils/utils.py
@@ -3675,54 +4165,156 @@ class Utils:  # ./Utils/utils.py
                 return value.replace('\\\\', '\\').replace('\\"', '"')
         return value
 
-    def to_key_val_list(self, value):  # ./Utils/utils.py
-        """Take an object and test to see if it can be represented as a
-        dictionary. If it can be, return a list of tuples, e.g.,
+    def dict_from_cookiejar(self, cj):  # ./Utils/utils.py
+        """Returns a key/value dictionary from a CookieJar.
 
-        ::
-
-            >>> to_key_val_list([('key', 'val')])
-            [('key', 'val')]
-            >>> to_key_val_list({'key': 'val'})
-            [('key', 'val')]
-            >>> to_key_val_list('string')
-            Traceback (most recent call last):
-            ...
-            ValueError: cannot encode objects that are not 2-tuples
-
-        :rtype: list
+        :param cj: CookieJar object to extract cookies from.
+        :rtype: dict
         """
-        if value is None:
+
+        cookie_dict = {}
+
+        for cookie in cj:
+            cookie_dict[cookie.name] = cookie.value
+
+        return cookie_dict
+
+    def add_dict_to_cookiejar(self, cj, cookie_dict):  # ./Utils/utils.py
+        """Returns a CookieJar from a key/value dictionary.
+
+        :param cj: CookieJar to insert cookies into.
+        :param cookie_dict: Dict of key/values to insert into CookieJar.
+        :rtype: CookieJar
+        """
+
+        return Cookies2().cookiejar_from_dict(cookie_dict, cj)
+
+    def get_encodings_from_content(self, content):  # ./Utils/utils.py
+        """Returns encodings from given content string.
+
+        :param content: bytestring to extract encodings from.
+        """
+        XWarnings().warn((
+            'In requests 3.0, get_encodings_from_content will be removed. For '
+            'more information, please see the discussion on issue #2266. (This'
+            ' warning should only appear once.)'),
+            DeprecationWarning)
+
+        charset_re = XRe().compile(r'<meta.*?charset=["\']*(.+?)["\'>]', flags=XRe().I())
+        pragma_re = XRe().compile(r'<meta.*?content=["\']*;?charset=(.+?)["\'>]', flags=XRe().I())
+        xml_re = XRe().compile(r'^<\?xml.*?encoding=["\']*(.+?)["\'>]')
+
+        return (charset_re.findall(content) +
+                pragma_re.findall(content) +
+                xml_re.findall(content))
+
+    def _parse_content_type_header(self, header):  # ./Utils/utils.py
+        """Returns content type and parameters from given header
+
+        :param header: string
+        :return: tuple containing content type and dictionary of
+             parameters
+        """
+        tokens = header.split(';')
+        content_type, params = tokens[0].strip(), tokens[1:]
+        params_dict = {}
+        items_to_strip = "\"' "
+
+        for param in params:
+            param = param.strip()
+            if param:
+                key, value = param, True
+                index_of_equals = param.find("=")
+                if index_of_equals != -1:
+                    key = param[:index_of_equals].strip(items_to_strip)
+                    value = param[index_of_equals + 1:].strip(items_to_strip)
+                params_dict[key.lower()] = value
+        return content_type, params_dict
+
+    def get_encoding_from_headers(self, headers):  # ./Utils/utils.py
+        """Returns encodings from given HTTP Header Dict.
+
+        :param headers: dictionary to extract encoding from.
+        :rtype: str
+        """
+
+        content_type = headers.get('content-type')
+
+        if not content_type:
             return None
 
-        if XCompat().is_bytes_instance(value, (XCompat().str_class(), bool, int)):
-            raise ValueError('cannot encode objects that are not 2-tuples')
+        content_type, params = self._parse_content_type_header(content_type)
 
-        if isinstance(value, XMapping):
-            value = value.items()
+        if 'charset' in params:
+            return params['charset'].strip("'\"")
 
-        return list(value)
+        if 'text' in content_type:
+            return 'ISO-8859-1'
 
-    def requote_uri(self, uri):  # ./Utils/utils.py
-        """Re-quote the given URI.
+        if 'application/json' in content_type:
+            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
+            return 'utf-8'
 
-        This function passes the given URI through an unquote/quote cycle to
-        ensure that it is fully and consistently quoted.
+    def stream_decode_response_unicode(self, iterator, r):  # ./Utils/utils.py
+        """Stream decodes a iterator."""
+
+        if r.encoding is None:
+            for item in iterator:
+                yield item
+            return
+
+        decoder = XCodecs().getincrementaldecoder(r.encoding)(errors='replace')
+        for chunk in iterator:
+            rv = decoder.decode(chunk)
+            if rv:
+                yield rv
+        rv = decoder.decode(b'', final=True)
+        if rv:
+            yield rv
+
+    def iter_slices(self, string, slice_length):  # ./Utils/utils.py
+        """Iterate over slices of a string."""
+        pos = 0
+        if slice_length is None or slice_length <= 0:
+            slice_length = len(string)
+        while pos < len(string):
+            yield string[pos:pos + slice_length]
+            pos += slice_length
+
+    def get_unicode_from_response(self, r):  # ./Utils/utils.py
+        """Returns the requested content back in unicode.
+
+        :param r: Response object to get unicode content from.
+
+        Tried:
+
+        1. charset from content-type
+        2. fall back and replace all unicode characters
 
         :rtype: str
         """
-        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
-        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
+        XWarnings().warn((
+            'In requests 3.0, get_unicode_from_response will be removed. For '
+            'more information, please see the discussion on issue #2266. (This'
+            ' warning should only appear once.)'),
+            DeprecationWarning)
+
+        tried_encodings = []
+
+        # Try charset from content-type
+        encoding = self.get_encoding_from_headers(r.headers)
+
+        if encoding:
+            try:
+                return str(r.content, encoding)
+            except UnicodeError:
+                tried_encodings.append(encoding)
+
+        # Fall back:
         try:
-            # Unquote only the unreserved characters
-            # Then quote only illegal characters (do not quote reserved,
-            # unreserved, or '%')
-            return XCompat().quote(Utils().unquote_unreserved(uri), safe=safe_with_percent)
-        except InvalidURL:
-            # We couldn't unquote the given URI, so let's try quoting it, but
-            # there may be unquoted '%'s in the URI. We need to make sure they're
-            # properly quoted so they do not cause issues elsewhere.
-            return XCompat().quote(uri, safe=safe_without_percent)
+            return str(r.content, encoding, errors='replace')
+        except TypeError:
+            return r.content
 
     def unquote_unreserved(self, uri):  # ./Utils/utils.py
         """Un-escape any percent-escape sequences in a URI that are unreserved
@@ -3747,95 +4339,50 @@ class Utils:  # ./Utils/utils.py
                 parts[i] = '%' + parts[i]
         return ''.join(parts)
 
-    def default_headers(self):  # ./Utils/utils.py
-        """
-        :rtype: requests.domain.CaseInsensitiveDict
-        """
-        return CaseInsensitiveDict({
-            'User-Agent': default_user_agent(),
-            'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
-            'Accept': '*/*',
-            'Connection': 'keep-alive',
-        })
+    def requote_uri(self, uri):  # ./Utils/utils.py
+        """Re-quote the given URI.
 
-    def default_user_agent(self, name="python-requests"):  # ./Utils/utils.py
-        """
-        Return a string representing the default user agent.
+        This function passes the given URI through an unquote/quote cycle to
+        ensure that it is fully and consistently quoted.
 
         :rtype: str
         """
-        return '%s/%s' % (self, name, __version__)
+        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
+        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
+        try:
+            # Unquote only the unreserved characters
+            # Then quote only illegal characters (do not quote reserved,
+            # unreserved, or '%')
+            return XCompat().quote(Utils().unquote_unreserved(uri), safe=safe_with_percent)
+        except InvalidURL:
+            # We couldn't unquote the given URI, so let's try quoting it, but
+            # there may be unquoted '%'s in the URI. We need to make sure they're
+            # properly quoted so they do not cause issues elsewhere.
+            return XCompat().quote(uri, safe=safe_without_percent)
 
-    def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/utils.py
-        """
-        Return a dict of environment proxies.
+    def address_in_network(self, ip, net):  # ./Utils/utils.py
+        """This function allows you to check if an IP belongs to a network subnet
 
-        :rtype: dict
-        """
-        if should_bypass_proxies(self, url, no_proxy=no_proxy):
-            return {}
-        else:
-            return getproxies()
-
-    def should_bypass_proxies(self, url, no_proxy):  # ./Utils/utils.py
-        """
-        Returns whether we should bypass proxies or not.
+        Example: returns True if ip = 192.168.1.1 and net = 192.168.1.0/24
+                 returns False if ip = 192.168.1.1 and net = 192.168.100.0/24
 
         :rtype: bool
         """
-        # Prioritize lowercase environment variables over uppercase
-        # to keep a consistent behaviour with other http projects (curl, wget).
-        get_proxy = lambda k: XOs.environ().get(k) or XOs.environ().get(k.upper())
+        ipaddr = XStruct().unpack('=L', XSocket().inet_aton(ip))[0]
+        netaddr, bits = net.split('/')
+        netmask = XStruct().unpack('=L', XSocket().inet_aton(self.dotted_netmask(int(bits))))[0]
+        network = XStruct().unpack('=L', XSocket().inet_aton(netaddr))[0] & netmask
+        return (ipaddr & netmask) == (network & netmask)
 
-        # First check whether no_proxy is defined. If it is, check that the URL
-        # we're getting isn't in the no_proxy list.
-        no_proxy_arg = no_proxy
-        if no_proxy is None:
-            no_proxy = get_proxy('no_proxy')
-        parsed = XCompat().urlparse(url)
+    def dotted_netmask(self, mask):  # ./Utils/utils.py
+        """Converts mask from /xx format to xxx.xxx.xxx.xxx
 
-        if parsed.hostname is None:
-            # URLs don't always have hostnames, e.g. file:/// urls.
-            return True
+        Example: if mask is 24 function returns 255.255.255.0
 
-        if no_proxy:
-            # We need to check whether we match here. We need to see if we match
-            # the end of the hostname, both with and without the port.
-            no_proxy = (
-                host for host in no_proxy.replace(' ', '').split(',') if host
-            )
-
-            if is_ipv4_address(parsed.hostname):
-                for proxy_ip in no_proxy:
-                    if is_valid_cidr(proxy_ip):
-                        if address_in_network(parsed.hostname, proxy_ip):
-                            return True
-                    elif parsed.hostname == proxy_ip:
-                        # If no_proxy ip was defined in plain IP notation instead of cidr notation &
-                        # matches the IP of the index
-                        return True
-            else:
-                host_with_port = parsed.hostname
-                if parsed.port:
-                    host_with_port += ':{}'.format(parsed.port)
-
-                for host in no_proxy:
-                    if parsed.hostname.endswith(host) or host_with_port.endswith(host):
-                        # The URL does match something in no_proxy, so we don't want
-                        # to apply the proxies on this URL.
-                        return True
-
-        with set_environ('no_proxy', no_proxy_arg):
-            # parsed.hostname can be `None` in cases such as a file URI.
-            try:
-                bypass = proxy_bypass(parsed.hostname)
-            except (TypeError, socket.gaierror):
-                bypass = False
-
-        if bypass:
-            return True
-
-        return False
+        :rtype: str
+        """
+        bits = 0xffffffff ^ (1 << 32 - mask) - 1
+        return XSocket().inet_ntoa(XStruct().pack('>I', bits))
 
     def is_ipv4_address(self, string_ip):  # ./Utils/utils.py
         """
@@ -3847,61 +4394,49 @@ class Utils:  # ./Utils/utils.py
             return False
         return True
 
-    def get_netrc_auth(self, url, raise_errors=False):  # ./Utils/utils.py
-        """Returns the Requests tuple auth for a given url from netrc."""
+    def is_valid_cidr(self, string_network):  # ./Utils/utils.py
+        """
+        Very simple check of the cidr format in no_proxy variable.
 
-        netrc_file = XOs.environ().get('NETRC')
-        if netrc_file is not None:
-            netrc_locations = (netrc_file,)
-        else:
-            netrc_locations = ('~/{}'.format(f) for f in NETRC_FILES)
+        :rtype: bool
+        """
+        if string_network.count('/') == 1:
+            try:
+                mask = int(string_network.split('/')[1])
+            except ValueError:
+                return False
 
-        try:
-            from netrc import netrc, NetrcParseError
-
-            netrc_path = None
-
-            for f in netrc_locations:
-                try:
-                    loc = XOs().path().expanduser(f)
-                except KeyError:
-                    # os.path.expanduser can fail when $HOME is undefined and
-                    # getpwuid fails. See https://bugs.python.org/issue20164 &
-                    # https://github.com/psf/requests/issues/1846
-                    return
-
-                if XOs().path().exists(loc):
-                    netrc_path = loc
-                    break
-
-            # Abort early if there isn't one.
-            if netrc_path is None:
-                return
-
-            ri = XCompat().urlparse(url)
-
-            # Strip port numbers from netloc. This weird `if...encode`` dance is
-            # used for Python 3.2, which doesn't support unicode literals.
-            splitstr = b':'
-            if XCompat().is_str_instance(url):
-                splitstr = splitstr.decode('ascii')
-            host = ri.netloc.split(splitstr)[0]
+            if mask < 1 or mask > 32:
+                return False
 
             try:
-                _netrc = netrc(netrc_path).authenticators(host)
-                if _netrc:
-                    # Return with login / password
-                    login_i = (0 if _netrc[0] else 1)
-                    return (_netrc[login_i], _netrc[2])
-            except (NetrcParseError, IOError):
-                # If there was a parsing error or a permissions issue reading the file,
-                # we'll just skip netrc auth unless explicitly asked to raise errors.
-                if raise_errors:
-                    raise
+                XSocket().inet_aton(string_network.split('/')[0])
+            except XSocket().error():
+                return False
+        else:
+            return False
+        return True
 
-        # App Engine hackiness.
-        except (ImportError, AttributeError):
-            pass
+    @contextlib.contextmanager
+    def set_environ(self, env_name, value):  # ./Utils/utils.py
+        """Set the environment variable 'env_name' to 'value'
+
+        Save previous value, yield, and then restore the previous value stored in
+        the environment variable 'env_name'.
+
+        If 'value' is None, do nothing"""
+        value_changed = value is not None
+        if value_changed:
+            old_value = XOs().environ().get(env_name)
+            XOs().environ()[env_name] = value
+        try:
+            yield
+        finally:
+            if value_changed:
+                if old_value is None:
+                    del XOs().environ()[env_name]
+                else:
+                    XOs().environ()[env_name] = old_value
 
     def should_bypass_proxies(self, url, no_proxy):  # ./Utils/utils.py
         """
@@ -3933,8 +4468,8 @@ class Utils:  # ./Utils/utils.py
 
             if Utils().is_ipv4_address(parsed.hostname):
                 for proxy_ip in no_proxy:
-                    if is_valid_cidr(proxy_ip):
-                        if address_in_network(parsed.hostname, proxy_ip):
+                    if self.is_valid_cidr(proxy_ip):
+                        if self.address_in_network(parsed.hostname, proxy_ip):
                             return True
                     elif parsed.hostname == proxy_ip:
                         # If no_proxy ip was defined in plain IP notation instead of cidr notation &
@@ -3951,11 +4486,11 @@ class Utils:  # ./Utils/utils.py
                         # to apply the proxies on this URL.
                         return True
 
-        with set_environ('no_proxy', no_proxy_arg):
+        with self.set_environ('no_proxy', no_proxy_arg):
             # parsed.hostname can be `None` in cases such as a file URI.
             try:
-                bypass = proxy_bypass(parsed.hostname)
-            except (TypeError, socket.gaierror):
+                bypass = Utils().proxy_bypass(parsed.hostname)
+            except (TypeError, XSocket().gaierror()):
                 bypass = False
 
         if bypass:
@@ -3963,81 +4498,61 @@ class Utils:  # ./Utils/utils.py
 
         return False
 
-    def is_valid_cidr(self, string_network):  # ./Utils/utils.py
+    def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/utils.py
         """
-        Very simple check of the cidr format in no_proxy variable.
+        Return a dict of environment proxies.
 
-        :rtype: bool
+        :rtype: dict
         """
-        if string_network.count('/') == 1:
-            try:
-                mask = int(string_network.split('/')[1])
-            except ValueError:
-                return False
-
-            if mask < 1 or mask > 32:
-                return False
-
-            try:
-                XSocket().inet_aton(string_network.split('/')[0])
-            except XCompat().error():
-                return False
+        if self.should_bypass_proxies(url, no_proxy=no_proxy):
+            return {}
         else:
-            return False
-        return True
+            return XCompat().getproxies()
 
-    def get_auth_from_url(self, url):  # ./Utils/utils.py
-        """Given a url with authentication components, extract them into a tuple of
-        username,password.
+    def select_proxy(self, url, proxies):  # ./Utils/utils.py
+        """Select a proxy for the url, if applicable.
 
-        :rtype: (str,str)
+        :param url: The url being for the request
+        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
         """
-        parsed = XCompat().urlparse(url)
+        proxies = proxies or {}
+        urlparts = XCompat().urlparse(url)
+        if urlparts.hostname is None:
+            return proxies.get(urlparts.scheme, proxies.get('all'))
 
-        try:
-            auth = (XCompat().unquote(parsed.username), XCompat().unquote(parsed.password))
-        except (AttributeError, TypeError):
-            auth = ('', '')
+        proxy_keys = [
+            urlparts.scheme + '://' + urlparts.hostname,
+            urlparts.scheme,
+            'all://' + urlparts.hostname,
+            'all',
+        ]
+        proxy = None
+        for proxy_key in proxy_keys:
+            if proxy_key in proxies:
+                proxy = proxies[proxy_key]
+                break
 
-        return auth
+        return proxy
 
-    def rewind_body(self, prepared_request):  # ./Utils/utils.py
-        """Move file pointer back to its recorded starting position
-        so it can be read again on redirect.
+    def default_user_agent(self, name="python-requests"):  # ./Utils/utils.py
         """
-        body_seek = getattr(prepared_request.body, 'seek', None)
-        if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
-            try:
-                body_seek(prepared_request._body_position)
-            except (IOError, OSError):
-                raise UnrewindableBodyError("An error occurred when rewinding request "
-                                            "body for redirect.")
-        else:
-            raise UnrewindableBodyError("Unable to rewind request body for redirect.")
+        Return a string representing the default user agent.
 
-    def guess_filename(self, obj):  # ./Utils/utils.py
-        """Tries to guess the filename of the given object."""
-        name = getattr(obj, 'name', None)
-        if (name and XCompat().is_basestring_instance(name) and name[0] != '<' and
-                name[-1] != '>'):
-            return XOs().path().basename(name)
+        :rtype: str
+        """
+        global requests_version
+        return '%s/%s' % (name, requests_version.__version__)
 
-    def stream_decode_response_unicode(self, iterator, r):  # ./Utils/utils.py
-        """Stream decodes a iterator."""
-
-        if r.encoding is None:
-            for item in iterator:
-                yield item
-            return
-
-        decoder = XCodecs().getincrementaldecoder(r.encoding)(errors='replace')
-        for chunk in iterator:
-            rv = decoder.decode(chunk)
-            if rv:
-                yield rv
-        rv = decoder.decode(b'', final=True)
-        if rv:
-            yield rv
+    def default_headers(self):  # ./Utils/utils.py
+        """
+        :rtype: requests.domain.CaseInsensitiveDict
+        """
+        return CaseInsensitiveDict({
+            'User-Agent': self.default_user_agent(),
+            'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
+            'Accept': '*/*',
+            'Connection': 'keep-alive',
+        })
 
     def parse_header_links(self, value):  # ./Utils/utils.py
         """Return a list of parsed link headers proxies.
@@ -4055,7 +4570,7 @@ class Utils:  # ./Utils/utils.py
         if not value:
             return links
 
-        for val in re.split(', *<', value):
+        for val in XRe().split(', *<', value):
             try:
                 url, params = val.split(';', 1)
             except ValueError:
@@ -4074,15 +4589,6 @@ class Utils:  # ./Utils/utils.py
             links.append(link)
 
         return links
-
-    def iter_slices(self, string, slice_length):  # ./Utils/utils.py
-        """Iterate over slices of a string."""
-        pos = 0
-        if slice_length is None or slice_length <= 0:
-            slice_length = len(string)
-        while pos < len(string):
-            yield string[pos:pos + slice_length]
-            pos += slice_length
 
     def guess_json_utf(self, data):  # ./Utils/utils.py
         """
@@ -4115,192 +4621,13 @@ class Utils:  # ./Utils/utils.py
             # Did not detect a valid UTF-32 ascii-range character
         return None
 
-    def super_len(self, o):  # ./Utils/utils.py
-        total_length = None
-        current_position = 0
-
-        if hasattr(o, '__len__'):
-            total_length = len(o)
-
-        elif hasattr(o, 'len'):
-            total_length = o.len
-
-        elif hasattr(o, 'fileno'):
-            try:
-                fileno = o.fileno()
-            except (XIo().UnsupportedOperation(), AttributeError):
-                # AttributeError is a surprising exception, seeing as how we've just checked
-                # that `hasattr(o, 'fileno')`.  It happens for objects obtained via
-                # `Tarfile.extractfile()`, per issue 5229.
-                pass
-            else:
-                total_length = XOs().fstat(fileno).st_size
-
-                # Having used fstat to determine the file length, we need to
-                # confirm that this file was opened up in binary mode.
-                if 'b' not in o.mode:
-                    warnings.warn((
-                        "Requests has determined the content-length for this "
-                        "request using the binary size of the file: however, the "
-                        "file has been opened in text mode (i.e. without the 'b' "
-                        "flag in the mode). This may lead to an incorrect "
-                        "content-length. In Requests 3.0, support will be removed "
-                        "for files in text mode."),
-                        FileModeWarning
-                    )
-
-        if hasattr(o, 'tell'):
-            try:
-                current_position = o.tell()
-            except (OSError, IOError):
-                # This can happen in some weird situations, such as when the file
-                # is actually a special file descriptor like stdin. In this
-                # instance, we don't know what the length is, so set it to zero and
-                # let requests chunk it instead.
-                if total_length is not None:
-                    current_position = total_length
-            else:
-                if hasattr(o, 'seek') and total_length is None:
-                    # StringIO and BytesIO have seek but no useable fileno
-                    try:
-                        # seek to end of file
-                        o.seek(0, 2)
-                        total_length = o.tell()
-
-                        # seek back to current position to support
-                        # partially read file-like objects
-                        o.seek(current_position or 0)
-                    except (OSError, IOError):
-                        total_length = 0
-
-        if total_length is None:
-            total_length = 0
-
-        return max(0, total_length - current_position)
-
-    def check_header_validity(self, header):  # ./Utils/utils.py
-        """Verifies that header value is a string which doesn't contain
-        leading whitespace or return characters. This prevents unintended
-        header injection.
-
-        :param header: tuple, in the format (name, value).
-        """
-        name, value = header
-
-        if XCompat().is_bytes_instance(value):
-            pat = self._CLEAN_HEADER_REGEX_BYTE
-        else:
-            pat = self._CLEAN_HEADER_REGEX_STR
-        try:
-            if not pat.match(value):
-                raise InvalidHeader("Invalid return character or leading space in header: %s" % name)
-        except TypeError:
-            raise InvalidHeader("Value for header {%s: %s} must be of type str or "
-                                "bytes, not %s" % (name, value, type(value)))
-
-    def extract_zipped_paths(self, path):  # ./Utils/utils.py
-        """Replace nonexistent paths that look like they refer to a member of a zip
-        archive with the location of an extracted copy of the target, or else
-        just return the provided path unchanged.
-        """
-        if XOs().path().exists(path):
-            # this is already a valid path, no need to do anything further
-            return path
-
-        # find the first valid part of the provided path and treat that as a zip archive
-        # assume the rest of the path is the name of a member in the archive
-        archive, member = XOs().path().split(path)
-        while archive and not XOs().path().exists(archive):
-            archive, prefix = XOs().path().split(archive)
-            if not prefix:
-                # If we don't check for an empty prefix after the split (in other words, archive remains unchanged after the split),
-                # we _can_ end up in an infinite loop on a rare corner case affecting a small number of users
-                break
-            member = '/'.join([prefix, member])
-
-        if not zipfile.is_zipfile(archive):
-            return path
-
-        zip_file = XZipfile().ZipFile(archive)
-        if member not in zip_file.namelist():
-            return path
-
-        # we have a valid zip archive and a valid member of that archive
-        tmp = XTempFile().gettempdir()
-        extracted_path = os.path.join(tmp, member.split('/')[-1])
-        if not os.path.exists(extracted_path):
-            # use read + write to avoid the creating nested folders, we only want the file, avoids mkdir racing condition
-            with Utils().atomic_open(extracted_path) as file_handler:
-                file_handler.write(zip_file.read(member))
-        return extracted_path
-
-    def get_encoding_from_headers(self, headers):  # ./Utils/utils.py
-        """Returns encodings from given HTTP Header Dict.
-
-        :param headers: dictionary to extract encoding from.
-        :rtype: str
-        """
-
-        content_type = headers.get('content-type')
-
-        if not content_type:
-            return None
-
-        content_type, params = self._parse_content_type_header(content_type)
-
-        if 'charset' in params:
-            return params['charset'].strip("'\"")
-
-        if 'text' in content_type:
-            return 'ISO-8859-1'
-
-        if 'application/json' in content_type:
-            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
-            return 'utf-8'
-
-    def _parse_content_type_header(self, header):  # ./Utils/utils.py
-        """Returns content type and parameters from given header
-
-        :param header: string
-        :return: tuple containing content type and dictionary of
-             parameters
-        """
-        tokens = header.split(';')
-        content_type, params = tokens[0].strip(), tokens[1:]
-        params_dict = {}
-        items_to_strip = "\"' "
-
-        for param in params:
-            param = param.strip()
-            if param:
-                key, value = param, True
-                index_of_equals = param.find("=")
-                if index_of_equals != -1:
-                    key = param[:index_of_equals].strip(items_to_strip)
-                    value = param[index_of_equals + 1:].strip(items_to_strip)
-                params_dict[key.lower()] = value
-        return content_type, params_dict
-
-    @contextlib.contextmanager
-    def atomic_open(self, filename):  # ./Utils/utils.py
-        """Write a file to the disk in an atomic fashion"""
-        replacer = XOs().rename if XSys().version_info[0] == 2 else os.replace
-        tmp_descriptor, tmp_name = XTempFile().mkstemp(dir=XOs().path().dirname(filename))
-        try:
-            with XOs().fdopen(tmp_descriptor, 'wb') as tmp_handler:
-                yield tmp_handler
-            replacer(tmp_name, filename)
-        except BaseException:
-            os.remove(tmp_name)
-            raise
-
     def prepend_scheme_if_needed(self, url, new_scheme):  # ./Utils/utils.py
         """Given a URL that may or may not have a scheme, prepend the given scheme.
         Does not replace a present scheme with the one provided as an argument.
 
         :rtype: str
         """
-        scheme, netloc, path, params, query, fragment = urlparse(url, new_scheme)
+        scheme, netloc, path, params, query, fragment = XCompat().urlparse(url, new_scheme)
 
         # urlparse is a finicky beast, and sometimes decides that there isn't a
         # netloc present. Assume that it's being over-cautious, and switch netloc
@@ -4325,13 +4652,33 @@ class Utils:  # ./Utils/utils.py
 
         return auth
 
+    def check_header_validity(self, header):  # ./Utils/utils.py
+        """Verifies that header value is a string which doesn't contain
+        leading whitespace or return characters. This prevents unintended
+        header injection.
+
+        :param header: tuple, in the format (name, value).
+        """
+        name, value = header
+
+        if XCompat().is_bytes_instance(value):
+            pat = self._CLEAN_HEADER_REGEX_BYTE
+        else:
+            pat = self._CLEAN_HEADER_REGEX_STR
+        try:
+            if not pat.match(value):
+                raise InvalidHeader("Invalid return character or leading space in header: %s" % name)
+        except TypeError:
+            raise InvalidHeader("Value for header {%s: %s} must be of type str or "
+                                "bytes, not %s" % (name, value, type(value)))
+
     def urldefragauth(self, url):  # ./Utils/utils.py
         """
         Given a url remove the fragment and the authentication part.
 
         :rtype: str
         """
-        scheme, netloc, path, params, query, fragment = urlparse(url)
+        scheme, netloc, path, params, query, fragment = XCompat().urlparse(url)
 
         # see func:`prepend_scheme_if_needed`
         if not netloc:
@@ -4341,29 +4688,16 @@ class Utils:  # ./Utils/utils.py
 
         return XCompat().urlunparse((scheme, netloc, path, params, query, ''))
 
-    def select_proxy(self, url, proxies):  # ./Utils/utils.py
-        """Select a proxy for the url, if applicable.
-
-        :param url: The url being for the request
-        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
+    def rewind_body(self, prepared_request):  # ./Utils/utils.py
+        """Move file pointer back to its recorded starting position
+        so it can be read again on redirect.
         """
-        proxies = proxies or {}
-        urlparts = XCompat().urlparse(url)
-        if urlparts.hostname is None:
-            return proxies.get(urlparts.scheme, proxies.get('all'))
-
-        proxy_keys = [
-            urlparts.scheme + '://' + urlparts.hostname,
-            urlparts.scheme,
-            'all://' + urlparts.hostname,
-            'all',
-        ]
-        proxy = None
-        for proxy_key in proxy_keys:
-            if proxy_key in proxies:
-                proxy = proxies[proxy_key]
-                break
-
-        return proxy
-
-
+        body_seek = getattr(prepared_request.body, 'seek', None)
+        if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
+            try:
+                body_seek(prepared_request._body_position)
+            except (IOError, OSError):
+                raise UnrewindableBodyError("An error occurred when rewinding request "
+                                            "body for redirect.")
+        else:
+            raise UnrewindableBodyError("Unable to rewind request body for redirect.")

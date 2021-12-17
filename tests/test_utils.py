@@ -11,19 +11,8 @@ from collections import deque
 import pytest
 from requests import compat
 from requests.domain import RequestsCookieJar
-from requests.domain import CaseInsensitiveDict
-from requests.utils import (
-    address_in_network, dotted_netmask, extract_zipped_paths,
-    get_auth_from_url, _parse_content_type_header, get_encoding_from_headers,
-    get_encodings_from_content, get_environ_proxies,
-    guess_filename, guess_json_utf, is_ipv4_address,
-    is_valid_cidr, iter_slices, parse_dict_header,
-    parse_header_links, prepend_scheme_if_needed,
-    requote_uri, select_proxy, should_bypass_proxies, super_len,
-    to_key_val_list, to_native_string,
-    unquote_header_value, unquote_unreserved,
-    urldefragauth, add_dict_to_cookiejar, set_environ)
-from requests._internal_utils import unicode_is_ascii
+from requests.domain import CaseInsensitiveDict, Utils
+from requests.domain import _Internal_utils
 
 from .compat import StringIO, cStringIO
 
@@ -39,14 +28,14 @@ class TestSuperLen:
         ))
     def test_io_streams(self, stream, value):
         """Ensures that we properly deal with different kinds of IO streams."""
-        assert super_len(stream()) == 0
-        assert super_len(stream(value)) == 4
+        assert Utils().super_len(stream()) == 0
+        assert Utils().super_len(stream(value)) == 4
 
     def test_super_len_correctly_calculates_len_of_partially_read_file(self):
         """Ensure that we handle partially consumed file like objects."""
         s = StringIO.StringIO()
         s.write('foobarbogus')
-        assert super_len(s) == 0
+        assert Utils().super_len(s) == 0
 
     @pytest.mark.parametrize('error', [IOError, OSError])
     def test_super_len_handles_files_raising_weird_errors_in_tell(self, error):
@@ -58,7 +47,7 @@ class TestSuperLen:
             def tell(self):
                 raise error()
 
-        assert super_len(BoomFile()) == 0
+        assert Utils().super_len(BoomFile()) == 0
 
     @pytest.mark.parametrize('error', [IOError, OSError])
     def test_super_len_tell_ioerror(self, error):
@@ -70,10 +59,10 @@ class TestSuperLen:
             def seek(self, offset, whence):
                 pass
 
-        assert super_len(NoLenBoomFile()) == 0
+        assert Utils().super_len(NoLenBoomFile()) == 0
 
     def test_string(self):
-        assert super_len('Test') == 4
+        assert Utils().super_len('Test') == 4
 
     @pytest.mark.parametrize(
         'mode, warnings_num', (
@@ -84,7 +73,7 @@ class TestSuperLen:
         file_obj = tmpdir.join('test.txt')
         file_obj.write('Test')
         with file_obj.open(mode) as fd:
-            assert super_len(fd) == 4
+            assert Utils().super_len(fd) == 4
         assert len(recwarn) == warnings_num
 
     def test_tarfile_member(self, tmpdir):
@@ -97,11 +86,11 @@ class TestSuperLen:
 
         with tarfile.open(tar_obj) as tar:
             member = tar.extractfile('test.txt')
-            assert super_len(member) == 4
+            assert Utils().super_len(member) == 4
 
     def test_super_len_with__len__(self):
         foo = [1,2,3,4]
-        len_foo = super_len(foo)
+        len_foo = Utils().super_len(foo)
         assert len_foo == 4
 
     def test_super_len_with_no__len__(self):
@@ -109,23 +98,23 @@ class TestSuperLen:
             def __init__(self):
                 self.len = 5
 
-        assert super_len(LenFile()) == 5
+        assert Utils().super_len(LenFile()) == 5
 
     def test_super_len_with_tell(self):
         foo = StringIO.StringIO('12345')
-        assert super_len(foo) == 5
+        assert Utils().super_len(foo) == 5
         foo.read(2)
-        assert super_len(foo) == 3
+        assert Utils().super_len(foo) == 3
 
     def test_super_len_with_fileno(self):
         with open(__file__, 'rb') as f:
-            length = super_len(f)
+            length = Utils().super_len(f)
             file_data = f.read()
         assert length == len(file_data)
 
     def test_super_len_with_no_matches(self):
         """Ensure that objects without any length methods default to 0"""
-        assert super_len(object()) == 0
+        assert Utils().super_len(object()) == 0
 
 
 class TestToKeyValList:
@@ -138,11 +127,11 @@ class TestToKeyValList:
             (None, None)
         ))
     def test_valid(self, value, expected):
-        assert to_key_val_list(value) == expected
+        assert Utils().to_key_val_list(value) == expected
 
     def test_invalid(self):
         with pytest.raises(ValueError):
-            to_key_val_list('string')
+            Utils().to_key_val_list('string')
 
 
 class TestUnquoteHeaderValue:
@@ -156,10 +145,10 @@ class TestUnquoteHeaderValue:
             ('"\\\\Comp\\Res"', '\\Comp\\Res'),
         ))
     def test_valid(self, value, expected):
-        assert unquote_header_value(value) == expected
+        assert Utils().unquote_header_value(value) == expected
 
     def test_is_filename(self):
-        assert unquote_header_value('"\\\\Comp\\Res"', True) == '\\\\Comp\\Res'
+        assert Utils().unquote_header_value('"\\\\Comp\\Res"', True) == '\\\\Comp\\Res'
 
 
 class TestGetEnvironProxies:
@@ -180,7 +169,7 @@ class TestGetEnvironProxies:
             'http://localhost.localdomain:5000/v1.0/',
         ))
     def test_bypass(self, url):
-        assert get_environ_proxies(url, no_proxy=None) == {}
+        assert Utils().get_environ_proxies(url, no_proxy=None) == {}
 
     @pytest.mark.parametrize(
         'url', (
@@ -189,7 +178,7 @@ class TestGetEnvironProxies:
             'http://www.requests.com/',
         ))
     def test_not_bypass(self, url):
-        assert get_environ_proxies(url, no_proxy=None) != {}
+        assert Utils().get_environ_proxies(url, no_proxy=None) != {}
 
     @pytest.mark.parametrize(
         'url', (
@@ -199,7 +188,7 @@ class TestGetEnvironProxies:
         ))
     def test_bypass_no_proxy_keyword(self, url):
         no_proxy = '192.168.1.1,requests.com'
-        assert get_environ_proxies(url, no_proxy=no_proxy) == {}
+        assert Utils().get_environ_proxies(url, no_proxy=no_proxy) == {}
 
     @pytest.mark.parametrize(
         'url', (
@@ -214,23 +203,23 @@ class TestGetEnvironProxies:
         # environment variable 'no_proxy'
         monkeypatch.setenv('http_proxy', 'http://proxy.example.com:3128/')
         no_proxy = '192.168.1.1,requests.com'
-        assert get_environ_proxies(url, no_proxy=no_proxy) != {}
+        assert Utils().get_environ_proxies(url, no_proxy=no_proxy) != {}
 
 
 class TestIsIPv4Address:
 
     def test_valid(self):
-        assert is_ipv4_address('8.8.8.8')
+        assert Utils().is_ipv4_address('8.8.8.8')
 
     @pytest.mark.parametrize('value', ('8.8.8.8.8', 'localhost.localdomain'))
     def test_invalid(self, value):
-        assert not is_ipv4_address(value)
+        assert not Utils().is_ipv4_address(value)
 
 
 class TestIsValidCIDR:
 
     def test_valid(self):
-        assert is_valid_cidr('192.168.1.0/24')
+        assert Utils().is_valid_cidr('192.168.1.0/24')
 
     @pytest.mark.parametrize(
         'value', (
@@ -241,16 +230,16 @@ class TestIsValidCIDR:
             '192.168.1.999/24',
         ))
     def test_invalid(self, value):
-        assert not is_valid_cidr(value)
+        assert not Utils().is_valid_cidr(value)
 
 
 class TestAddressInNetwork:
 
     def test_valid(self):
-        assert address_in_network('192.168.1.1', '192.168.1.0/24')
+        assert Utils().address_in_network('192.168.1.1', '192.168.1.0/24')
 
     def test_invalid(self):
-        assert not address_in_network('172.16.0.1', '192.168.1.0/24')
+        assert not Utils().address_in_network('172.16.0.1', '192.168.1.0/24')
 
 
 class TestGuessFilename:
@@ -259,7 +248,7 @@ class TestGuessFilename:
         'value', (1, type('Fake', (object,), {'name': 1})()),
     )
     def test_guess_filename_invalid(self, value):
-        assert guess_filename(value) is None
+        assert Utils().guess_filename(value) is None
 
     @pytest.mark.parametrize(
         'value, expected_type', (
@@ -268,7 +257,7 @@ class TestGuessFilename:
         ))
     def test_guess_filename_valid(self, value, expected_type):
         obj = type('Fake', (object,), {'name': value})()
-        result = guess_filename(obj)
+        result = Utils().guess_filename(obj)
         assert result == value
         assert isinstance(result, expected_type)
 
@@ -283,7 +272,7 @@ class TestExtractZippedPaths:
             '/etc/invalid/location',
         ))
     def test_unzipped_paths_unchanged(self, path):
-        assert path == extract_zipped_paths(path)
+        assert path == Utils().extract_zipped_paths(path)
 
     def test_zipped_paths_extracted(self, tmpdir):
         def cleanup():
@@ -299,7 +288,7 @@ class TestExtractZippedPaths:
 
         _, name = os.path.splitdrive(__file__)
         zipped_path = os.path.join(zipped_py.strpath, name.lstrip(r'\/'))
-        extracted_path = extract_zipped_paths(zipped_path)
+        extracted_path = Utils().extract_zipped_paths(zipped_path)
 
         assert extracted_path != zipped_path
         assert os.path.exists(extracted_path)
@@ -307,13 +296,13 @@ class TestExtractZippedPaths:
 
     def test_invalid_unc_path(self):
         path = r"\\localhost\invalid\location"
-        assert extract_zipped_paths(path) == path
+        assert Utils().extract_zipped_paths(path) == path
 
 
 class TestContentEncodingDetection:
 
     def test_none(self):
-        encodings = get_encodings_from_content('')
+        encodings = Utils().get_encodings_from_content('')
         assert not len(encodings)
 
     @pytest.mark.parametrize(
@@ -328,7 +317,7 @@ class TestContentEncodingDetection:
             '<?xml version="1.0" encoding="UTF-8"?>',
         ))
     def test_pragmas(self, content):
-        encodings = get_encodings_from_content(content)
+        encodings = Utils().get_encodings_from_content(content)
         assert len(encodings) == 1
         assert encodings[0] == 'UTF-8'
 
@@ -338,7 +327,7 @@ class TestContentEncodingDetection:
         <meta charset="HTML5">
         <meta http-equiv="Content-type" content="text/html;charset=HTML4" />
         '''.strip()
-        assert get_encodings_from_content(content) == ['HTML5', 'HTML4', 'XML']
+        assert Utils().get_encodings_from_content(content) == ['HTML5', 'HTML4', 'XML']
 
 
 class TestGuessJSONUTF:
@@ -350,10 +339,10 @@ class TestGuessJSONUTF:
         ))
     def test_encoded(self, encoding):
         data = '{}'.encode(encoding)
-        assert guess_json_utf(data) == encoding
+        assert Utils().guess_json_utf(data) == encoding
 
     def test_bad_utf_like_encoding(self):
-        assert guess_json_utf(b'\x00\x00\x00\x00') is None
+        assert Utils().guess_json_utf(b'\x00\x00\x00\x00') is None
 
     @pytest.mark.parametrize(
         ('encoding', 'expected'), (
@@ -364,7 +353,7 @@ class TestGuessJSONUTF:
         ))
     def test_guess_by_bom(self, encoding, expected):
         data = u'\ufeff{}'.encode(encoding)
-        assert guess_json_utf(data) == expected
+        assert Utils().guess_json_utf(data) == expected
 
 
 USER = PASSWORD = "%!*'();:@&=+$,/?#[] "
@@ -405,7 +394,7 @@ ENCODED_PASSWORD = compat.quote(PASSWORD, '')
         ),
     ))
 def test_get_auth_from_url(url, auth):
-    assert get_auth_from_url(url) == auth
+    assert Utils().get_auth_from_url(url) == auth
 
 
 @pytest.mark.parametrize(
@@ -423,7 +412,7 @@ def test_get_auth_from_url(url, auth):
     ))
 def test_requote_uri_with_unquoted_percents(uri, expected):
     """See: https://github.com/psf/requests/issues/2356"""
-    assert requote_uri(uri) == expected
+    assert Utils().requote_uri(uri) == expected
 
 
 @pytest.mark.parametrize(
@@ -440,7 +429,7 @@ def test_requote_uri_with_unquoted_percents(uri, expected):
         )
     ))
 def test_unquote_unreserved(uri, expected):
-    assert unquote_unreserved(uri) == expected
+    assert Utils().unquote_unreserved(uri) == expected
 
 
 @pytest.mark.parametrize(
@@ -450,7 +439,7 @@ def test_unquote_unreserved(uri, expected):
         (25, '255.255.255.128'),
     ))
 def test_dotted_netmask(mask, expected):
-    assert dotted_netmask(mask) == expected
+    assert Utils().dotted_netmask(mask) == expected
 
 
 http_proxies = {'http': 'http://http.proxy',
@@ -483,7 +472,7 @@ mixed_proxies = {'http': 'http://http.proxy',
     ))
 def test_select_proxies(url, expected, proxies):
     """Make sure we can select per-host proxies correctly."""
-    assert select_proxy(url, proxies) == expected
+    assert Utils().select_proxy(url, proxies) == expected
 
 
 @pytest.mark.parametrize(
@@ -492,7 +481,7 @@ def test_select_proxies(url, expected, proxies):
         ('key_without_value', {'key_without_value': None})
     ))
 def test_parse_dict_header(value, expected):
-    assert parse_dict_header(value) == expected
+    assert Utils().parse_dict_header(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -535,7 +524,7 @@ def test_parse_dict_header(value, expected):
         )
     ))
 def test__parse_content_type_header(value, expected):
-    assert _parse_content_type_header(value) == expected
+    assert Utils()._parse_content_type_header(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -554,7 +543,7 @@ def test__parse_content_type_header(value, expected):
         ),
     ))
 def test_get_encoding_from_headers(value, expected):
-    assert get_encoding_from_headers(value) == expected
+    assert Utils().get_encoding_from_headers(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -569,9 +558,9 @@ def test_get_encoding_from_headers(value, expected):
 def test_iter_slices(value, length):
     if length is None or (length <= 0 and len(value) > 0):
         # Reads all content at once
-        assert len(list(iter_slices(value, length))) == 1
+        assert len(list(Utils().iter_slices(value, length))) == 1
     else:
-        assert len(list(iter_slices(value, 1))) == length
+        assert len(list(Utils().iter_slices(value, 1))) == length
 
 
 @pytest.mark.parametrize(
@@ -601,7 +590,7 @@ def test_iter_slices(value, length):
         ),
     ))
 def test_parse_header_links(value, expected):
-    assert parse_header_links(value) == expected
+    assert Utils().parse_header_links(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -610,7 +599,7 @@ def test_parse_header_links(value, expected):
         ('//example.com/path', 'http://example.com/path'),
     ))
 def test_prepend_scheme_if_needed(value, expected):
-    assert prepend_scheme_if_needed(value, 'http') == expected
+    assert Utils().prepend_scheme_if_needed(value, 'http') == expected
 
 
 @pytest.mark.parametrize(
@@ -620,7 +609,7 @@ def test_prepend_scheme_if_needed(value, expected):
         (u'T', 'T'),
     ))
 def test_to_native_string(value, expected):
-    assert to_native_string(value) == expected
+    assert _Internal_utils().to_native_string(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -633,7 +622,7 @@ def test_to_native_string(value, expected):
         ('scheme:u:p@example.com/path', 'scheme://example.com/path'),
     ))
 def test_urldefragauth(url, expected):
-    assert urldefragauth(url) == expected
+    assert Utils().urldefragauth(url) == expected
 
 
 @pytest.mark.parametrize(
@@ -655,7 +644,7 @@ def test_should_bypass_proxies(url, expected, monkeypatch):
     """
     monkeypatch.setenv('no_proxy', '192.168.0.0/24,127.0.0.1,localhost.localdomain,172.16.1.1, google.com:6000')
     monkeypatch.setenv('NO_PROXY', '192.168.0.0/24,127.0.0.1,localhost.localdomain,172.16.1.1, google.com:6000')
-    assert should_bypass_proxies(url, no_proxy=None) == expected
+    assert Utils().should_bypass_proxies(url, no_proxy=None) == expected
 
 
 @pytest.mark.parametrize(
@@ -673,8 +662,8 @@ def test_should_bypass_proxies_pass_only_hostname(url, expected, mocker):
     """The proxy_bypass function should be called with a hostname or IP without
     a port number or auth credentials.
     """
-    proxy_bypass = mocker.patch('requests.utils.proxy_bypass')
-    should_bypass_proxies(url, no_proxy=None)
+    proxy_bypass = mocker.patch('requests.domain.Utils.proxy_bypass')
+    Utils().should_bypass_proxies(url, no_proxy=None)
     proxy_bypass.assert_called_once_with(expected)
 
 
@@ -689,7 +678,7 @@ def test_add_dict_to_cookiejar(cookiejar):
     """
     cookiedict = {'test': 'cookies',
                   'good': 'cookies'}
-    cj = add_dict_to_cookiejar(cookiejar, cookiedict)
+    cj = Utils().add_dict_to_cookiejar(cookiejar, cookiedict)
     cookies = {cookie.name: cookie.value for cookie in cj}
     assert cookiedict == cookies
 
@@ -702,7 +691,7 @@ def test_add_dict_to_cookiejar(cookiejar):
     )
 )
 def test_unicode_is_ascii(value, expected):
-    assert unicode_is_ascii(value) is expected
+    assert _Internal_utils().unicode_is_ascii(value) is expected
 
 
 @pytest.mark.parametrize(
@@ -723,7 +712,7 @@ def test_should_bypass_proxies_no_proxy(
     """
     no_proxy = '192.168.0.0/24,127.0.0.1,localhost.localdomain,172.16.1.1'
     # Test 'no_proxy' argument
-    assert should_bypass_proxies(url, no_proxy=no_proxy) == expected
+    assert Utils().should_bypass_proxies(url, no_proxy=no_proxy) == expected
 
 
 @pytest.mark.skipif(os.name != 'nt', reason='Test only on Windows')
@@ -778,7 +767,7 @@ def test_should_bypass_proxies_win_registry(url, expected, override,
     monkeypatch.setenv('NO_PROXY', '')
     monkeypatch.setattr(winreg, 'OpenKey', OpenKey)
     monkeypatch.setattr(winreg, 'QueryValueEx', QueryValueEx)
-    assert should_bypass_proxies(url, None) == expected
+    assert Utils().should_bypass_proxies(url, None) == expected
 
 
 @pytest.mark.parametrize(
@@ -791,7 +780,7 @@ def test_should_bypass_proxies_win_registry(url, expected, override,
 def test_set_environ(env_name, value):
     """Tests set_environ will set environ values and will restore the environ."""
     environ_copy = copy.deepcopy(os.environ)
-    with set_environ(env_name, value):
+    with Utils().set_environ(env_name, value):
         assert os.environ.get(env_name) == value
 
     assert os.environ == environ_copy
@@ -801,7 +790,7 @@ def test_set_environ_raises_exception():
     """Tests set_environ will raise exceptions in context when the
     value parameter is None."""
     with pytest.raises(Exception) as exception:
-        with set_environ('test1', None):
+        with Utils().set_environ('test1', None):
             raise Exception('Expected exception')
 
     assert 'Expected exception' in str(exception.value)
