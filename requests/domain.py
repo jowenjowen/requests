@@ -1817,7 +1817,7 @@ class InvalidJSONError(RequestException):
     """A JSON error occurred."""
 
 
-class JSONDecodeError(InvalidJSONError, CompatJSONDecodeError):
+class RequestsJSONDecodeError(InvalidJSONError, CompatJSONDecodeError):
     """Couldn't decode the text into json"""
 
 
@@ -1921,10 +1921,10 @@ class RequestsDependencyWarning(RequestsWarning):
 # *************************** classes in Help section *****************
 
 class Help:  # ./Help/help.py
-    def __init__(self):
+    def __init__(self):  # ./Help/help.py
         pass
 
-    def _implementation(self):
+    def _implementation(self):  # ./Help/help.py
         """Return a dict with the Python implementation and version.
 
         Provide both the name and the version of the Python implementation
@@ -1956,7 +1956,7 @@ class Help:  # ./Help/help.py
 
         return {'name': implementation, 'version': implementation_version}
 
-    def info(self):
+    def info(self):  # ./Help/help.py
         """Generate information for a bug report."""
         try:
             platform_info = {
@@ -1975,8 +1975,8 @@ class Help:  # ./Help/help.py
         chardet_info = {'version': None}
         if XCharSetNormalizer().import_works():
             charset_normalizer_info = {'version': XCharSetNormalizer().version()}
-        if XCharDet().import_works():
-            chardet_info = {'version': XCharDet().version()}
+        if XCharDet('help.py').import_works():
+            chardet_info = {'version': XCharDet('help.py').version()}
 
         pyopenssl_info = {
             'version': None,
@@ -2004,7 +2004,7 @@ class Help:  # ./Help/help.py
             'implementation': implementation_info,
             'system_ssl': system_ssl_info,
             'using_pyopenssl': XPyOpenSsl().import_works(),
-            'using_charset_normalizer': XCharDet().import_works(),
+            'using_charset_normalizer': XCharDet('help.py').import_works(),
             'pyOpenSSL': pyopenssl_info,
             'urllib3': urllib3_info,
             'chardet': chardet_info,
@@ -2759,7 +2759,7 @@ class Response(object):  # ./Models/Response.py
     @property
     def apparent_encoding(self):  # ./Models/Response.py
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
-        return XCharDet().detect(self.content)['encoding']
+        return XCharDet('compat.py').detect(self.content)['encoding']
 
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
         """Iterates over the response data.  When stream=True is set on the
@@ -2936,7 +2936,7 @@ class Response(object):  # ./Models/Response.py
 
         try:
             return complexjson.loads(self.text, **kwargs)
-        except JSONDecodeError as e:
+        except CompatJSONDecodeError as e:
             # Catch JSON-related errors and raise as requests.JSONDecodeError
             # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
             if XCompat().is_py2: # e is a ValueError
@@ -2999,6 +2999,18 @@ class Response(object):  # ./Models/Response.py
         release_conn = getattr(self.raw, 'release_conn', None)
         if release_conn is not None:
             release_conn()
+
+# *************************** classes in Packages section *****************
+
+class Packages:  # ./Packages/Packages.py
+    def urllib3(self):
+        return XUrllib3()
+
+    def idna(self):
+        return XIdna()
+
+    def chardet(self):
+        return XCharDet('packages.py')
 
 
 # *************************** classes in Sessions section *****************

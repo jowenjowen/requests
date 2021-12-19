@@ -34,6 +34,9 @@ import calendar
 from .compat import is_py3, quote
 from datetime import timedelta
 
+#imports for models
+from .compat import chardet as chardet_compat
+
 #imports for utils
 import socket
 from .compat import Callable, integer_types, proxy_bypass, getproxies, unquote
@@ -42,15 +45,24 @@ import zipfile
 import tempfile
 import struct
 
+#imports needed for packages
+try:
+    import chardet as chardet_packages
+except ImportError:
+    import charset_normalizer as chardet_packages
+    import warnings
+
+    warnings.filterwarnings('ignore', 'Trying to detect', module='charset_normalizer')
+
 try:
     import charset_normalizer
 except ImportError:
     charset_normalizer = None
 
 try:
-    import chardet
+    import chardet as chardet_help
 except ImportError:
-    chardet = None
+    chardet_help = None
 
 try:
     from urllib3.contrib import pyopenssl
@@ -314,14 +326,26 @@ class PyPyVersionInfo:
 
 
 class XCharDet:
+    def __init__(self, original_source_file_name):
+        if original_source_file_name == 'help.py':
+            self.chardet = chardet_help
+        elif original_source_file_name == 'compat.py':
+            self.chardet = chardet_compat
+        elif original_source_file_name == 'packages.py':
+            self.chardet = chardet_packages
+
+
     def import_works(self):
-        return chardet is not None
+        return self.chardet is not None
 
     def version(self):
-        return chardet.__version__
+        return self.chardet.__version__
 
     def detect(self, x):
-        return chardet.detect(x)
+        return self.chardet.detect(x)
+
+    def name(self):
+        return self.chardet.__name__
 
 
 class XCharSetNormalizer:
@@ -402,6 +426,9 @@ class XSys:
 
     def version_info(self):
         return sys.version_info
+
+    def modules(self):
+        return sys.modules
 
 
 class XUrllib3:

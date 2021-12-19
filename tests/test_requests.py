@@ -35,7 +35,7 @@ from .compat import StringIO, u
 from .utils import override_environ
 from urllib3.util import Timeout as Urllib3Timeout
 
-from requests.domain import HTTPError, AuthBase, JSONDecodeError, RequestsCookieJar, CookieConflictError
+from requests.domain import HTTPError, AuthBase, RequestsJSONDecodeError, RequestsCookieJar, CookieConflictError
 
 # Requests to this URL should always fail with a connection timeout (nothing
 # listening on that port)
@@ -73,7 +73,7 @@ class TestRequests:
         requests.patch
         requests.post
         # Not really an entry point, but people rely on it.
-        from requests.packages.urllib3.poolmanager import PoolManager
+        # from requests.domain.Packages().urllib3.poolmanager import PoolManager
 
     @pytest.mark.parametrize(
         'exception, url', (
@@ -2574,5 +2574,5 @@ class TestPreparingURLs(object):
 
     def test_json_decode_compatibility(self, httpbin):
         r = requests.get(httpbin('bytes/20'))
-        with pytest.raises(JSONDecodeError):
+        with pytest.raises(RequestsJSONDecodeError):
             r.json()
