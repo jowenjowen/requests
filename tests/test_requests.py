@@ -19,7 +19,7 @@ from requests.domain import HTTPDigestAuth, Auth
 from requests.compat import (
     Morsel, cookielib, getproxies, str, urlparse,
     builtin_str)
-from requests.domain import Cookies2, Sessions
+from requests.domain import Cookies, Sessions
 from requests.domain import (
     ConnectionError, ConnectTimeout, InvalidSchema, InvalidURL,
     MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
@@ -376,7 +376,7 @@ class TestRequests:
 
     def test_generic_cookiejar_works(self, httpbin):
         cj = cookielib.CookieJar()
-        Cookies2().cookiejar_from_dict({'foo': 'bar'}, cj)
+        Cookies().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
         s.cookies = cj
         r = s.get(httpbin('cookies'))
@@ -387,7 +387,7 @@ class TestRequests:
 
     def test_param_cookiejar_works(self, httpbin):
         cj = cookielib.CookieJar()
-        Cookies2().cookiejar_from_dict({'foo': 'bar'}, cj)
+        Cookies().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
         r = s.get(httpbin('cookies'), cookies=cj)
         # Make sure the cookie was sent
@@ -399,9 +399,9 @@ class TestRequests:
 
         See GH #3579
         """
-        cj = Cookies2().cookiejar_from_dict({'foo': 'bar'}, cookielib.CookieJar())
+        cj = Cookies().cookiejar_from_dict({'foo': 'bar'}, cookielib.CookieJar())
         s = requests.domain.Session()
-        s.cookies = Cookies2().cookiejar_from_dict({'cookie': 'tasty'})
+        s.cookies = Cookies().cookiejar_from_dict({'cookie': 'tasty'})
 
         # Prepare request without using Session
         req = requests.Request('GET', httpbin('headers'), cookies=cj)
@@ -2135,7 +2135,7 @@ class TestMorselToCookieExpires:
 
         morsel = Morsel()
         morsel['expires'] = 'Thu, 01-Jan-1970 00:00:01 GMT'
-        cookie = Cookies2().morsel_to_cookie(morsel)
+        cookie = Cookies().morsel_to_cookie(morsel)
         assert cookie.expires == 1
 
     @pytest.mark.parametrize(
@@ -2148,14 +2148,14 @@ class TestMorselToCookieExpires:
         morsel = Morsel()
         morsel['expires'] = value
         with pytest.raises(exception):
-            Cookies2().morsel_to_cookie(morsel)
+            Cookies().morsel_to_cookie(morsel)
 
     def test_expires_none(self):
         """Test case where expires is None."""
 
         morsel = Morsel()
         morsel['expires'] = None
-        cookie = Cookies2().morsel_to_cookie(morsel)
+        cookie = Cookies().morsel_to_cookie(morsel)
         assert cookie.expires is None
 
 
@@ -2168,7 +2168,7 @@ class TestMorselToCookieMaxAge:
 
         morsel = Morsel()
         morsel['max-age'] = 60
-        cookie = Cookies2().morsel_to_cookie(morsel)
+        cookie = Cookies().morsel_to_cookie(morsel)
         assert isinstance(cookie.expires, int)
 
     def test_max_age_invalid_str(self):
@@ -2177,7 +2177,7 @@ class TestMorselToCookieMaxAge:
         morsel = Morsel()
         morsel['max-age'] = 'woops'
         with pytest.raises(TypeError):
-            Cookies2().morsel_to_cookie(morsel)
+            Cookies().morsel_to_cookie(morsel)
 
 
 class TestTimeout:

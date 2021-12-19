@@ -22,7 +22,7 @@ from .compat import JSONDecodeError as CompatJSONDecodeError
 # imports needed for Certs
 from certifi import where as certifi_where
 
-# imports needed for Cookies2
+# imports needed for Cookies
 from .x import XCopy, XCalendar
 from .x import XMorsel
 
@@ -46,6 +46,7 @@ import contextlib
 
 
 # *************************** classes in InternalUtilities section *****************
+"""Section containing bug report helper(s)."""
 class _Internal_utils:  # ./InternalUtils/internal_utils.py
     """
     requests._internal_utils
@@ -85,7 +86,12 @@ class _Internal_utils:  # ./InternalUtils/internal_utils.py
             return False
 
 # *************************** classes in Structures section *****************
+"""
+requests.structures
+~~~~~~~~~~~~~~~~~~~
 
+Data structures that power Requests.
+"""
 class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.py
 
     """A case-insensitive ``dict``-like object.
@@ -180,7 +186,6 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
 
 
 # *************************** classes in StatusCodes section *****************
-
 class StatusCodes:  # ./StatusCodes/status_codes.py
 
     """
@@ -1246,7 +1251,6 @@ class HTTPDigestAuth(AuthBase):
 
 
 # *************************** classes in Certs section *****************
-
 class Certs:  # ./Certs/Certs.py
     """
     requests.certs
@@ -1265,6 +1269,14 @@ class Certs:  # ./Certs/Certs.py
 
 
 # *************************** classes in Cookies section *****************
+"""
+requests.cookies
+~~~~~~~~~~~~~~~~
+
+Compatibility code to be able to use `cookielib.CookieJar` with requests.
+
+requests.utils imports from here, so be careful with imports.
+"""
 
 class MockRequest(object):
     """Wraps a `requests.Request` to mimic a `urllib2.Request`.
@@ -1404,6 +1416,127 @@ class Cookies:  # ./Cookies/Cookies.py
         for domain, path, name in clearables:
             cookiejar.clear(domain, path, name)
 
+    def _copy_cookie_jar(self, jar):
+        if jar is None:
+            return None
+
+        if hasattr(jar, 'copy'):
+            # We're dealing with an instance of RequestsCookieJar
+            return jar.copy()
+        # We're dealing with a generic CookieJar instance
+        new_jar = XCopy().copy(jar)
+        new_jar.clear()
+        for cookie in jar:
+            new_jar.set_cookie(XCopy().copy(cookie))
+        return new_jar
+
+    def create_cookie(self, name, value, **kwargs):
+        """Make a cookie from underspecified parameters.
+
+        By default, the pair of `name` and `value` will be set for the domain ''
+        and sent on every request (this is sometimes called a "supercookie").
+        """
+        result = {
+            'version': 0,
+            'name': name,
+            'value': value,
+            'port': None,
+            'domain': '',
+            'path': '/',
+            'secure': False,
+            'expires': None,
+            'discard': True,
+            'comment': None,
+            'comment_url': None,
+            'rest': {'HttpOnly': None},
+            'rfc2109': False,
+        }
+
+        badargs = set(kwargs) - set(result)
+        if badargs:
+            err = 'create_cookie() got unexpected keyword arguments: %s'
+            raise TypeError(err % list(badargs))
+
+        result.update(kwargs)
+        result['port_specified'] = bool(result['port'])
+        result['domain_specified'] = bool(result['domain'])
+        result['domain_initial_dot'] = result['domain'].startswith('.')
+        result['path_specified'] = bool(result['path'])
+
+        return XCompat().cookielib().Cookie(**result)
+
+    def morsel_to_cookie(self, morsel):
+        """Convert a Morsel object into a Cookie containing the one k/v pair."""
+
+        expires = None
+        if morsel['max-age']:
+            try:
+                expires = int(XTime().time() + int(morsel['max-age']))
+            except ValueError:
+                raise TypeError('max-age: %s must be integer' % morsel['max-age'])
+        elif morsel['expires']:
+            time_template = '%a, %d-%b-%Y %H:%M:%S GMT'
+            expires = XCalendar().timegm(
+                XTime().strptime(morsel['expires'], time_template)
+            )
+        return self.create_cookie(
+            comment=morsel['comment'],
+            comment_url=bool(morsel['comment']),
+            discard=False,
+            domain=morsel['domain'],
+            expires=expires,
+            name=morsel.key,
+            path=morsel['path'],
+            port=None,
+            rest={'HttpOnly': morsel['httponly']},
+            rfc2109=False,
+            secure=bool(morsel['secure']),
+            value=morsel.value,
+            version=morsel['version'] or 0,
+        )
+
+    def cookiejar_from_dict(self, cookie_dict, cookiejar=None, overwrite=True):
+        """Returns a CookieJar from a key/value dictionary.
+
+        :param cookie_dict: Dict of key/values to insert into CookieJar.
+        :param cookiejar: (optional) A cookiejar to add the cookies to.
+        :param overwrite: (optional) If False, will not replace cookies
+            already in the jar with new ones.
+        :rtype: CookieJar
+        """
+        if cookiejar is None:
+            cookiejar = RequestsCookieJar()
+
+        if cookie_dict is not None:
+            names_from_jar = [cookie.name for cookie in cookiejar]
+            for name in cookie_dict:
+                if overwrite or (name not in names_from_jar):
+                    cookiejar.set_cookie(self.create_cookie(name, cookie_dict[name]))
+
+        return cookiejar
+
+    def merge_cookies(self, cookiejar, cookies):
+        """Add cookies to cookiejar and returns a merged CookieJar.
+
+        :param cookiejar: CookieJar object to add the cookies to.
+        :param cookies: Dictionary or CookieJar object to be added.
+        :rtype: CookieJar
+        """
+        if not isinstance(cookiejar, XCompat().cookielib().CookieJar):
+            raise ValueError('You can only merge into CookieJar')
+
+        if isinstance(cookies, dict):
+            cookiejar = self.cookiejar_from_dict(
+                cookies, cookiejar=cookiejar, overwrite=False)
+        elif isinstance(cookies, XCompat().cookielib().CookieJar):
+            try:
+                cookiejar.update(cookies)
+            except AttributeError:
+                for cookie_in_jar in cookies:
+                    cookiejar.set_cookie(cookie_in_jar)
+
+        return cookiejar
+
 
 class CookieConflictError(RuntimeError):
     """There are two cookies that meet the criteria specified in the cookie jar.
@@ -1454,7 +1587,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):
         if isinstance(value, XMorsel):
             c = self.morsel_to_cookie(value)
         else:
-            c = Cookies2().create_cookie(name, value, **kwargs)
+            c = Cookies().create_cookie(name, value, **kwargs)
         self.set_cookie(c)
         return c
 
@@ -1664,129 +1797,6 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):
     def get_policy(self):
         """Return the CookiePolicy instance used."""
         return self._policy
-
-
-class Cookies2:  # ./Cookies/Cookies2.py
-    def _copy_cookie_jar(self, jar):
-        if jar is None:
-            return None
-
-        if hasattr(jar, 'copy'):
-            # We're dealing with an instance of RequestsCookieJar
-            return jar.copy()
-        # We're dealing with a generic CookieJar instance
-        new_jar = XCopy().copy(jar)
-        new_jar.clear()
-        for cookie in jar:
-            new_jar.set_cookie(XCopy().copy(cookie))
-        return new_jar
-
-    def create_cookie(self, name, value, **kwargs):
-        """Make a cookie from underspecified parameters.
-
-        By default, the pair of `name` and `value` will be set for the domain ''
-        and sent on every request (this is sometimes called a "supercookie").
-        """
-        result = {
-            'version': 0,
-            'name': name,
-            'value': value,
-            'port': None,
-            'domain': '',
-            'path': '/',
-            'secure': False,
-            'expires': None,
-            'discard': True,
-            'comment': None,
-            'comment_url': None,
-            'rest': {'HttpOnly': None},
-            'rfc2109': False,
-        }
-
-        badargs = set(kwargs) - set(result)
-        if badargs:
-            err = 'create_cookie() got unexpected keyword arguments: %s'
-            raise TypeError(err % list(badargs))
-
-        result.update(kwargs)
-        result['port_specified'] = bool(result['port'])
-        result['domain_specified'] = bool(result['domain'])
-        result['domain_initial_dot'] = result['domain'].startswith('.')
-        result['path_specified'] = bool(result['path'])
-
-        return XCompat().cookielib().Cookie(**result)
-
-    def morsel_to_cookie(self, morsel):
-        """Convert a Morsel object into a Cookie containing the one k/v pair."""
-
-        expires = None
-        if morsel['max-age']:
-            try:
-                expires = int(XTime().time() + int(morsel['max-age']))
-            except ValueError:
-                raise TypeError('max-age: %s must be integer' % morsel['max-age'])
-        elif morsel['expires']:
-            time_template = '%a, %d-%b-%Y %H:%M:%S GMT'
-            expires = XCalendar().timegm(
-                XTime().strptime(morsel['expires'], time_template)
-            )
-        return self.create_cookie(
-            comment=morsel['comment'],
-            comment_url=bool(morsel['comment']),
-            discard=False,
-            domain=morsel['domain'],
-            expires=expires,
-            name=morsel.key,
-            path=morsel['path'],
-            port=None,
-            rest={'HttpOnly': morsel['httponly']},
-            rfc2109=False,
-            secure=bool(morsel['secure']),
-            value=morsel.value,
-            version=morsel['version'] or 0,
-        )
-
-    def cookiejar_from_dict(self, cookie_dict, cookiejar=None, overwrite=True):
-        """Returns a CookieJar from a key/value dictionary.
-
-        :param cookie_dict: Dict of key/values to insert into CookieJar.
-        :param cookiejar: (optional) A cookiejar to add the cookies to.
-        :param overwrite: (optional) If False, will not replace cookies
-            already in the jar with new ones.
-        :rtype: CookieJar
-        """
-        if cookiejar is None:
-            cookiejar = RequestsCookieJar()
-
-        if cookie_dict is not None:
-            names_from_jar = [cookie.name for cookie in cookiejar]
-            for name in cookie_dict:
-                if overwrite or (name not in names_from_jar):
-                    cookiejar.set_cookie(self.create_cookie(name, cookie_dict[name]))
-
-        return cookiejar
-
-    def merge_cookies(self, cookiejar, cookies):
-        """Add cookies to cookiejar and returns a merged CookieJar.
-
-        :param cookiejar: CookieJar object to add the cookies to.
-        :param cookies: Dictionary or CookieJar object to be added.
-        :rtype: CookieJar
-        """
-        if not isinstance(cookiejar, XCompat().cookielib().CookieJar):
-            raise ValueError('You can only merge into CookieJar')
-
-        if isinstance(cookies, dict):
-            cookiejar = self.cookiejar_from_dict(
-                cookies, cookiejar=cookiejar, overwrite=False)
-        elif isinstance(cookies, XCompat().cookielib().CookieJar):
-            try:
-                cookiejar.update(cookies)
-            except AttributeError:
-                for cookie_in_jar in cookies:
-                    cookiejar.set_cookie(cookie_in_jar)
-
-        return cookiejar
 
 
 # *************************** classes in Exceptions section *****************
@@ -2020,6 +2030,8 @@ class Help:  # ./Help/help.py
 
 class Hooks:  # ./Hooks/hooks.py
     """
+    requests.hooks
+    ~~~~~~~~~~~~~~
     This class provides the capabilities for the Requests hooks system.
 
     Available hooks:
@@ -2362,7 +2374,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         p.method = self.method
         p.url = self.url
         p.headers = self.headers.copy() if self.headers is not None else None
-        p._cookies = Cookies2()._copy_cookie_jar(self._cookies)
+        p._cookies = Cookies()._copy_cookie_jar(self._cookies)
         p.body = self.body
         p.hooks = self.hooks
         p._body_position = self._body_position
@@ -2602,7 +2614,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         if isinstance(cookies, XCompat().cookielib().CookieJar):
             self._cookies = cookies
         else:
-            self._cookies = Cookies2().cookiejar_from_dict(cookies)
+            self._cookies = Cookies().cookiejar_from_dict(cookies)
 
         cookie_header = Cookies().get_cookie_header(self._cookies, self)
         if cookie_header is not None:
@@ -2661,7 +2673,7 @@ class Response(object):  # ./Models/Response.py
         self.reason = None
 
         #: A CookieJar of Cookies the server sent back.
-        self.cookies = Cookies2().cookiejar_from_dict({})
+        self.cookies = Cookies().cookiejar_from_dict({})
 
         #: The amount of time elapsed between sending the request
         #: and the arrival of the response (as a timedelta).
@@ -3001,7 +3013,6 @@ class Response(object):  # ./Models/Response.py
             release_conn()
 
 # *************************** classes in Packages section *****************
-
 class Packages:  # ./Packages/Packages.py
     def urllib3(self):
         return XUrllib3()
@@ -3014,7 +3025,6 @@ class Packages:  # ./Packages/Packages.py
 
 
 # *************************** classes in Sessions section *****************
-
 class Sessions:  # ./Sessions/Sessions.py
     """
     requests.sessions
@@ -3201,7 +3211,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # in the new request. Because we've mutated our copied prepared
             # request, use the old one that we haven't yet touched.
             Cookies().extract_cookies_to_jar(prepared_request._cookies, req, resp.raw)
-            Cookies2().merge_cookies(prepared_request._cookies, self.cookies)
+            Cookies().merge_cookies(prepared_request._cookies, self.cookies)
             prepared_request.prepare_cookies(prepared_request._cookies)
 
             # Rebuild auth and proxy information.
@@ -3405,7 +3415,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: session. By default it is a
         #: :class:`RequestsCookieJar <requests.cookies.RequestsCookieJar>`, but
         #: may be any other ``cookielib.CookieJar`` compatible object.
-        self.cookies = Cookies2().cookiejar_from_dict({})
+        self.cookies = Cookies().cookiejar_from_dict({})
 
         # Default connection adapters.
         self.adapters = XOrderedDict()
@@ -3432,11 +3442,11 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # Bootstrap CookieJar.
         if not isinstance(cookies, XCompat().cookielib().CookieJar):
-            cookies = Cookies2().cookiejar_from_dict(cookies)
+            cookies = Cookies().cookiejar_from_dict(cookies)
 
         # Merge with session cookies
-        merged_cookies = Cookies2().merge_cookies(
-            Cookies2().merge_cookies(RequestsCookieJar(), self.cookies), cookies)
+        merged_cookies = Cookies().merge_cookies(
+            Cookies().merge_cookies(RequestsCookieJar(), self.cookies), cookies)
 
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth
@@ -3758,8 +3768,14 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
 
 # *************************** classes in Utils section *****************
-
 class Utils:  # ./Utils/utils.py
+    """
+    requests.utils
+    ~~~~~~~~~~~~~~
+
+    This class provides utility functions that are used within Requests
+    that are also useful for external consumption.
+    """
     _NETRC_FILES = ('.netrc', '_netrc')
 
     _DEFAULT_CA_BUNDLE_PATH = Certs().where()
@@ -4199,7 +4215,7 @@ class Utils:  # ./Utils/utils.py
         :rtype: CookieJar
         """
 
-        return Cookies2().cookiejar_from_dict(cookie_dict, cj)
+        return Cookies().cookiejar_from_dict(cookie_dict, cj)
 
     def get_encodings_from_content(self, content):  # ./Utils/utils.py
         """Returns encodings from given content string.
@@ -4713,3 +4729,14 @@ class Utils:  # ./Utils/utils.py
                                             "body for redirect.")
         else:
             raise UnrewindableBodyError("Unable to rewind request body for redirect.")
+
+
+# *************************** Main section for calling domain.py directly *****************
+def main():
+    """Pretty-print the bug information as JSON."""
+    print(XJson().dumps(Help().info(), sort_keys=True, indent=2))
+    print(Certs().where())
+
+
+if __name__ == '__main__':
+    main()
