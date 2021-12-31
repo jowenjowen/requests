@@ -8,38 +8,39 @@ import sys
 import idna
 import urllib3
 from collections import OrderedDict as XOrderedDict
-from .compat import Mapping as XMapping
-from .compat import MutableMapping as XMutableMapping
-from .compat import basestring
+from .compat import CompatMapping as XMapping
+from .compat import CompatMutableMapping as XMutableMapping
+from .compat import conpat_basestring
 import warnings
 from base64 import b64encode
 
 # imports for XWarnings, XBase64, XCompat, XThreading, XHashLib
-from .compat import is_py2, builtin_str, str, bytes
+from .compat import is_py2, compat_builtin_str, compat_str, compat_bytes
 import threading
 import hashlib
 
-from .compat import urlparse, urljoin, urlunparse, urlsplit, urlencode
+from .compat import compat_urlparse, compat_urljoin, compat_urlunparse, compat_urlsplit, compat_urlencode
 import time
 import os
 import re
 
 #imports for cookies
-from .compat import cookielib
-from .compat import Morsel as XMorsel
+from .compat import compat_cookielib
+from .compat import CompatMorsel as XMorsel
 import copy
 import calendar
 
 #imports for sessions
-from .compat import is_py3, quote
+from .compat import is_py3, compat_quote
 from datetime import timedelta
 
 #imports for models
-from .compat import chardet as chardet_compat
+from .compat import compat_chardet
 
 #imports for utils
 import socket
-from .compat import Callable, integer_types, proxy_bypass, getproxies, unquote
+from .compat import CompatCallable as XCallable
+from .compat import integer_types, compat_proxy_bypass, compat_getproxies, compat_unquote
 import codecs
 import zipfile
 import tempfile
@@ -74,6 +75,8 @@ else:
     import OpenSSL
     import cryptography
 
+#imports for exceptions
+from .compat import CompatJSONDecodeError as XJSONDecodeError
 
 class XStruct:
     def unpack(self, fmt, string):
@@ -116,6 +119,9 @@ class XSocket:
     def inet_ntoa(self, a):
         return socket.inet_ntoa(a)
 
+    def socket(self):
+        return socket.socket()
+
 
 class XCopy:
     def copy(self, x):
@@ -139,6 +145,9 @@ class XRe:
 
     def I(self):
         return re.I
+
+    def findall(self, pattern, string, flags=0):
+        return re.findall(pattern, string, flags)
 
 
 class XOs:
@@ -166,6 +175,9 @@ class XOs:
     def fdopen(self, fd, *args, **kwargs):
         return os.fdopen(fd, *args, **kwargs)
 
+    def name(self):
+        return os.name
+
 
 class XDateTime:
     def timedelta(self, *args, **kwargs):
@@ -173,14 +185,33 @@ class XDateTime:
 
 
 class XUrllib3:
+    def version(self):
+        return urllib3.__version__
+
+    def poolmanager(self):
+        return urllib3.poolmanager
+
+    def response(self):
+        return urllib3.response
+
+    def util(self):
+        return urllib3.util
+
+    def exceptions(self):
+        return urllib3.exceptions
+
+    def SOCKSProxyManager(self, *args, **kwargs):
+        try:
+            from urllib3.contrib.socks import SOCKSProxyManager
+            return SOCKSProxyManager(*args, **kwargs)
+        except ImportError:
+            return None
+
     def fields(self):
         return urllib3.fields
 
     def filepost(self):
         return urllib3.filepost
-
-    def exceptions(self):
-        return urllib3.exceptions
 
 
 class XTime:
@@ -232,73 +263,76 @@ class XCompat:
         return is_py2
 
     def is_builtin_str_instance(self,string):
-        return isinstance(string, builtin_str)
+        return isinstance(string, compat_builtin_str)
 
     def urlparse(self, url, scheme='', allow_fragments=True):
-        return urlparse(url, scheme, allow_fragments)
+        return compat_urlparse(url, scheme, allow_fragments)
 
     def urlsplit(self, url, scheme='', allow_fragments=True):
-        return urlsplit(url, scheme, allow_fragments)
+        return compat_urlsplit(url, scheme, allow_fragments)
 
     def urljoin(self, base, url, allow_fragments=True):
-        return urljoin(base, url, allow_fragments)
+        return compat_urljoin(base, url, allow_fragments)
 
     def urlencode(self, query, doseq=0):
-        return urlencode(query, doseq)
+        return compat_urlencode(query, doseq)
 
     def urlunparse(self, a):
-        return urlunparse(a)
+        return compat_urlunparse(a)
 
     def cookielib(self):
-        return cookielib
+        return compat_cookielib
 
     def is_py3(self):
         return is_py3
 
     def quote(self, s, safe='/'):
-        return quote(s, safe)
+        return compat_quote(s, safe)
 
     def unquote(self, s):
-        return unquote(s)
+        return compat_unquote(s)
 
     def integer_types(self):
         return integer_types
 
     def is_Callable_instance(self, value):
-        return isinstance(value, Callable)
+        return isinstance(value, XCallable)
 
     def str_class(self):
-        return str
+        return compat_str
 
     def is_str_instance(self,string):
-        return isinstance(string, str)
+        return isinstance(string, compat_str)
 
     def bytes_class(self):
-        return bytes
+        return compat_bytes
 
     def is_bytes_instance(self,string):
-        return isinstance(string, bytes)
+        return isinstance(string, compat_bytes)
 
     def builtin_str_class(self):
-        return bytes
+        return compat_builtin_str
 
     def builtin_str(self, x):
-        return builtin_str(x)
+        return compat_builtin_str(x)
 
     def basestring_class(self):
-        return basestring
+        return conpat_basestring
 
     def is_basestring_instance(self, string):
-        return isinstance(string, basestring)
+        return isinstance(string, conpat_basestring)
 
     def str(self, *args, **kwargs):
-        return str(*args, **kwargs)
+        return compat_str(*args, **kwargs)
 
     def proxy_bypass(self, a):
-        return proxy_bypass(a)
+        return compat_proxy_bypass(a)
 
     def getproxies(self):
-        return getproxies()
+        return compat_getproxies()
+
+    def chardet(self):
+        return compat_chardet
 
 
 class XBase64:
@@ -330,7 +364,7 @@ class XCharDet:
         if original_source_file_name == 'help.py':
             self.chardet = chardet_help
         elif original_source_file_name == 'compat.py':
-            self.chardet = chardet_compat
+            self.chardet = compat_chardet
         elif original_source_file_name == 'packages.py':
             self.chardet = chardet_packages
 
@@ -429,36 +463,6 @@ class XSys:
 
     def modules(self):
         return sys.modules
-
-
-class XUrllib3:
-    def version(self):
-        return urllib3.__version__
-
-    def poolmanager(self):
-        return urllib3.poolmanager
-
-    def response(self):
-        return urllib3.response
-
-    def util(self):
-        return urllib3.util
-
-    def exceptions(self):
-        return urllib3.exceptions
-
-    def SOCKSProxyManager(self, *args, **kwargs):
-        try:
-            from urllib3.contrib.socks import SOCKSProxyManager
-            return SOCKSProxyManager(*args, **kwargs)
-        except ImportError:
-            return None
-
-    def fields(self):
-        return urllib3.fields
-
-    def filepost(self):
-        return urllib3.filepost
 
 
 class XTempFile:

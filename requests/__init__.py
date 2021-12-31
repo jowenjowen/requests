@@ -42,7 +42,7 @@ is at <https://requests.readthedocs.io>.
 
 import urllib3
 import warnings
-from .domain import RequestsDependencyWarning
+from .exceptions import RequestsDependencyWarning
 
 try:
     from charset_normalizer import __version__ as charset_normalizer_version
@@ -130,15 +130,16 @@ from .__version__ import __title__, __description__, __url__, __version__
 from .__version__ import __build__, __author__, __author_email__, __license__
 from .__version__ import __copyright__, __cake__
 
-from .domain import Packages
-Packages()
-from .domain import Request, Response, PreparedRequest
+from . import utils
+from . import packages
+from .models import Request, Response, PreparedRequest
 from .api import request, get, head, post, patch, put, delete, options
-from .domain import Session, Sessions
-from .domain import (
+from .sessions import session, Session
+from .status_codes import codes
+from .exceptions import (
     RequestException, Timeout, URLRequired,
     TooManyRedirects, HTTPError, ConnectionError,
-    FileModeWarning, ConnectTimeout, ReadTimeout, RequestsJSONDecodeError
+    FileModeWarning, ConnectTimeout, ReadTimeout, JSONDecodeError
 )
 
 # Set default logging handler to avoid "No handler found" warnings.

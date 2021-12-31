@@ -195,7 +195,7 @@ def test_use_proxy_from_environment(httpbin, var, scheme):
         kwargs = {var: proxy_url}
         with override_environ(**kwargs):
             # fake proxy's lack of response will cause a ConnectionError
-            with pytest.raises(requests.domain.ConnectionError):
+            with pytest.raises(requests.exceptions.ConnectionError):
                 requests.get(url)
 
         # the fake proxy received a request

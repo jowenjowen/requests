@@ -15,27 +15,44 @@ import io
 import requests
 import pytest
 from requests.domain import HTTPAdapter
-from requests.domain import HTTPDigestAuth, Auth
-from requests.compat import (
-    Morsel, cookielib, getproxies, str, urlparse,
-    builtin_str)
-from requests.domain import Cookies, Sessions
-from requests.domain import (
-    ConnectionError, ConnectTimeout, InvalidSchema, InvalidURL,
-    MissingSchema, ReadTimeout, Timeout, RetryError, TooManyRedirects,
-    ProxyError, InvalidHeader, UnrewindableBodyError, SSLError, InvalidProxyURL, InvalidJSONError)
-from requests.domain import PreparedRequest
+from requests.domain import HTTPDigestAuth
+from requests.domain import Auth
+from requests.domain import XMorsel
+from requests.domain import XCompat
+
+from requests.domain import Cookies
+from requests.domain import Sessions
+from requests.exceptions import ConnectionError
+from requests.exceptions import ConnectTimeout
+from requests.exceptions import InvalidSchema
+from requests.exceptions import InvalidURL
+from requests.exceptions import MissingSchema
+from requests.exceptions import ReadTimeout
+from requests.exceptions import Timeout
+from requests.exceptions import RetryError
+from requests.exceptions import TooManyRedirects
+from requests.exceptions import ProxyError
+from requests.exceptions import InvalidHeader
+from requests.exceptions import UnrewindableBodyError
+from requests.exceptions import SSLError
+from requests.exceptions import InvalidProxyURL
+from requests.exceptions import InvalidJSONError
+from requests.domain import DPreparedRequest
 from requests.domain import CaseInsensitiveDict
 from requests.domain import SessionRedirectMixin
 from requests.x import XCompat
 from requests.domain import Hooks, Utils
-from requests.compat import MutableMapping
+from requests.domain import XMutableMapping
 
-from .compat import StringIO, u
+from .compat import CompatStringIO, u
 from .utils import override_environ
 from urllib3.util import Timeout as Urllib3Timeout
 
-from requests.domain import HTTPError, AuthBase, RequestsJSONDecodeError, RequestsCookieJar, CookieConflictError
+from requests.exceptions import HTTPError
+from requests.domain import AuthBase
+from requests.exceptions import JSONDecodeError
+from requests.domain import RequestsCookieJar
+from requests.domain import CookieConflictError
 
 # Requests to this URL should always fail with a connection timeout (nothing
 # listening on that port)
@@ -135,10 +152,10 @@ class TestRequests:
 
     def test_params_original_order_is_preserved_by_default(self):
         param_ordered_dict = collections.OrderedDict((('z', 1), ('a', 1), ('k', 1), ('d', 1)))
-        session = requests.domain.Session()
+        session = requests.Session()
         request = requests.Request('GET', 'http://example.com/', params=param_ordered_dict)
         prep = session.prepare_request(request)
-        assert prep.url == 'http://example.com/?z=1&a=1&k=1&d=1'
+        assert prep.url() == 'http://example.com/?z=1&a=1&k=1&d=1'
 
     def test_params_bytes_are_encoded(self):
         request = requests.Request('GET', 'http://example.com',
@@ -158,8 +175,8 @@ class TestRequests:
     @pytest.mark.parametrize('scheme', ('http://', 'HTTP://', 'hTTp://', 'HttP://'))
     def test_mixed_case_scheme_acceptable(self, httpbin, scheme):
         s = requests.domain.Session()
-        s.proxies = getproxies()
-        parts = urlparse(httpbin('get'))
+        s.proxies = XCompat().getproxies()
+        parts = XCompat().urlparse(httpbin('get'))
         url = scheme + parts.netloc + parts.path
         r = requests.Request('GET', url)
         r = s.send(r.prepare())
@@ -168,7 +185,7 @@ class TestRequests:
     def test_HTTP_200_OK_GET_ALTERNATIVE(self, httpbin):
         r = requests.Request('GET', httpbin('get'))
         s = requests.domain.Session()
-        s.proxies = getproxies()
+        s.proxies = XCompat().getproxies()
 
         r = s.send(r.prepare())
 
@@ -375,7 +392,7 @@ class TestRequests:
         assert not s.cookies
 
     def test_generic_cookiejar_works(self, httpbin):
-        cj = cookielib.CookieJar()
+        cj = XCompat().cookielib().CookieJar()
         Cookies().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
         s.cookies = cj
@@ -386,7 +403,7 @@ class TestRequests:
         assert s.cookies is cj
 
     def test_param_cookiejar_works(self, httpbin):
-        cj = cookielib.CookieJar()
+        cj = XCompat().cookielib().CookieJar()
         Cookies().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
         r = s.get(httpbin('cookies'), cookies=cj)
@@ -415,8 +432,8 @@ class TestRequests:
         resp = next(redirects)
 
         # Verify CookieJar isn't being converted to RequestsCookieJar
-        assert isinstance(prep_req._cookies, cookielib.CookieJar)
-        assert isinstance(resp.request._cookies, cookielib.CookieJar)
+        assert isinstance(prep_req._cookies, XCompat().cookielib().CookieJar)
+        assert isinstance(resp.request._cookies, XCompat().cookielib().CookieJar)
         assert not isinstance(resp.request._cookies, RequestsCookieJar)
 
         cookies = {}
@@ -1240,7 +1257,7 @@ class TestRequests:
 
     def test_response_is_iterable(self):
         r = requests.Response()
-        io = StringIO.StringIO('abc')
+        io = CompatStringIO.StringIO('abc')
         read_ = io.read
 
         def read_mock(amt, decode_content=None):
@@ -1901,7 +1918,7 @@ class TestRequests:
         Should work when `release_conn` attr doesn't exist on `response.raw`.
         """
         resp = requests.Response()
-        resp.raw = StringIO.StringIO('test')
+        resp.raw = CompatStringIO.StringIO('test')
         assert not resp.raw.closed
         resp.close()
         assert resp.raw.closed
@@ -2288,7 +2305,7 @@ class RedirectSession(SessionRedirectMixin):
         return r
 
     def _build_raw(self):
-        string = StringIO.StringIO('')
+        string = CompatStringIO.StringIO('')
         setattr(string, 'release_conn', lambda *args: args)
         return string
 
@@ -2334,7 +2351,7 @@ def test_requests_are_updated_each_time(httpbin):
 ])
 def test_proxy_env_vars_override_default(var, url, proxy):
     session = requests.domain.Session()
-    prep = PreparedRequest()
+    prep = DPreparedRequest()
     prep.prepare(method='GET', url=url)
 
     kwargs = {
@@ -2357,7 +2374,7 @@ def test_data_argument_accepts_tuples(data):
     """Ensure that the data argument will accept tuples of strings
     and properly encode them.
     """
-    p = PreparedRequest()
+    p = DPreparedRequest()
     p.prepare(
         method='GET',
         url='http://www.example.com',
@@ -2389,7 +2406,7 @@ def test_data_argument_accepts_tuples(data):
         },
     ))
 def test_prepared_copy(kwargs):
-    p = PreparedRequest()
+    p = DPreparedRequest()
     if kwargs:
         p.prepare(**kwargs)
     copy = p.copy()
@@ -2574,5 +2591,5 @@ class TestPreparingURLs(object):
 
     def test_json_decode_compatibility(self, httpbin):
         r = requests.get(httpbin('bytes/20'))
-        with pytest.raises(RequestsJSONDecodeError):
+        with pytest.raises(JSONDecodeError):
             r.json()
