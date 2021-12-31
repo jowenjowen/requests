@@ -51,6 +51,19 @@ from .exceptions import MissingSchema
 from .exceptions import InvalidSchema
 from .exceptions import InvalidJSONError
 from .exceptions import HTTPError
+from .exceptions import TooManyRedirects
+from .exceptions import ContentDecodingError
+from .exceptions import ChunkedEncodingError
+from .exceptions import SSLError
+from .exceptions import ConnectTimeout
+from .exceptions import RetryError
+from .exceptions import ProxyError
+from .exceptions import UnrewindableBodyError
+from .exceptions import ReadTimeout
+from .exceptions import InvalidHeader
+from .exceptions import InvalidProxyURL
+from .exceptions import StreamConsumedError
+from .exceptions import JSONDecodeError
 
 # *************************** classes in InternalUtilities section *****************
 """Section containing bug report helper(s)."""
@@ -92,10 +105,10 @@ class _Internal_utils:  # ./InternalUtils/internal_utils.py
         except UnicodeEncodeError:
             return False
 
-    def assign_or_return(self, return_instance, instance, variable, value=None):
+    def assign_or_return(self, instance, variable, value=None):
         if value:
             setattr(instance, variable, value)
-            return return_instance
+            return instance
         return getattr(instance, variable)
 
 # *************************** classes in Structures section *****************
@@ -472,7 +485,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             manager = self.proxy_manager[proxy]
         elif proxy.lower().startswith('socks'):
             username, password = Utils().get_auth_from_url(proxy)
-            manager = self.proxy_manager[proxy] = Adapters().SOCKSProxyManager(
+            manager = self.proxy_manager[proxy] = XUrllib3().SOCKSProxyManager(
                 proxy,
                 username=username,
                 password=password,
@@ -555,33 +568,30 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         :param resp: The urllib3 response object.
         :rtype: requests.Response
         """
-        class ResponseState(object):
-            pass
-        resp_state = ResponseState()
-        response = DResponse(resp_state)
+        response = Response()
 
         # Fallback to None if there's no status_code, for whatever reason.
-        response.status_code(getattr(resp, 'status', None))
+        response.status_code = getattr(resp, 'status', None)
 
         # Make headers case-insensitive.
-        response.headers(CaseInsensitiveDict(getattr(resp, 'headers', {})))
+        response.headers = CaseInsensitiveDict(getattr(resp, 'headers', {}))
 
         # Set encoding.
-        response.encoding = Utils().get_encoding_from_headers(response.headers())
-        response.raw(resp)
-        response.reason(response.raw().reason)
+        response.encoding = Utils().get_encoding_from_headers(response.headers)
+        response.raw = resp
+        response.reason = response.raw.reason
 
         if isinstance(req.url, bytes):
-            response.url(req.url().decode('utf-8'))
+            response.url = req.url.decode('utf-8')
         else:
-            response.url(req.url())
+            response.url = req.url
 
         # Add new cookies from the server.
-        Cookies().extract_cookies_to_jar(response.cookies(), req, resp)
+        Cookies().extract_cookies_to_jar(response.cookies, req, resp)
 
         # Give the Response some context.
-        response.request(req)
-        response.connection(self)
+        response.request = req
+        response.connection = self
 
         return response
 
@@ -636,8 +646,8 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs.
         :rtype: str
         """
-        proxy = Utils().select_proxy(request.url(), proxies)
-        scheme = XCompat().urlparse(request.url()).scheme
+        proxy = Utils().select_proxy(request.url, proxies)
+        scheme = XCompat().urlparse(request.url).scheme
 
         is_proxied_http_request = (proxy and scheme != 'https')
         using_socks_proxy = False
@@ -645,9 +655,9 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             proxy_scheme = XCompat().urlparse(proxy).scheme.lower()
             using_socks_proxy = proxy_scheme.startswith('socks')
 
-        url = request.path_url()
+        url = request.path_url
         if is_proxied_http_request and not using_socks_proxy:
-            url = Utils().urldefragauth(request.url())
+            url = Utils().urldefragauth(request.url)
 
         return url
 
@@ -705,15 +715,15 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         """
 
         try:
-            conn = self.get_connection(request.url(), proxies)
+            conn = self.get_connection(request.url, proxies)
         except XUrllib3().exceptions().LocationValueError as e:
             raise InvalidURL(e, request=request)
 
-        self.cert_verify(conn, request.url(), verify, cert)
+        self.cert_verify(conn, request.url, verify, cert)
         url = self.request_url(request, proxies)
         self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
-        chunked = not (request.body() is None or 'Content-Length' in request.headers())
+        chunked = not (request.body is None or 'Content-Length' in request.headers)
 
         if isinstance(timeout, tuple):
             try:
@@ -733,10 +743,10 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         try:
             if not chunked:
                 resp = conn.urlopen(
-                    method=request.method(),
+                    method=request.method,
                     url=url,
-                    body=request.body(),
-                    headers=request.headers(),
+                    body=request.body,
+                    headers=request.headers,
                     redirect=False,
                     assert_same_host=False,
                     preload_content=False,
@@ -753,18 +763,18 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 low_conn = conn._get_conn(timeout=Adapters().DEFAULT_POOL_TIMEOUT())
 
                 try:
-                    skip_host = 'Host' in request.headers()
-                    low_conn.putrequest(request.method(),
+                    skip_host = 'Host' in request.headers
+                    low_conn.putrequest(request.method,
                                         url,
                                         skip_accept_encoding=True,
                                         skip_host=skip_host)
 
-                    for header, value in request.headers().items():
+                    for header, value in request.headers.items():
                         low_conn.putheader(header, value)
 
                     low_conn.endheaders()
 
-                    for i in request.body():
+                    for i in request.body:
                         low_conn.send(hex(len(i))[2:].encode('utf-8'))
                         low_conn.send(b'\r\n')
                         low_conn.send(i)
@@ -825,6 +835,8 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 raise SSLError(e, request=request)
             elif isinstance(e, XUrllib3().exceptions().ReadTimeoutError):
                 raise ReadTimeout(e, request=request)
+            elif isinstance(e, XUrllib3().exceptions().InvalidHeader):
+                raise InvalidHeader(e, request=request)
             else:
                 raise
 
@@ -1089,7 +1101,7 @@ class HTTPDigestAuth(AuthBase):
 
     def build_digest_header(self, method, url):
         """
-        :rtype: str
+        :rtype: XCompat().str_class()
         """
 
         realm = self._thread_local.chal['realm']
@@ -1109,28 +1121,24 @@ class HTTPDigestAuth(AuthBase):
                 if XCompat().is_str_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().md5(x).hexdigest()
-
             hash_utf8 = md5_utf8
         elif _algorithm == 'SHA':
             def sha_utf8(x):
                 if XCompat().is_str_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha1(x).hexdigest()
-
             hash_utf8 = sha_utf8
         elif _algorithm == 'SHA-256':
             def sha256_utf8(x):
                 if XCompat().is_str_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha256(x).hexdigest()
-
             hash_utf8 = sha256_utf8
         elif _algorithm == 'SHA-512':
             def sha512_utf8(x):
                 if XCompat().is_str_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha512(x).hexdigest()
-
             hash_utf8 = sha512_utf8
 
         KD = lambda s, d: hash_utf8("%s:%s" % (s, d))
@@ -1227,15 +1235,15 @@ class HTTPDigestAuth(AuthBase):
             # to allow our new request to reuse the same one.
             r.content
             r.close()
-            prep = r.request().copy()
-            Cookies().extract_cookies_to_jar(prep._cookies, r.request(), r.raw())
+            prep = r.request.copy()
+            Cookies().extract_cookies_to_jar(prep._cookies, r.request, r.raw)
             prep.prepare_cookies(prep._cookies)
 
             prep.headers['Authorization'] = self.build_digest_header(
                 prep.method, prep.url)
-            _r = r.connection().send(prep, **kwargs)
-            _r.history().append(r)
-            _r.request(prep)
+            _r = r.connection.send(prep, **kwargs)
+            _r.history.append(r)
+            _r.request = prep
 
             return _r
 
@@ -1315,7 +1323,7 @@ class MockRequest(object):
     def __init__(self, request):
         self._r = request
         self._new_headers = {}
-        self.type = XCompat().urlparse(self._r.url()).scheme
+        self.type = XCompat().urlparse(self._r.url).scheme
 
     def get_type(self):
         return self.type
@@ -1991,14 +1999,14 @@ class Models:  # ./Models/models.py
         return self._ITER_CHUNK_SIZE
 
 
-class DRequestEncodingMixin(object):  # ./Models/RequestEncodingMixin.py
+class RequestEncodingMixin(object):  # ./Models/RequestEncodingMixin.py
     @property
     def path_url(self):  # ./Models/RequestEncodingMixin.py
         """Build the path URL to use."""
 
         url = []
 
-        p = XCompat().urlsplit(self.url())
+        p = XCompat().urlsplit(self.url)
 
         path = p.path
         if not path:
@@ -2105,17 +2113,17 @@ class DRequestEncodingMixin(object):  # ./Models/RequestEncodingMixin.py
         return body, content_type
 
 
-class DRequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
+class RequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
     def register_hook(self, event, hook):
         """Properly register a hook."""
 
-        if event not in self.hooks():
+        if event not in self.hooks:
             raise ValueError('Unsupported event specified, with event name "%s"' % (event))
 
         if XCompat().is_Callable_instance(hook):
-            self.hooks()[event].append(hook)
+            self.hooks[event].append(hook)
         elif hasattr(hook, '__iter__'):
-            self.hooks()[event].extend(h for h in hook if XCompat().is_Callable_instance(h))
+            self.hooks[event].extend(h for h in hook if XCompat().is_Callable_instance(h))
 
     def deregister_hook(self, event, hook):
         """Deregister a previously registered hook.
@@ -2123,13 +2131,13 @@ class DRequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
         """
 
         try:
-            self.hooks()[event].remove(hook)
+            self.hooks[event].remove(hook)
             return True
         except ValueError:
             return False
 
 
-class DRequest(DRequestHooksMixin):  # ./Models/Request.py
+class Request(RequestHooksMixin):  # ./Models/Request.py
     """A user-created :class:`Request <Request>` object.
 
     Used to prepare a :class:`PreparedRequest <PreparedRequest>`, which is sent to the server.
@@ -2152,15 +2160,15 @@ class DRequest(DRequestHooksMixin):  # ./Models/Request.py
     Usage::
 
       >>> import requests
-      >>> req = requests.DRequest('GET', 'https://httpbin.org/get')
+      >>> req = requests.Request('GET', 'https://httpbin.org/get')
       >>> req.prepare()
       <PreparedRequest [GET]>
     """
 
-    def __init__(self, state,
+    def __init__(self,
             method=None, url=None, headers=None, files=None, data=None,
             params=None, auth=None, cookies=None, hooks=None, json=None):
-
+        # ./Models/Request.py
         # Default empty dicts for dict params.
         data = [] if data is None else data
         files = [] if files is None else files
@@ -2168,79 +2176,42 @@ class DRequest(DRequestHooksMixin):  # ./Models/Request.py
         params = {} if params is None else params
         hooks = {} if hooks is None else hooks
 
-        self.state_ = state
-        self.state_.hooks = Hooks().default_hooks()
+        self.hooks = Hooks().default_hooks()
         for (k, v) in list(hooks.items()):
             self.register_hook(event=k, hook=v)
 
-        self.state_.method = method
-        self.state_.url = url
-        self.state_.headers = headers
-        self.state_.files = files
-        self.state_.data = data
-        self.state_.json = json
-        self.state_.params = params
-        self.state_.auth = auth
-        self.state_.cookies = cookies
+        self.method = method
+        self.url = url
+        self.headers = headers
+        self.files = files
+        self.data = data
+        self.json = json
+        self.params = params
+        self.auth = auth
+        self.cookies = cookies
 
-    def __repr__(self):
-        return '<Request [%s]>' % (self.state_.method)
+    def __repr__(self):  # ./Models/Request.py
+        return '<Request [%s]>' % (self.method)
 
-    def prepare(self):
+    def prepare(self):  # ./Models/Request.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for transmission and returns it."""
-        class PreparedRequestState(object):
-            pass
-        prep_req_state = PreparedRequestState()
-        p = DPreparedRequest(prep_req_state)
+        p = PreparedRequest()
         p.prepare(
-            method=self.state_.method,
-            url=self.state_.url,
-            headers=self.state_.headers,
-            files=self.state_.files,
-            data=self.state_.data,
-            json=self.state_.json,
-            params=self.state_.params,
-            auth=self.state_.auth,
-            cookies=self.state_.cookies,
-            hooks=self.state_.hooks,
+            method=self.method,
+            url=self.url,
+            headers=self.headers,
+            files=self.files,
+            data=self.data,
+            json=self.json,
+            params=self.params,
+            auth=self.auth,
+            cookies=self.cookies,
+            hooks=self.hooks,
         )
-        return p.state_
-
-    def method(self):
-        return self.state_.method
-
-    def url(self):
-        return self.state_.url
-
-    def headers(self):
-        return self.state_.headers
-
-    def files(self):
-        return self.state_.files
-
-    def data(self):
-        return self.state_.data
-
-    def json(self):
-        return self.state_.json
-
-    def params(self):
-        return self.state_.params
-
-    def auth(self):
-        return self.state_.auth
-
-    def cookies(self):
-        return self.state_.cookies
-
-    def hooks(self):
-        return self.state_.hooks
-
-    def method(self, value=None):
-        return self.state_.method
+        return p
 
 
-class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/PreparedRequest.py
+class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
     """The fully mutable :class:`PreparedRequest <PreparedRequest>` object,
     containing the exact bytes that will be sent to the server.
 
@@ -2251,7 +2222,7 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
     Usage::
 
       >>> import requests
-      >>> req = requests.DRequest('GET', 'https://httpbin.org/get')
+      >>> req = requests.Request('GET', 'https://httpbin.org/get')
       >>> r = req.prepare()
       >>> r
       <PreparedRequest [GET]>
@@ -2261,23 +2232,22 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
       <Response [200]>
     """
 
-    def __init__(self, state):  # ./Models/PreparedRequest.py
-        self.state_ = state
+    def __init__(self):  # ./Models/PreparedRequest.py
         #: HTTP verb to send to the server.
-        self.state_.method = None
+        self.method = None
         #: HTTP URL to send the request to.
-        self.state_.url = None
+        self.url = None
         #: dictionary of HTTP headers.
-        self.state_.headers = None
+        self.headers = None
         # The `CookieJar` used to create the Cookie header will be stored here
         # after prepare_cookies is called
-        self.state_._cookies = None
+        self._cookies = None
         #: request body to send to the server.
-        self.state_.body = None
+        self.body = None
         #: dictionary of callback hooks, for internal usage.
-        self.state_.hooks = Hooks().default_hooks()
+        self.hooks = Hooks().default_hooks()
         #: integer denoting starting position of a readable file-like body.
-        self.state_._body_position = None
+        self._body_position = None
 
     def prepare(self,
             method=None, url=None, headers=None, files=None, data=None,
@@ -2298,24 +2268,24 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
         self.prepare_hooks(hooks)
 
     def __repr__(self):  # ./Models/PreparedRequest.py
-        return '<PreparedRequest [%s]>' % (self.state_.method)
+        return '<PreparedRequest [%s]>' % (self.method)
 
     def copy(self):  # ./Models/PreparedRequest.py
-        p = DPreparedRequest()
-        p.method = self.state_.method
-        p.url = self.state_.url
-        p.headers = self.state_.headers.copy() if self.state_.headers is not None else None
-        p._cookies = Cookies()._copy_cookie_jar(self.state_._cookies)
-        p.body = self.state_.body
-        p.hooks = self.state_.hooks
-        p._body_position = self.state_._body_position
+        p = PreparedRequest()
+        p.method = self.method
+        p.url = self.url
+        p.headers = self.headers.copy() if self.headers is not None else None
+        p._cookies = Cookies()._copy_cookie_jar(self._cookies)
+        p.body = self.body
+        p.hooks = self.hooks
+        p._body_position = self._body_position
         return p
 
     def prepare_method(self, method):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP method."""
-        self.state_.method = method
-        if self.state_.method is not None:
-            self.state_.method = _Internal_utils().to_native_string(self.state_.method.upper())
+        self.method = method
+        if self.method is not None:
+            self.method = _Internal_utils().to_native_string(self.method.upper())
 
     @staticmethod
     def _get_idna_encoded_host(host):  # ./Models/PreparedRequest.py
@@ -2344,7 +2314,7 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
         # `data` etc to work around exceptions from `url_parse`, which
         # handles RFC 3986 only.
         if ':' in url and not url.lower().startswith('http'):
-            self.state_.url = url
+            self.url = url
             return
 
         # Support for unicode domain names and paths.
@@ -2368,7 +2338,7 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
         # it doesn't start with a wildcard (*), before allowing the unencoded hostname.
         if not _Internal_utils().unicode_is_ascii(host):
             try:
-                host = self.state_._get_idna_encoded_host(host)
+                host = self._get_idna_encoded_host(host)
             except UnicodeError:
                 raise InvalidURL('URL has an invalid label.')
         elif host.startswith(u'*'):
@@ -2409,18 +2379,18 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
                 query = enc_params
 
         url = Utils().requote_uri(XCompat().urlunparse([scheme, netloc, path, None, query, fragment]))
-        self.state_.url = url
+        self.url = url
 
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP headers."""
 
-        self.state_.headers = CaseInsensitiveDict()
+        self.headers = CaseInsensitiveDict()
         if headers:
             for header in headers.items():
                 # Raise exception on invalid header value.
                 Utils().check_header_validity(header)
                 name, value = header
-                self.state_.headers[_Internal_utils().to_native_string(name)] = value
+                self.headers[_Internal_utils().to_native_string(name)] = value
 
     def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP body data."""
@@ -2463,23 +2433,23 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
                 # This will allow us to rewind a file in the event
                 # of a redirect.
                 try:
-                    self.state_._body_position = body.tell()
+                    self._body_position = body.tell()
                 except (IOError, OSError):
                     # This differentiates from None, allowing us to catch
                     # a failed `tell()` later when trying to rewind the body
-                    self.state_._body_position = object()
+                    self._body_position = object()
 
             if files:
                 raise NotImplementedError('Streamed bodies and files are mutually exclusive.')
 
             if length:
-                self.state_.headers['Content-Length'] = XCompat().builtin_str(length)
+                self.headers['Content-Length'] = XCompat().builtin_str(length)
             else:
-                self.state_.headers['Transfer-Encoding'] = 'chunked'
+                self.headers['Transfer-Encoding'] = 'chunked'
         else:
             # Multi-part file uploads.
             if files:
-                (body, content_type) = self.state_._encode_files(files, data)
+                (body, content_type) = self._encode_files(files, data)
             else:
                 if data:
                     body = self._encode_params(data)
@@ -2491,10 +2461,10 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
             self.prepare_content_length(body)
 
             # Add content-type if it wasn't explicitly provided.
-            if content_type and ('content-type' not in self.state_.headers):
-                self.state_.headers['Content-Type'] = content_type
+            if content_type and ('content-type' not in self.headers):
+                self.headers['Content-Type'] = content_type
 
-        self.state_.body = body
+        self.body = body
 
     def prepare_content_length(self, body):  # ./Models/PreparedRequest.py
         """Prepare Content-Length header based on request method and body"""
@@ -2503,18 +2473,18 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
             if length:
                 # If length exists, set it. Otherwise, we fallback
                 # to Transfer-Encoding: chunked.
-                self.state_.headers['Content-Length'] = XCompat().builtin_str(length)
-        elif self.state_.method not in ('GET', 'HEAD') and self.state_.headers.get('Content-Length') is None:
+                self.headers['Content-Length'] = XCompat().builtin_str(length)
+        elif self.method not in ('GET', 'HEAD') and self.headers.get('Content-Length') is None:
             # Set Content-Length to 0 for methods that can have a body
             # but don't provide one. (i.e. not GET or HEAD)
-            self.state_.headers['Content-Length'] = '0'
+            self.headers['Content-Length'] = '0'
 
     def prepare_auth(self, auth, url=''):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP auth data."""
 
         # If no Auth is explicitly provided, extract it from the URL first.
         if auth is None:
-            url_auth = Utils().get_auth_from_url(self.state_.url)
+            url_auth = Utils().get_auth_from_url(self.url)
             auth = url_auth if any(url_auth) else None
 
         if auth:
@@ -2526,10 +2496,10 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
             r = auth(self)
 
             # Update self to reflect the auth changes.
-            self.state_.__dict__.update(r.__dict__)
+            self.__dict__.update(r.__dict__)
 
             # Recompute Content-Length
-            self.state_.prepare_content_length(self.state_.body)
+            self.prepare_content_length(self.body)
 
     def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP cookie data.
@@ -2543,13 +2513,13 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
         header is removed beforehand.
         """
         if isinstance(cookies, XCompat().cookielib().CookieJar):
-            self.state_._cookies = cookies
+            self._cookies = cookies
         else:
-            self.state_._cookies = Cookies().cookiejar_from_dict(cookies)
+            self._cookies = Cookies().cookiejar_from_dict(cookies)
 
-        cookie_header = Cookies().get_cookie_header(self.state_._cookies, self)
+        cookie_header = Cookies().get_cookie_header(self._cookies, self)
         if cookie_header is not None:
-            self.state_.headers['Cookie'] = cookie_header
+            self.headers['Cookie'] = cookie_header
 
     def prepare_hooks(self, hooks):  # ./Models/PreparedRequest.py
         """Prepares the given hooks."""
@@ -2560,26 +2530,8 @@ class DPreparedRequest(DRequestEncodingMixin, DRequestHooksMixin):  # ./Models/P
         for event in hooks:
             self.register_hook(event, hooks[event])
 
-    def url(self):
-        return self.state_.url
 
-    def hooks(self):
-        return self.state_.hooks
-
-    def headers(self):
-        return self.state_.headers
-
-    def body(self):
-        return self.state_.body
-
-    def method(self, value=None):
-        if value:
-            self.state_.method = value
-            return self
-        return self.state_.method
-
-
-class DResponse(object):  # ./Models/Response.py
+class Response(object):  # ./Models/Response.py
     """The :class:`Response <Response>` object, which contains a
     server's response to an HTTP request.
     """
@@ -2589,41 +2541,40 @@ class DResponse(object):  # ./Models/Response.py
         'encoding', 'reason', 'cookies', 'elapsed', 'request'
     ]
 
-    def __init__(self, state):  # ./Models/Response.py
-        self.state_ = state
-        self.state_._content = False
-        self.state_._content_consumed = False
-        self.state_._next = None
+    def __init__(self):  # ./Models/Response.py
+        self._content = False
+        self._content_consumed = False
+        self._next = None
 
         #: Integer Code of responded HTTP Status, e.g. 404 or 200.
-        self.state_.status_code = None
+        self.status_code = None
 
         #: Case-insensitive Dictionary of Response Headers.
         #: For example, ``headers['content-encoding']`` will return the
         #: value of a ``'Content-Encoding'`` response header.
-        self.state_.headers = CaseInsensitiveDict()
+        self.headers = CaseInsensitiveDict()
 
         #: File-like object representation of response (for advanced usage).
         #: Use of ``raw`` requires that ``stream=True`` be set on the request.
         #: This requirement does not apply for use internally to Requests.
-        self.state_.raw = None
+        self.raw = None
 
         #: Final URL location of Response.
-        self.state_.url = None
+        self.url = None
 
         #: Encoding to decode with when accessing r.text.
-        self.state_.encoding = None
+        self.encoding = None
 
         #: A list of :class:`Response <Response>` objects from
         #: the history of the Request. Any redirect responses will end
         #: up here. The list is sorted from the oldest to the most recent request.
-        self.state_.history = []
+        self.history = []
 
         #: Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
-        self.state_.reason = None
+        self.reason = None
 
         #: A CookieJar of Cookies the server sent back.
-        self.state_.cookies = Cookies().cookiejar_from_dict({})
+        self.cookies = Cookies().cookiejar_from_dict({})
 
         #: The amount of time elapsed between sending the request
         #: and the arrival of the response (as a timedelta).
@@ -2631,27 +2582,27 @@ class DResponse(object):  # ./Models/Response.py
         #: the first byte of the request and finishing parsing the headers. It
         #: is therefore unaffected by consuming the response content or the
         #: value of the ``stream`` keyword argument.
-        self.state_.elapsed = XDateTime().timedelta(0)
+        self.elapsed = XDateTime().timedelta(0)
 
         #: The :class:`PreparedRequest <PreparedRequest>` object to which this
         #: is a response.
-        self.state_.request = None
+        self.request = None
 
-        self.state_.auth = None
+        self.auth = None
 
     def __enter__(self):  # ./Models/Response.py
         return self
 
     def __exit__(self, *args):  # ./Models/Response.py
-        self.state_.close()
+        self.close()
 
     def __getstate__(self):  # ./Models/Response.py
         # Consume everything; accessing the content attribute makes
         # sure the content has been fully read.
-        if not self.state_._content_consumed:
-            self.state_.content
+        if not self._content_consumed:
+            self.content
 
-        return {attr: getattr(self, attr, None) for attr in self.state_.__attrs__}
+        return {attr: getattr(self, attr, None) for attr in self.__attrs__}
 
     def __setstate__(self, state):  # ./Models/Response.py
         for name, value in state.items():
@@ -2662,7 +2613,7 @@ class DResponse(object):  # ./Models/Response.py
         setattr(self, 'raw', None)
 
     def __repr__(self):  # ./Models/Response.py
-        return '<Response [%s]>' % (self.state_.status_code)
+        return '<Response [%s]>' % (self.status_code)
 
     def __bool__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
@@ -2672,7 +2623,7 @@ class DResponse(object):  # ./Models/Response.py
         the status code, is between 200 and 400, this will return True. This
         is **not** a check to see if the response code is ``200 OK``.
         """
-        return self.state_.ok
+        return self.ok
 
     def __nonzero__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
@@ -2682,11 +2633,11 @@ class DResponse(object):  # ./Models/Response.py
         the status code, is between 200 and 400, this will return True. This
         is **not** a check to see if the response code is ``200 OK``.
         """
-        return self.state_.ok
+        return self.ok
 
     def __iter__(self):  # ./Models/Response.py
         """Allows you to use a response as an iterator."""
-        return self.state_.iter_content(128)
+        return self.iter_content(128)
 
     @property
     def ok(self):  # ./Models/Response.py
@@ -2698,32 +2649,32 @@ class DResponse(object):  # ./Models/Response.py
         is **not** a check to see if the response code is ``200 OK``.
         """
         try:
-            self.state_.raise_for_status()
+            self.raise_for_status()
         except HTTPError:
             return False
         return True
 
     @property
-    def is_redirect(self):  # ./Models/Response.py
+    def is_redirect(self):
         """True if this Response is a well-formed HTTP redirect that could have
         been processed automatically (by :meth:`Session.resolve_redirects`).
         """
-        return ('location' in self.state_.headers and self.state_.status_code in Models().REDIRECT_STATI())
+        return ('location' in self.headers and self.status_code in Models().REDIRECT_STATI())
 
     @property
-    def is_permanent_redirect(self):  # ./Models/Response.py
+    def is_permanent_redirect(self):
         """True if this Response one of the permanent versions of redirect."""
-        return ('location' in self.state_.headers and self.state_.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
+        return ('location' in self.headers and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
     @property
-    def next(self):  # ./Models/Response.py
+    def next(self):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
-        return self.state_._next
+        return self._next
 
     @property
-    def apparent_encoding(self):  # ./Models/Response.py
+    def apparent_encoding(self):
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
-        return XCharDet('compat.py').detect(self.state_.content)['encoding']
+        return XCompat().chardet().detect(self.content)['encoding']
 
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
         """Iterates over the response data.  When stream=True is set on the
@@ -2744,9 +2695,9 @@ class DResponse(object):  # ./Models/Response.py
 
         def generate():
             # Special case for urllib3.
-            if hasattr(self.state_.raw, 'stream'):
+            if hasattr(self.raw, 'stream'):
                 try:
-                    for chunk in self.state_.raw.stream(chunk_size, decode_content=True):
+                    for chunk in self.raw.stream(chunk_size, decode_content=True):
                         yield chunk
                 except XUrllib3().exceptions().ProtocolError as e:
                     raise ChunkedEncodingError(e)
@@ -2757,23 +2708,23 @@ class DResponse(object):  # ./Models/Response.py
             else:
                 # Standard file-like object.
                 while True:
-                    chunk = self.state_.raw.read(chunk_size)
+                    chunk = self.raw.read(chunk_size)
                     if not chunk:
                         break
                     yield chunk
 
-            self.state_._content_consumed = True
+            self._content_consumed = True
 
-        if self.state_._content_consumed and isinstance(self.state_._content, bool):
+        if self._content_consumed and isinstance(self._content, bool):
             raise StreamConsumedError()
         elif chunk_size is not None and not isinstance(chunk_size, int):
             raise TypeError("chunk_size must be an int, it is instead a %s." % type(chunk_size))
         # simulate reading small chunks of the content
-        reused_chunks = Utils().iter_slices(self.state_._content, chunk_size)
+        reused_chunks = Utils().iter_slices(self._content, chunk_size)
 
         stream_chunks = generate()
 
-        chunks = reused_chunks if self.state_._content_consumed else stream_chunks
+        chunks = reused_chunks if self._content_consumed else stream_chunks
 
         if decode_unicode:
             chunks = Utils().stream_decode_response_unicode(chunks, self)
@@ -2793,7 +2744,7 @@ class DResponse(object):  # ./Models/Response.py
 
         pending = None
 
-        for chunk in self.state_.iter_content(chunk_size=chunk_size, decode_unicode=decode_unicode):
+        for chunk in self.iter_content(chunk_size=chunk_size, decode_unicode=decode_unicode):
 
             if pending is not None:
                 chunk = pending + chunk
@@ -2818,21 +2769,21 @@ class DResponse(object):  # ./Models/Response.py
     def content(self):  # ./Models/Response.py
         """Content of the response, in bytes."""
 
-        if self.state_._content is False:
+        if self._content is False:
             # Read the contents.
-            if self.state_._content_consumed:
+            if self._content_consumed:
                 raise RuntimeError(
                     'The content for this response was already consumed')
 
-            if self.state_.status_code == 0 or self.state_.raw is None:
-                self.state_._content = None
+            if self.status_code == 0 or self.raw is None:
+                self._content = None
             else:
-                self.state_._content = b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
+                self._content = b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
 
-        self.state_._content_consumed = True
+        self._content_consumed = True
         # don't need to release the connection; that's been handled by urllib3
         # since we exhausted the data.
-        return self.state_._content
+        return self._content
 
     @property
     def text(self):  # ./Models/Response.py
@@ -2849,18 +2800,18 @@ class DResponse(object):  # ./Models/Response.py
 
         # Try charset from content-type
         content = None
-        encoding = self.state_.encoding
+        encoding = self.encoding
 
-        if not self.state_.content:
+        if not self.content:
             return XCompat().str('')
 
         # Fallback to auto-detected encoding.
-        if self.state_.encoding is None:
-            encoding = self.state_.apparent_encoding
+        if self.encoding is None:
+            encoding = self.apparent_encoding
 
         # Decode unicode from given encoding.
         try:
-            content = XCompat().str(self.state_.content, encoding, errors='replace')
+            content = XCompat().str(self.content, encoding, errors='replace')
         except (LookupError, TypeError):
             # A LookupError is raised if the encoding was not found which could
             # indicate a misspelling or similar mistake.
@@ -2868,7 +2819,7 @@ class DResponse(object):  # ./Models/Response.py
             # A TypeError can be raised if encoding is None
             #
             # So we try blindly encoding.
-            content = XCompat().str(self.state_.content, errors='replace')
+            content = XCompat().str(self.content, errors='replace')
 
         return content
 
@@ -2880,16 +2831,16 @@ class DResponse(object):  # ./Models/Response.py
             contain valid json.
         """
 
-        if not self.state_.encoding and self.state_.content and len(self.state_.content) > 3:
+        if not self.encoding and self.content and len(self.content) > 3:
             # No encoding set. JSON RFC 4627 section 3 states we should expect
             # UTF-8, -16 or -32. Detect which one to use; If the detection or
-            # decoding fails, fall back to `self.state_.text` (using charset_normalizer to make
+            # decoding fails, fall back to `self.text` (using charset_normalizer to make
             # a best guess).
-            encoding = Utils().guess_json_utf(self.state_.content)
+            encoding = Utils().guess_json_utf(self.content)
             if encoding is not None:
                 try:
                     return complexjson.loads(
-                        self.state_.content.decode(encoding), **kwargs
+                        self.content.decode(encoding), **kwargs
                     )
                 except UnicodeDecodeError:
                     # Wrong UTF codec detected; usually because it's not UTF-8
@@ -2899,20 +2850,20 @@ class DResponse(object):  # ./Models/Response.py
                     pass
 
         try:
-            return complexjson.loads(self.state_.text, **kwargs)
+            return complexjson.loads(self.text, **kwargs)
         except XJSONDecodeError as e:
             # Catch JSON-related errors and raise as requests.JSONDecodeError
             # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
-            if XCompat().is_py2: # e is a ValueError
-                raise XJSONDecodeError(e.message)
+            if XCompat().is_py2(): # e is a ValueError
+                raise JSONDecodeError(e.message)
             else:
-                raise XJSONDecodeError(e.msg, e.doc, e.pos)
+                raise JSONDecodeError(e.msg, e.doc, e.pos)
 
     @property
     def links(self):  # ./Models/Response.py
         """Returns the parsed header links of the response, if any."""
 
-        header = self.state_.headers.get('link')
+        header = self.headers.get('link')
 
         # l = MultiDict()
         l = {}
@@ -2930,23 +2881,23 @@ class DResponse(object):  # ./Models/Response.py
         """Raises :class:`HTTPError`, if one occurred."""
 
         http_error_msg = ''
-        if XCompat().is_bytes_instance(self.state_.reason):
+        if XCompat().is_bytes_instance(self.reason):
             # We attempt to decode utf-8 first because some servers
             # choose to localize their reason strings. If the string
             # isn't utf-8, we fall back to iso-8859-1 for all other
             # encodings. (See PR #3538)
             try:
-                reason = self.state_.reason.decode('utf-8')
+                reason = self.reason.decode('utf-8')
             except UnicodeDecodeError:
-                reason = self.state_.reason.decode('iso-8859-1')
+                reason = self.reason.decode('iso-8859-1')
         else:
-            reason = self.state_.reason
+            reason = self.reason
 
-        if 400 <= self.state_.status_code < 500:
-            http_error_msg = u'%s Client Error: %s for url: %s' % (self.state_.status_code, reason, self.state_.url)
+        if 400 <= self.status_code < 500:
+            http_error_msg = u'%s Client Error: %s for url: %s' % (self.status_code, reason, self.url)
 
-        elif 500 <= self.state_.status_code < 600:
-            http_error_msg = u'%s Server Error: %s for url: %s' % (self.state_.status_code, reason, self.state_.url)
+        elif 500 <= self.status_code < 600:
+            http_error_msg = u'%s Server Error: %s for url: %s' % (self.status_code, reason, self.url)
 
         if http_error_msg:
             raise HTTPError(http_error_msg, response=self)
@@ -2957,42 +2908,12 @@ class DResponse(object):  # ./Models/Response.py
 
         *Note: Should not normally need to be called explicitly.*
         """
-        if not self.state_._content_consumed:
-            self.state_.raw.close()
+        if not self._content_consumed:
+            self.raw.close()
 
-        release_conn = getattr(self.state_.raw, 'release_conn', None)
+        release_conn = getattr(self.raw, 'release_conn', None)
         if release_conn is not None:
             release_conn()
-
-    def status_code(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'status_code', value)
-
-    def headers(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'headers', value)
-
-    def raw(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'raw', value)
-
-    def reason(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'reason', value)
-
-    def connection(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'connection', value)
-
-    def request(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'request', value)
-
-    def cookies(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'cookies', value)
-
-    def url(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'url', value)
-
-    def history(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'history', value)
-
-    def auth(self, value=None):
-        return _Internal_utils().assign_or_return(self, self.state_, 'auth', value)
 
 
 # *************************** classes in Packages section *****************
@@ -3133,14 +3054,14 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         hist = []  # keep track of history
 
         url = self.get_redirect_target(resp)
-        previous_fragment = XCompat().urlparse(req.url()).fragment
+        previous_fragment = XCompat().urlparse(req.url).fragment
         while url:
             prepared_request = req.copy()
 
             # Update history and keep track of redirects.
             # resp.history must ignore the original request in this loop
             hist.append(resp)
-            resp.history(hist[1:])
+            resp.history = hist[1:]
 
             try:
                 resp.content  # Consume socket so it can be released
@@ -3300,7 +3221,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         """When being redirected we may want to change the method of the request
         based on certain specs or browser behavior.
         """
-        method = prepared_request.method()
+        method = prepared_request.method
 
         # https://tools.ietf.org/html/rfc7231#section-6.4.4
         if response.status_code == StatusCodes().get('see_other') and method != 'HEAD':
@@ -3316,7 +3237,8 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         if response.status_code == StatusCodes().get('moved') and method == 'POST':
             method = 'GET'
 
-        prepared_request.method(method)
+        prepared_request.method = method
+
 
 class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     """A Requests session.
@@ -3361,6 +3283,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         #: Event-handling hooks.
         self.hooks = Hooks().default_hooks()
+
 
         #: Dictionary of querystring data to attach to each
         #: :class:`Request <Request>`. The dictionary values may be lists for
@@ -3421,10 +3344,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             session's settings.
         :rtype: requests.PreparedRequest
         """
-        if type(request) != DRequest:
-            request = request.domain_class()
-
-        cookies = request.cookies() or {}
+        cookies = request.cookies or {}
 
         # Bootstrap CookieJar.
         if not isinstance(cookies, XCompat().cookielib().CookieJar):
@@ -3435,25 +3355,22 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             Cookies().merge_cookies(RequestsCookieJar(), self.cookies), cookies)
 
         # Set environment's basic authentication if not explicitly set.
-        auth = request.auth()
+        auth = request.auth
         if self.trust_env and not auth and not self.auth:
-            auth = Utils().get_netrc_auth(request.url())
+            auth = Utils().get_netrc_auth(request.url)
 
-        class PreparedRequestState(object):
-            pass
-        prep_req_state = PreparedRequestState()
-        p = DPreparedRequest(prep_req_state)
+        p = PreparedRequest()
         p.prepare(
-            method=request.method().upper(),
-            url=request.url(),
-            files=request.files(),
-            data=request.data(),
-            json=request.json(),
-            headers=Sessions().merge_setting(request.headers(), self.headers, dict_class=CaseInsensitiveDict),
-            params=Sessions().merge_setting(request.params(), self.params),
+            method=request.method.upper(),
+            url=request.url,
+            files=request.files,
+            data=request.data,
+            json=request.json,
+            headers=Sessions().merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict),
+            params=Sessions().merge_setting(request.params, self.params),
             auth=Sessions().merge_setting(auth, self.auth),
             cookies=merged_cookies,
-            hooks=Sessions().merge_hooks(request.hooks(), self.hooks),
+            hooks=Sessions().merge_hooks(request.hooks, self.hooks),
         )
         return p
 
@@ -3503,28 +3420,25 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         :rtype: requests.Response
         """
         # Create the Request.
-        class RequestState(object):
-            pass
-        req_state = RequestState()
-        req = DRequest(req_state,
-                       method=method.upper(),
-                       url=url,
-                       headers=headers,
-                       files=files,
-                       data=data or {},
-                       json=json,
-                       params=params or {},
-                       auth=auth,
-                       cookies=cookies,
-                       hooks=hooks,
-                       )
+        req = Request(
+                      method=method.upper(),
+                      url=url,
+                      headers=headers,
+                      files=files,
+                      data=data or {},
+                      json=json,
+                      params=params or {},
+                      auth=auth,
+                      cookies=cookies,
+                      hooks=hooks,
+                      )
 
         prep = self.prepare_request(req)
 
         proxies = proxies or {}
 
         settings = self.merge_environment_settings(
-            prep.url(), proxies, stream, verify, cert
+            prep.url, proxies, stream, verify, cert
         )
 
         # Send the request.
@@ -3634,16 +3548,16 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # It's possible that users might accidentally send a Request object.
         # Guard against that specific failure case.
-        if isinstance(request, DRequest):
+        if isinstance(request, Request):
             raise ValueError('You can only send PreparedRequests.')
 
         # Set up variables needed for resolve_redirects and dispatching of hooks
         allow_redirects = kwargs.pop('allow_redirects', True)
         stream = kwargs.get('stream')
-        hooks = request.hooks()
+        hooks = request.hooks
 
         # Get the appropriate adapter to use
-        adapter = self.get_adapter(url=request.url())
+        adapter = self.get_adapter(url=request.url)
 
         # Start time (approximately) of the request
         start = Sessions().preferred_clock()
@@ -3659,7 +3573,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         r = Hooks().dispatch_hook('response', hooks, r, **kwargs)
 
         # Persist cookies
-        if r.history():
+        if r.history:
 
             # If the hooks create history then we want those cookies too
             for resp in r.history:
@@ -4570,7 +4484,7 @@ class Utils:  # ./Utils/utils.py
         :rtype: dict
         """
         proxies = proxies if proxies is not None else {}
-        url = request.url()
+        url = request.url
         scheme = XCompat().urlparse(url).scheme
         no_proxy = proxies.get('no_proxy')
         new_proxies = proxies.copy()
@@ -4643,7 +4557,7 @@ class Utils:  # ./Utils/utils.py
 
     def guess_json_utf(self, data):  # ./Utils/utils.py
         """
-        :rtype: str
+        :rtype: XCompat().str_class()
         """
         # JSON always starts with two ASCII characters, so detection is as
         # easy as counting the nulls and from their location and count
@@ -4676,7 +4590,7 @@ class Utils:  # ./Utils/utils.py
         """Given a URL that may or may not have a scheme, prepend the given scheme.
         Does not replace a present scheme with the one provided as an argument.
 
-        :rtype: str
+        :rtype: XCompat().str_class()
         """
         scheme, netloc, path, params, query, fragment = XCompat().urlparse(url, new_scheme)
 

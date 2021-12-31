@@ -89,7 +89,7 @@ class TestTestServer:
                 assert r.status_code == 200
 
             # the (n+1)th request fails
-            with pytest.raises(requests.domain.ConnectionError):
+            with pytest.raises(requests.exceptions.ConnectionError):
                 r = requests.get(server_url)
 
     @pytest.mark.skip(reason="this fails non-deterministically under pytest-xdist")

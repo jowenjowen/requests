@@ -44,7 +44,7 @@ def parse_list_header(value):
     return Utils().parse_list_header(value)
 
 def parse_dict_header(value):
-    return Utils().parse_list_header()
+    return Utils().parse_dict_header(value)
 
 def unquote_header_value(value, is_filename=False):
     return Utils().unquote_header_value(value, is_filename)

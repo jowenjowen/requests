@@ -1,19 +1,19 @@
 # -*- coding: utf-8 -*-
 
 import contextlib
-import os
+from requests.x import XOs
 
 
 @contextlib.contextmanager
 def override_environ(**kwargs):
-    save_env = dict(os.environ)
+    save_env = dict(XOs().environ())
     for key, value in kwargs.items():
         if value is None:
-            del os.environ[key]
+            del XOs().environ()[key]
         else:
-            os.environ[key] = value
+            XOs().environ()[key] = value
     try:
         yield
     finally:
-        os.environ.clear()
-        os.environ.update(save_env)
+        XOs().environ().clear()
+        XOs().environ().update(save_env)

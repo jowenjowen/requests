@@ -4,7 +4,6 @@
 
 from __future__ import division
 import json
-import os
 import pickle
 import collections
 import contextlib
@@ -17,6 +16,8 @@ import pytest
 from requests.domain import HTTPAdapter
 from requests.domain import HTTPDigestAuth
 from requests.domain import Auth
+from requests.x import XCompat
+from requests.x import XOs
 from requests.domain import XMorsel
 from requests.domain import XCompat
 
@@ -36,23 +37,18 @@ from requests.exceptions import InvalidHeader
 from requests.exceptions import UnrewindableBodyError
 from requests.exceptions import SSLError
 from requests.exceptions import InvalidProxyURL
-from requests.exceptions import InvalidJSONError
-from requests.domain import DPreparedRequest
+from requests.domain import CookieConflictError
+from requests.domain import PreparedRequest
 from requests.domain import CaseInsensitiveDict
 from requests.domain import SessionRedirectMixin
-from requests.x import XCompat
 from requests.domain import Hooks, Utils
 from requests.domain import XMutableMapping
+from requests.domain import RequestsCookieJar
+
 
 from .compat import CompatStringIO, u
 from .utils import override_environ
 from urllib3.util import Timeout as Urllib3Timeout
-
-from requests.exceptions import HTTPError
-from requests.domain import AuthBase
-from requests.exceptions import JSONDecodeError
-from requests.domain import RequestsCookieJar
-from requests.domain import CookieConflictError
 
 # Requests to this URL should always fail with a connection timeout (nothing
 # listening on that port)
@@ -152,10 +148,10 @@ class TestRequests:
 
     def test_params_original_order_is_preserved_by_default(self):
         param_ordered_dict = collections.OrderedDict((('z', 1), ('a', 1), ('k', 1), ('d', 1)))
-        session = requests.Session()
+        session = requests.domain.Session()
         request = requests.Request('GET', 'http://example.com/', params=param_ordered_dict)
         prep = session.prepare_request(request)
-        assert prep.url() == 'http://example.com/?z=1&a=1&k=1&d=1'
+        assert prep.url == 'http://example.com/?z=1&a=1&k=1&d=1'
 
     def test_params_bytes_are_encoded(self):
         request = requests.Request('GET', 'http://example.com',
@@ -416,7 +412,7 @@ class TestRequests:
 
         See GH #3579
         """
-        cj = Cookies().cookiejar_from_dict({'foo': 'bar'}, cookielib.CookieJar())
+        cj = Cookies().cookiejar_from_dict({'foo': 'bar'}, XCompat().cookielib().CookieJar())
         s = requests.domain.Session()
         s.cookies = Cookies().cookiejar_from_dict({'cookie': 'tasty'})
 
@@ -608,6 +604,15 @@ class TestRequests:
                 session = requests.domain.Session()
                 session.request(method='GET', url=httpbin())
 
+    def test_proxy_authorization_preserved_on_request(self, httpbin):
+        proxy_auth_value = "Bearer XXX"
+        session = requests.domain.Session()
+        session.headers.update({"Proxy-Authorization": proxy_auth_value})
+        resp = session.request(method='GET', url=httpbin('get'))
+        sent_headers = resp.json().get('headers', {})
+
+        assert sent_headers.get("Proxy-Authorization") == proxy_auth_value
+
     def test_basicauth_with_netrc(self, httpbin):
         auth = ('user', 'pass')
         wrong_auth = ('wronguser', 'wrongpass')
@@ -619,6 +624,7 @@ class TestRequests:
             def get_netrc_auth_mock(self, url):
                 return auth
             Utils.get_netrc_auth = get_netrc_auth_mock
+
             # Should use netrc and work.
             r = requests.get(url)
             assert r.status_code == 200
@@ -803,7 +809,7 @@ class TestRequests:
             requests.post(url, files=['bad file data'])
 
     def test_post_with_custom_mapping(self, httpbin):
-        class CustomMapping(MutableMapping):
+        class CustomMapping(XMutableMapping):
             def __init__(self, *args, **kwargs):
                 self.data = dict(*args, **kwargs)
 
@@ -841,7 +847,7 @@ class TestRequests:
 
     def test_status_raising(self, httpbin):
         r = requests.get(httpbin('status', '404'))
-        with pytest.raises(HTTPError):
+        with pytest.raises(requests.exceptions.HTTPError):
             r.raise_for_status()
 
         r = requests.get(httpbin('status', '500'))
@@ -865,8 +871,8 @@ class TestRequests:
     def test_unicode_header_name(self, httpbin):
         requests.put(
             httpbin('put'),
-            headers={str('Content-Type'): 'application/octet-stream'},
-            data='\xff')  # compat.str is unicode.
+            headers={XCompat().str('Content-Type'): 'application/octet-stream'},
+            data='\xff')  # XCompat().str is unicode.
 
     def test_pyopenssl_redirect(self, httpbin_secure, httpbin_ca_bundle):
         requests.get(httpbin_secure('status', '301'), verify=httpbin_ca_bundle)
@@ -875,17 +881,17 @@ class TestRequests:
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
             requests.get(httpbin_secure(), verify=INVALID_PATH)
-        assert str(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {}'.format(INVALID_PATH)
+        assert XCompat().str(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {}'.format(INVALID_PATH)
 
     def test_invalid_ssl_certificate_files(self, httpbin_secure):
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
             requests.get(httpbin_secure(), cert=INVALID_PATH)
-        assert str(e.value) == 'Could not find the TLS certificate file, invalid path: {}'.format(INVALID_PATH)
+        assert XCompat().str(e.value) == 'Could not find the TLS certificate file, invalid path: {}'.format(INVALID_PATH)
 
         with pytest.raises(IOError) as e:
             requests.get(httpbin_secure(), cert=('.', INVALID_PATH))
-        assert str(e.value) == 'Could not find the TLS key file, invalid path: {}'.format(INVALID_PATH)
+        assert XCompat().str(e.value) == 'Could not find the TLS key file, invalid path: {}'.format(INVALID_PATH)
 
     def test_http_with_certificate(self, httpbin):
         r = requests.get(httpbin(), cert='.')
@@ -954,7 +960,7 @@ class TestRequests:
         assert r.status_code == 200
 
     def test_unicode_multipart_post_fieldnames(self, httpbin):
-        filename = os.path.splitext(__file__)[0] + '.py'
+        filename = XOs().path().splitext(__file__)[0] + '.py'
         r = requests.Request(
             method='POST', url=httpbin('post'),
             data={'stuff'.encode('utf-8'): 'elixr'},
@@ -974,7 +980,7 @@ class TestRequests:
         s = requests.domain.Session()
         req = requests.Request(u('POST'), httpbin('post'), files=files)
         prep = s.prepare_request(req)
-        assert isinstance(prep.method, builtin_str)
+        assert XCompat().is_builtin_str_instance(prep.method)
         assert prep.method == 'POST'
 
         resp = s.send(prep)
@@ -986,7 +992,7 @@ class TestRequests:
 
         with pytest.raises(ValueError) as e:
             s.send(req)
-        assert str(e.value) == 'You can only send PreparedRequests.'
+        assert XCompat().str(e.value) == 'You can only send PreparedRequests.'
 
     def test_custom_content_type(self, httpbin):
         r = requests.post(
@@ -1037,13 +1043,13 @@ class TestRequests:
         prep = req.prepare()
 
         s = requests.domain.Session()
-        s.proxies = getproxies()
+        s.proxies = XCompat().getproxies()
         resp = s.send(prep)
 
         assert hasattr(resp, 'hook_working')
 
     def test_prepared_from_session(self, httpbin):
-        class DummyAuth(AuthBase):
+        class DummyAuth(requests.domain.AuthBase):
             def __call__(self, r):
                 r.headers['Dummy-Auth-Test'] = 'dummy-auth-test-ok'
                 return r
@@ -1238,7 +1244,7 @@ class TestRequests:
             jar.get(key)
 
     def test_cookie_policy_copy(self):
-        class MyCookiePolicy(cookielib.DefaultCookiePolicy):
+        class MyCookiePolicy(XCompat().cookielib().DefaultCookiePolicy):
             pass
 
         jar = RequestsCookieJar()
@@ -1277,14 +1283,14 @@ class TestRequests:
         r.encoding = 'ascii'
 
         chunks = r.iter_content(decode_unicode=True)
-        assert all(isinstance(chunk, str) for chunk in chunks)
+        assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
 
         # also for streaming
         r = requests.Response()
         r.raw = io.BytesIO(b'the content')
         r.encoding = 'ascii'
         chunks = r.iter_content(decode_unicode=True)
-        assert all(isinstance(chunk, str) for chunk in chunks)
+        assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
 
     def test_response_reason_unicode(self):
         # check for unicode HTTP status
@@ -1303,7 +1309,7 @@ class TestRequests:
         r.reason = reason.encode('latin-1')
         r.status_code = 500
         r.encoding = None
-        with pytest.raises(HTTPError) as e:
+        with pytest.raises(requests.exceptions.HTTPError) as e:
             r.raise_for_status()
         assert reason in e.value.args[0]
 
@@ -1390,13 +1396,13 @@ class TestRequests:
             requests.domain.Session().send(r)
 
     def test_http_error(self):
-        error = HTTPError()
+        error = requests.exceptions.HTTPError()
         assert not error.response
         response = requests.Response()
-        error = HTTPError(response=response)
+        error = requests.exceptions.HTTPError(response=response)
         assert error.response == response
-        error = HTTPError('message', response=response)
-        assert str(error) == 'message'
+        error = requests.exceptions.HTTPError('message', response=response)
+        assert XCompat().str(error) == 'message'
         assert error.response == response
 
     def test_session_pickling(self, httpbin):
@@ -1404,7 +1410,7 @@ class TestRequests:
         s = requests.domain.Session()
 
         s = pickle.loads(pickle.dumps(s))
-        s.proxies = getproxies()
+        s.proxies = XCompat().getproxies()
 
         r = s.send(r.prepare())
         assert r.status_code == 200
@@ -1421,7 +1427,7 @@ class TestRequests:
         assert headers['ACCEPT'] == 'application/json'
 
     def test_uppercase_scheme_redirect(self, httpbin):
-        parts = urlparse(httpbin('html'))
+        parts = XCompat().urlparse(httpbin('html'))
         url = "HTTP://" + parts.netloc + parts.path
         r = requests.get(httpbin('redirect-to'), params={'url': url})
         assert r.status_code == 200
@@ -1555,15 +1561,15 @@ class TestRequests:
         # Test for int
         with pytest.raises(InvalidHeader) as excinfo:
             r = requests.get(httpbin('get'), headers=headers_int)
-        assert 'foo' in str(excinfo.value)
+        assert 'foo' in XCompat().str(excinfo.value)
         # Test for dict
         with pytest.raises(InvalidHeader) as excinfo:
             r = requests.get(httpbin('get'), headers=headers_dict)
-        assert 'bar' in str(excinfo.value)
+        assert 'bar' in XCompat().str(excinfo.value)
         # Test for list
         with pytest.raises(InvalidHeader) as excinfo:
             r = requests.get(httpbin('get'), headers=headers_list)
-        assert 'baz' in str(excinfo.value)
+        assert 'baz' in XCompat().str(excinfo.value)
 
     def test_header_no_return_chars(self, httpbin):
         """Ensure that a header containing return character sequences raise an
@@ -1750,7 +1756,7 @@ class TestRequests:
         with pytest.raises(UnrewindableBodyError) as e:
             Utils().rewind_body(prep)
 
-        assert 'Unable to rewind request body' in str(e)
+        assert 'Unable to rewind request body' in XCompat().str(e)
 
     def test_rewind_body_failed_seek(self):
         class BadFileObj:
@@ -1773,7 +1779,7 @@ class TestRequests:
         with pytest.raises(UnrewindableBodyError) as e:
             Utils().rewind_body(prep)
 
-        assert 'error occurred when rewinding request body' in str(e)
+        assert 'error occurred when rewinding request body' in XCompat().str(e)
 
     def test_rewind_body_failed_tell(self):
         class BadFileObj:
@@ -1793,7 +1799,7 @@ class TestRequests:
         with pytest.raises(UnrewindableBodyError) as e:
             Utils().rewind_body(prep)
 
-        assert 'Unable to rewind request body' in str(e)
+        assert 'Unable to rewind request body' in XCompat().str(e)
 
     def _patch_adapter_gzipped_redirect(self, session, url):
         adapter = session.get_adapter(url=url)
@@ -1822,7 +1828,7 @@ class TestRequests:
         ))
     def test_basic_auth_str_is_always_native(self, username, password, auth_str):
         s = Auth().basic_auth_str(username, password)
-        assert isinstance(s, builtin_str)
+        assert XCompat().is_builtin_str_instance(s)
         assert s == auth_str
 
     def test_requests_history_is_saved(self, httpbin):
@@ -1980,7 +1986,7 @@ class TestRequests:
                      url_final,
                      ]
 
-        class CustomRedirectSession(requests.Session):
+        class CustomRedirectSession(requests.domain.Session):
             def get_redirect_target(self, resp):
                 # default behavior
                 if resp.is_redirect:
@@ -2150,7 +2156,7 @@ class TestMorselToCookieExpires:
     def test_expires_valid_str(self):
         """Test case where we convert expires from string time."""
 
-        morsel = Morsel()
+        morsel = XMorsel()
         morsel['expires'] = 'Thu, 01-Jan-1970 00:00:01 GMT'
         cookie = Cookies().morsel_to_cookie(morsel)
         assert cookie.expires == 1
@@ -2162,7 +2168,7 @@ class TestMorselToCookieExpires:
         ))
     def test_expires_invalid_int(self, value, exception):
         """Test case where an invalid type is passed for expires."""
-        morsel = Morsel()
+        morsel = XMorsel()
         morsel['expires'] = value
         with pytest.raises(exception):
             Cookies().morsel_to_cookie(morsel)
@@ -2170,7 +2176,7 @@ class TestMorselToCookieExpires:
     def test_expires_none(self):
         """Test case where expires is None."""
 
-        morsel = Morsel()
+        morsel = XMorsel()
         morsel['expires'] = None
         cookie = Cookies().morsel_to_cookie(morsel)
         assert cookie.expires is None
@@ -2183,7 +2189,7 @@ class TestMorselToCookieMaxAge:
     def test_max_age_valid_int(self):
         """Test case where a valid max age in seconds is passed."""
 
-        morsel = Morsel()
+        morsel = XMorsel()
         morsel['max-age'] = 60
         cookie = Cookies().morsel_to_cookie(morsel)
         assert isinstance(cookie.expires, int)
@@ -2191,7 +2197,7 @@ class TestMorselToCookieMaxAge:
     def test_max_age_invalid_str(self):
         """Test case where a invalid max age is passed."""
 
-        morsel = Morsel()
+        morsel = XMorsel()
         morsel['max-age'] = 'woops'
         with pytest.raises(TypeError):
             Cookies().morsel_to_cookie(morsel)
@@ -2202,7 +2208,7 @@ class TestTimeout:
     def test_stream_timeout(self, httpbin):
         try:
             requests.get(httpbin('delay/10'), timeout=2.0)
-        except Timeout as e:
+        except requests.exceptions.Timeout as e:
             assert 'Read timed out' in e.args[0].args[0]
 
     @pytest.mark.parametrize(
@@ -2213,7 +2219,7 @@ class TestTimeout:
     def test_invalid_timeout(self, httpbin, timeout, error_text):
         with pytest.raises(ValueError) as e:
             requests.get(httpbin('get'), timeout=timeout)
-        assert error_text in str(e)
+        assert error_text in XCompat().str(e)
 
     @pytest.mark.parametrize(
         'timeout', (
@@ -2351,13 +2357,13 @@ def test_requests_are_updated_each_time(httpbin):
 ])
 def test_proxy_env_vars_override_default(var, url, proxy):
     session = requests.domain.Session()
-    prep = DPreparedRequest()
+    prep = PreparedRequest()
     prep.prepare(method='GET', url=url)
 
     kwargs = {
         var: proxy
     }
-    scheme = urlparse(url).scheme
+    scheme = XCompat().urlparse(url).scheme
     with override_environ(**kwargs):
         proxies = session.rebuild_proxies(prep, {})
         assert scheme in proxies
@@ -2374,7 +2380,7 @@ def test_data_argument_accepts_tuples(data):
     """Ensure that the data argument will accept tuples of strings
     and properly encode them.
     """
-    p = DPreparedRequest()
+    p = PreparedRequest()
     p.prepare(
         method='GET',
         url='http://www.example.com',
@@ -2406,7 +2412,7 @@ def test_data_argument_accepts_tuples(data):
         },
     ))
 def test_prepared_copy(kwargs):
-    p = DPreparedRequest()
+    p = PreparedRequest()
     if kwargs:
         p.prepare(**kwargs)
     copy = p.copy()
@@ -2432,7 +2438,7 @@ def test_urllib3_pool_connection_closed(httpbin):
     try:
         s.get(httpbin('status/200'))
     except ConnectionError as e:
-        assert u"Pool is closed." in str(e)
+        assert u"Pool is closed." in XCompat().str(e)
 
 
 class TestPreparingURLs(object):
@@ -2501,7 +2507,7 @@ class TestPreparingURLs(object):
     )
     def test_preparing_bad_url(self, url):
         r = requests.Request('GET', url=url)
-        with pytest.raises(InvalidURL):
+        with pytest.raises(requests.exceptions.InvalidURL):
             r.prepare()
 
     @pytest.mark.parametrize(
@@ -2586,10 +2592,10 @@ class TestPreparingURLs(object):
 
     def test_post_json_nan(self, httpbin):
         data = {"foo": float("nan")}
-        with pytest.raises(InvalidJSONError):
+        with pytest.raises(requests.exceptions.InvalidJSONError):
           r = requests.post(httpbin('post'), json=data)
 
     def test_json_decode_compatibility(self, httpbin):
         r = requests.get(httpbin('bytes/20'))
-        with pytest.raises(JSONDecodeError):
+        with pytest.raises(requests.exceptions.JSONDecodeError):
             r.json()
