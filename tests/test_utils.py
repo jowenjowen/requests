@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from requests.x import XOs, XCompat
+from requests.x import XOs, XCompat, XUtils
 import copy
 import filecmp
 from io import BytesIO
@@ -25,8 +25,6 @@ from requests.utils import (
     urldefragauth, add_dict_to_cookiejar, set_environ)
 
 from requests.domain import Utils
-
-from requests.domain import _Internal_utils
 
 from .compat import CompatStringIO, Compat_cStringIO
 
@@ -626,7 +624,7 @@ def test_prepend_scheme_if_needed(value, expected):
         (u'T', 'T'),
     ))
 def test_to_native_string(value, expected):
-    assert _Internal_utils().to_native_string(value) == expected
+    assert XUtils().to_native_string(value) == expected
 
 
 @pytest.mark.parametrize(
@@ -709,7 +707,7 @@ def test_add_dict_to_cookiejar(cookiejar):
     )
 )
 def test_unicode_is_ascii(value, expected):
-    assert _Internal_utils().unicode_is_ascii(value) is expected
+    assert XUtils().unicode_is_ascii(value) is expected
 
 
 @pytest.mark.parametrize(

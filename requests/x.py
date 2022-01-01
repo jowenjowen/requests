@@ -500,3 +500,131 @@ class XZipfile:
 
     def is_zipfile(self, filename):
         return zipfile.is_zipfile(filename)
+
+class XCookieJarRequest:
+    """Wraps a `requests.Request` to mimic the request used by http.cookiejar.py
+
+    The code in `cookielib.CookieJar` expects this interface in order to correctly
+    manage cookie policies, i.e., determine whether a cookie can be set, given the
+    domains of the request and the cookie.
+
+    The original request object is read-only. The client is responsible for collecting
+    the new headers via `added_headers()` and interpreting them appropriately. You
+    probably want `Cookies().get_cookie_header`, defined below.
+    """
+
+    def __init__(self, request):
+        self._r = request
+        self._new_headers = {}
+        self.type = XCompat().urlparse(self._r.url).scheme
+
+    def get_host(self):  # not called but needed py py2
+        return XCompat().urlparse(self._r.url).netloc
+
+    def get_origin_req_host(self):  # needed by cookielib.py (python2.7)
+        return XCompat().urlparse(self._r.url).netloc
+        # return self.get_host()
+
+    def get_full_url(self):  # needed by http.cookiejar.py
+        # Only return the response's URL if the user hadn't set the Host
+        # header
+        if not self._r.headers.get('Host'):
+            return self._r.url
+        # If they did set it, retrieve it and reconstruct the expected domain
+        host = XUtils().to_native_string(self._r.headers['Host'], encoding='utf-8')
+        parsed = XCompat().urlparse(self._r.url)
+        # Reconstruct the URL as we expect it
+        return XCompat().urlunparse([
+            parsed.scheme, host, parsed.path, parsed.params, parsed.query,
+            parsed.fragment
+        ])
+
+    def is_unverifiable(self):  # needed by cookielib.py (python2.7)
+        return True
+
+    def has_header(self, name):  # needed by http.cookiejar.py
+        return name in self._r.headers or name in self._new_headers
+
+    def get_header(self, name, default=None):  # not called but needed py py2
+        return self._r.headers.get(name, self._new_headers.get(name, default))
+
+    def add_unredirected_header(self, name, value):  # needed by http.cookiejar.py
+        self._new_headers[name] = value
+
+    def added_headers(self): # needed by Cookies().get_cookie_header
+        return self._new_headers
+
+    @property
+    def unverifiable(self):  # needed by http.cookiejar.py
+        return self.is_unverifiable()
+
+    @property
+    def origin_req_host(self):  # needed by http.cookiejar.py
+        return self.get_origin_req_host()
+
+    @property
+    def host(self):
+        return self.get_host()
+
+
+class XCookieJarResponse:
+    """Wraps a `httplib.HTTPMessage` to mimic a `urllib.addinfourl`.
+
+    ...what? Basically, expose the parsed HTTP headers from the server response
+    the way `cookielib` expects to see them.
+    """
+
+    def __init__(self, headers):
+        """Make a MockResponse for `cookielib` to read.
+
+        :param headers: a httplib.HTTPMessage or analogous carrying the headers
+        """
+        self._headers = headers
+
+    def info(self):  # needed by http.cookiejar.py
+        return self._headers
+
+
+class XUtils:  # ./InternalUtils/internal_utils.py
+    """
+    requests._internal_utils
+    ~~~~~~~~~~~~~~
+
+    Provides utility functions that are consumed internally by Requests
+    which depend on extremely few external helpers (such as compat)
+    """
+
+    def to_native_string(self, string, encoding='ascii'):  # ./InternalUtils/internal_utils.py
+        """Given a string object, regardless of type, returns a representation of
+        that string in the native string type, encoding and decoding where
+        necessary. This assumes ASCII unless told otherwise.
+        """
+        if XCompat().is_builtin_str_instance(string):
+            out = string
+        else:
+            if XCompat().is_py2():
+                out = string.encode(encoding)
+            else:
+                out = string.decode(encoding)
+
+        return out
+
+    def unicode_is_ascii(self, u_string):  # ./InternalUtils/internal_utils.py
+        """Determine if unicode string only contains ASCII characters.
+
+        :param str u_string: unicode string to check. Must be unicode
+            and not Python 2 `str`.
+        :rtype: bool
+        """
+        assert XCompat().is_str_instance(u_string)
+        try:
+            u_string.encode('ascii')
+            return True
+        except UnicodeEncodeError:
+            return False
+
+    def get_or_set(self, instance, variable, value=None):
+        if value:
+            setattr(instance, variable, value)
+            return instance
+        return getattr(instance, variable)

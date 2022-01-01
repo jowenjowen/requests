@@ -11,6 +11,7 @@ This file only exists for compatibility for external users
 """
 import contextlib
 from .domain import Utils
+from .domain import CookieUtils
 
 def proxy_bypass(host):
     return Utils().proxy_bypass(host)
@@ -50,10 +51,10 @@ def unquote_header_value(value, is_filename=False):
     return Utils().unquote_header_value(value, is_filename)
 
 def dict_from_cookiejar(cj):
-    return Utils().dict_from_cookiejar(cj)
+    return CookieUtils().dict_from_cookiejar(cj)
 
 def add_dict_to_cookiejar(cj, cookie_dict):
-    return Utils().add_dict_to_cookiejar(cj, cookie_dict)
+    return CookieUtils().add_dict_to_cookiejar(cj, cookie_dict)
 
 def get_encodings_from_content(content):
     return Utils().get_encodings_from_content(content)
