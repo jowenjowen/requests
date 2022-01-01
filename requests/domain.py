@@ -105,7 +105,7 @@ class _Internal_utils:  # ./InternalUtils/internal_utils.py
         except UnicodeEncodeError:
             return False
 
-    def assign_or_return(self, instance, variable, value=None):
+    def get_or_set(self, instance, variable, value=None):
         if value:
             setattr(instance, variable, value)
             return instance
@@ -1308,16 +1308,16 @@ Compatibility code to be able to use `cookielib.CookieJar` with requests.
 requests.utils imports from here, so be careful with imports.
 """
 
-class MockRequest(object):
-    """Wraps a `requests.Request` to mimic a `urllib2.Request`.
+class CookieJarRequest:
+    """Wraps a `requests.Request` to mimic the request used by http.cookiejar.py
 
     The code in `cookielib.CookieJar` expects this interface in order to correctly
     manage cookie policies, i.e., determine whether a cookie can be set, given the
     domains of the request and the cookie.
 
     The original request object is read-only. The client is responsible for collecting
-    the new headers via `get_new_headers()` and interpreting them appropriately. You
-    probably want `get_cookie_header`, defined below.
+    the new headers via `added_headers()` and interpreting them appropriately. You
+    probably want `Cookies().get_cookie_header`, defined below.
     """
 
     def __init__(self, request):
@@ -1325,16 +1325,14 @@ class MockRequest(object):
         self._new_headers = {}
         self.type = XCompat().urlparse(self._r.url).scheme
 
-    def get_type(self):
-        return self.type
-
-    def get_host(self):
+    def get_host(self):  # not called but needed py py2
         return XCompat().urlparse(self._r.url).netloc
 
-    def get_origin_req_host(self):
-        return self.get_host()
+    def get_origin_req_host(self):  # needed by cookielib.py (python2.7)
+        return XCompat().urlparse(self._r.url).netloc
+        # return self.get_host()
 
-    def get_full_url(self):
+    def get_full_url(self):  # needed by http.cookiejar.py
         # Only return the response's URL if the user hadn't set the Host
         # header
         if not self._r.headers.get('Host'):
@@ -1348,39 +1346,34 @@ class MockRequest(object):
             parsed.fragment
         ])
 
-    def is_unverifiable(self):
+    def is_unverifiable(self):  # needed by cookielib.py (python2.7)
         return True
 
-    def has_header(self, name):
+    def has_header(self, name):  # needed by http.cookiejar.py
         return name in self._r.headers or name in self._new_headers
 
-    def get_header(self, name, default=None):
+    def get_header(self, name, default=None):  # not called but needed py py2
         return self._r.headers.get(name, self._new_headers.get(name, default))
 
-    def add_header(self, key, val):
-        """cookielib has no legitimate use for this method; add it back if you find one."""
-        raise NotImplementedError("Cookie headers should be added with add_unredirected_header()")
-
-    def add_unredirected_header(self, name, value):
+    def add_unredirected_header(self, name, value):  # needed by http.cookiejar.py
         self._new_headers[name] = value
 
-    def get_new_headers(self):
+    def added_headers(self): # needed by Cookies().get_cookie_header
         return self._new_headers
 
     @property
-    def unverifiable(self):
+    def unverifiable(self):  # needed by http.cookiejar.py
         return self.is_unverifiable()
 
     @property
-    def origin_req_host(self):
+    def origin_req_host(self):  # needed by http.cookiejar.py
         return self.get_origin_req_host()
 
     @property
     def host(self):
         return self.get_host()
 
-
-class MockResponse(object):
+class CookieJarResponse:
     """Wraps a `httplib.HTTPMessage` to mimic a `urllib.addinfourl`.
 
     ...what? Basically, expose the parsed HTTP headers from the server response
@@ -1394,11 +1387,8 @@ class MockResponse(object):
         """
         self._headers = headers
 
-    def info(self):
+    def info(self):  # needed by http.cookiejar.py
         return self._headers
-
-    def getheaders(self, name):
-        self._headers.getheaders(name)
 
 
 class Cookies:  # ./Cookies/Cookies.py
@@ -1413,9 +1403,9 @@ class Cookies:  # ./Cookies/Cookies.py
                 response._original_response):
             return
         # the _original_response field is the wrapped httplib.HTTPResponse object,
-        req = MockRequest(request)
+        req = CookieJarRequest(request)
         # pull out the HTTPMessage with the headers and put it in the mock:
-        res = MockResponse(response._original_response.msg)
+        res = CookieJarResponse(response._original_response.msg)
         jar.extract_cookies(res, req)
 
     def get_cookie_header(self, jar, request):
@@ -1424,9 +1414,9 @@ class Cookies:  # ./Cookies/Cookies.py
 
         :rtype: str
         """
-        r = MockRequest(request)
+        r = CookieJarRequest(request)
         jar.add_cookie_header(r)
-        return r.get_new_headers().get('Cookie')
+        return r.added_headers().get('Cookie')
 
     def remove_cookie_by_name(self, cookiejar, name, domain=None, path=None):
         """Unsets a cookie by name, by default over all domains and paths.
