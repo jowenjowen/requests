@@ -535,8 +535,8 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
         # Set encoding.
         response.encoding = Utils().get_encoding_from_headers(response.headers)
-        response.raw = resp
-        response.reason = response.raw.reason
+        response.raw(resp)
+        response.reason = response.raw().reason
 
         if isinstance(req.url, bytes):
             response.url = req.url.decode('utf-8')
@@ -1160,7 +1160,7 @@ class HTTPDigestAuth(AuthBase):
 
     def handle_redirect(self, r, **kwargs):
         """Reset num_401_calls counter on redirects."""
-        if r.is_redirect:
+        if r.is_redirect():
             self._thread_local.num_401_calls = 1
 
     def handle_401(self, r, **kwargs):
@@ -1193,7 +1193,7 @@ class HTTPDigestAuth(AuthBase):
             r.content
             r.close()
             prep = r.request.copy()
-            CookieUtils().to_jar(prep._cookies, r.request, r.raw)
+            CookieUtils().to_jar(prep._cookies, r.request, r.raw())
             prep.prepare_cookies(prep._cookies)
 
             prep.headers['Authorization'] = self.build_digest_header(
@@ -2444,7 +2444,7 @@ class Response(object):  # ./Models/Response.py
         #: File-like object representation of response (for advanced usage).
         #: Use of ``raw`` requires that ``stream=True`` be set on the request.
         #: This requirement does not apply for use internally to Requests.
-        self.raw = None
+        self._raw = None
 
         #: Final URL location of Response.
         self.url = None
@@ -2510,7 +2510,7 @@ class Response(object):  # ./Models/Response.py
         the status code, is between 200 and 400, this will return True. This
         is **not** a check to see if the response code is ``200 OK``.
         """
-        return self.ok
+        return self.ok()
 
     def __nonzero__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
@@ -2520,13 +2520,12 @@ class Response(object):  # ./Models/Response.py
         the status code, is between 200 and 400, this will return True. This
         is **not** a check to see if the response code is ``200 OK``.
         """
-        return self.ok
+        return self.ok()
 
     def __iter__(self):  # ./Models/Response.py
         """Allows you to use a response as an iterator."""
         return self.iter_content(128)
 
-    @property
     def ok(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400, False if not.
 
@@ -2541,24 +2540,20 @@ class Response(object):  # ./Models/Response.py
             return False
         return True
 
-    @property
     def is_redirect(self):
         """True if this Response is a well-formed HTTP redirect that could have
         been processed automatically (by :meth:`Session.resolve_redirects`).
         """
         return ('location' in self.headers and self.status_code in Models().REDIRECT_STATI())
 
-    @property
     def is_permanent_redirect(self):
         """True if this Response one of the permanent versions of redirect."""
         return ('location' in self.headers and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
-    @property
-    def next(self):
+    def next(self, value=None):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
-        return self._next
+        return XUtils().get_or_set(self, '_next', value)
 
-    @property
     def apparent_encoding(self):
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
         return XCompat().chardet().detect(self.content)['encoding']
@@ -2582,9 +2577,9 @@ class Response(object):  # ./Models/Response.py
 
         def generate():
             # Special case for urllib3.
-            if hasattr(self.raw, 'stream'):
+            if hasattr(self._raw, 'stream'):
                 try:
-                    for chunk in self.raw.stream(chunk_size, decode_content=True):
+                    for chunk in self.raw().stream(chunk_size, decode_content=True):
                         yield chunk
                 except XUrllib3().exceptions().ProtocolError as e:
                     raise ChunkedEncodingError(e)
@@ -2595,7 +2590,7 @@ class Response(object):  # ./Models/Response.py
             else:
                 # Standard file-like object.
                 while True:
-                    chunk = self.raw.read(chunk_size)
+                    chunk = self.raw().read(chunk_size)
                     if not chunk:
                         break
                     yield chunk
@@ -2662,7 +2657,7 @@ class Response(object):  # ./Models/Response.py
                 raise RuntimeError(
                     'The content for this response was already consumed')
 
-            if self.status_code == 0 or self.raw is None:
+            if self.status_code == 0 or self._raw is None:
                 self._content = None
             else:
                 self._content = b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
@@ -2694,7 +2689,7 @@ class Response(object):  # ./Models/Response.py
 
         # Fallback to auto-detected encoding.
         if self.encoding is None:
-            encoding = self.apparent_encoding
+            encoding = self.apparent_encoding()
 
         # Decode unicode from given encoding.
         try:
@@ -2796,11 +2791,14 @@ class Response(object):  # ./Models/Response.py
         *Note: Should not normally need to be called explicitly.*
         """
         if not self._content_consumed:
-            self.raw.close()
+            self.raw().close()
 
-        release_conn = getattr(self.raw, 'release_conn', None)
+        release_conn = getattr(self._raw, 'release_conn', None)
         if release_conn is not None:
             release_conn()
+
+    def raw(self, value=None):  # ./Models/Response.py
+        return XUtils().get_or_set(self, '_raw', value)
 
 
 # *************************** classes in Packages section *****************
@@ -2895,7 +2893,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         # If a custom mixin is used to handle this logic, it may be advantageous
         # to cache the redirect location onto the response object as a private
         # attribute.
-        if resp.is_redirect:
+        if resp.is_redirect():
             location = resp.headers['location']
             # Currently the underlying http module on py3 decode headers
             # in latin1, but empirical evidence suggests that latin1 is very
@@ -2953,7 +2951,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             try:
                 resp.content  # Consume socket so it can be released
             except (ChunkedEncodingError, ContentDecodingError, RuntimeError):
-                resp.raw.read(decode_content=False)
+                resp.raw().read(decode_content=False)
 
             if len(resp.history) >= self.max_redirects:
                 raise TooManyRedirects('Exceeded {} redirects.'.format(self.max_redirects), response=resp)
@@ -3039,7 +3037,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                     **adapter_kwargs
                 )
 
-                CookieUtils().to_jar(self.cookies, prepared_request, resp.raw)
+                CookieUtils().to_jar(self.cookies, prepared_request, resp.raw())
 
                 # extract redirect url, if any, for the next loop
                 url = self.get_redirect_target(resp)
@@ -3463,9 +3461,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
             # If the hooks create history then we want those cookies too
             for resp in r.history:
-                CookieUtils().to_jar(self.cookies, resp.request, resp.raw)
+                CookieUtils().to_jar(self.cookies, resp.request, resp.raw())
 
-        CookieUtils().to_jar(self.cookies, request, r.raw)
+        CookieUtils().to_jar(self.cookies, request, r.raw())
 
         # Resolve redirects if allowed.
         if allow_redirects:
@@ -3486,7 +3484,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         # If redirects aren't being followed, store the response on the Request for Response.next().
         if not allow_redirects:
             try:
-                r._next = next(self.resolve_redirects(r, request, yield_requests=True, **kwargs))
+                r.next(next(self.resolve_redirects(r, request, yield_requests=True, **kwargs)))
             except StopIteration:
                 pass
 

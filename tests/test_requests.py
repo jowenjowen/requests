@@ -253,28 +253,28 @@ class TestRequests:
         assert r.status_code == 200
         assert r.request.method == 'GET'
         assert r.history[0].status_code == 302
-        assert r.history[0].is_redirect
+        assert r.history[0].is_redirect()
 
     def test_http_302_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '302'), allow_redirects=True)
         assert r.status_code == 200
         assert r.request.method == 'HEAD'
         assert r.history[0].status_code == 302
-        assert r.history[0].is_redirect
+        assert r.history[0].is_redirect()
 
     def test_http_303_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '303'))
         assert r.status_code == 200
         assert r.request.method == 'GET'
         assert r.history[0].status_code == 303
-        assert r.history[0].is_redirect
+        assert r.history[0].is_redirect()
 
     def test_http_303_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '303'), allow_redirects=True)
         assert r.status_code == 200
         assert r.request.method == 'HEAD'
         assert r.history[0].status_code == 303
-        assert r.history[0].is_redirect
+        assert r.history[0].is_redirect()
 
     def test_header_and_body_removal_on_redirect(self, httpbin):
         purged_headers = ('Content-Length', 'Content-Type')
@@ -302,9 +302,9 @@ class TestRequests:
 
         # Create Response to avoid https://github.com/kevin1024/pytest-httpbin/issues/33
         resp = requests.Response()
-        resp.raw = io.BytesIO(b'the content')
+        resp.raw(io.BytesIO(b'the content'))
         resp.request = prep
-        setattr(resp.raw, 'release_conn', lambda *args: args)
+        setattr(resp.raw(), 'release_conn', lambda *args: args)
 
         # Mimic a redirect response
         resp.status_code = 302
@@ -692,10 +692,10 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
             r = requests.get(url, auth=auth, stream=True)
-            assert r.raw.read() != b''
+            assert r.raw().read() != b''
 
             r = requests.get(url, auth=auth, stream=False)
-            assert r.raw.read() == b''
+            assert r.raw().read() == b''
 
     def test_DIGESTAUTH_WRONG_HTTP_401_GET(self, httpbin):
 
@@ -844,7 +844,7 @@ class TestRequests:
 
     def test_request_ok_set(self, httpbin):
         r = requests.get(httpbin('status', '404'))
-        assert not r.ok
+        assert not r.ok()
 
     def test_status_raising(self, httpbin):
         r = requests.get(httpbin('status', '404'))
@@ -852,7 +852,7 @@ class TestRequests:
             r.raise_for_status()
 
         r = requests.get(httpbin('status', '500'))
-        assert not r.ok
+        assert not r.ok()
 
     def test_decompress_gzip(self, httpbin):
         r = requests.get(httpbin('gzip'))
@@ -1270,7 +1270,7 @@ class TestRequests:
         def read_mock(amt, decode_content=None):
             return read_(amt)
         setattr(io, 'read', read_mock)
-        r.raw = io
+        r.raw(io)
         assert next(iter(r))
         io.close()
 
@@ -1288,7 +1288,7 @@ class TestRequests:
 
         # also for streaming
         r = requests.Response()
-        r.raw = io.BytesIO(b'the content')
+        r.raw(io.BytesIO(b'the content'))
         r.encoding = 'ascii'
         chunks = r.iter_content(decode_unicode=True)
         assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
@@ -1300,7 +1300,7 @@ class TestRequests:
         r.reason = u'Komponenttia ei löydy'.encode('utf-8')
         r.status_code = 404
         r.encoding = None
-        assert not r.ok  # old behaviour - crashes here
+        assert not r.ok()  # old behaviour - crashes here
 
     def test_response_reason_unicode_fallback(self):
         # check raise_status falls back to ISO-8859-1
@@ -1319,17 +1319,17 @@ class TestRequests:
         raise a TypeError.
         """
         r = requests.Response()
-        r.raw = io.BytesIO(b'the content')
+        r.raw(io.BytesIO(b'the content'))
         chunks = r.iter_content(1)
         assert all(len(chunk) == 1 for chunk in chunks)
 
         r = requests.Response()
-        r.raw = io.BytesIO(b'the content')
+        r.raw(io.BytesIO(b'the content'))
         chunks = r.iter_content(None)
         assert list(chunks) == [b'the content']
 
         r = requests.Response()
-        r.raw = io.BytesIO(b'the content')
+        r.raw(io.BytesIO(b'the content'))
         with pytest.raises(TypeError):
             chunks = r.iter_content("1024")
 
@@ -1691,21 +1691,21 @@ class TestRequests:
     def test_manual_redirect_with_partial_body_read(self, httpbin):
         s = requests.domain.Session()
         r1 = s.get(httpbin('redirect/2'), allow_redirects=False, stream=True)
-        assert r1.is_redirect
+        assert r1.is_redirect()
         rg = s.resolve_redirects(r1, r1.request, stream=True)
 
         # read only the first eight bytes of the response body,
         # then follow the redirect
         r1.iter_content(8)
         r2 = next(rg)
-        assert r2.is_redirect
+        assert r2.is_redirect()
 
         # read all of the response via iter_content,
         # then follow the redirect
         for _ in r2.iter_content():
             pass
         r3 = next(rg)
-        assert not r3.is_redirect
+        assert not r3.is_redirect()
 
     def test_prepare_body_position_non_stream(self):
         data = b'the data'
@@ -1810,7 +1810,7 @@ class TestRequests:
         def build_response(*args, **kwargs):
             resp = org_build_response(*args, **kwargs)
             if not self._patched_response:
-                resp.raw.headers['content-encoding'] = 'gzip'
+                resp.raw().headers['content-encoding'] = 'gzip'
                 self._patched_response = True
             return resp
 
@@ -1868,7 +1868,7 @@ class TestRequests:
         with requests.get(httpbin('stream/4'), stream=True) as response:
             assert isinstance(response, requests.Response)
 
-        assert response.raw.closed
+        assert response.raw().closed
 
     def test_unconsumed_session_response_closes_connection(self, httpbin):
         s = requests.domain.Session()
@@ -1877,7 +1877,7 @@ class TestRequests:
             pass
 
         assert response._content_consumed is False
-        assert response.raw.closed
+        assert response.raw().closed
 
     @pytest.mark.xfail
     def test_response_iter_lines_reentrant(self, httpbin):
@@ -1925,10 +1925,10 @@ class TestRequests:
         Should work when `release_conn` attr doesn't exist on `response.raw`.
         """
         resp = requests.Response()
-        resp.raw = CompatStringIO.StringIO('test')
-        assert not resp.raw.closed
+        resp.raw(CompatStringIO.StringIO('test'))
+        assert not resp.raw().closed
         resp.close()
-        assert resp.raw.closed
+        assert resp.raw().closed
 
     def test_empty_stream_with_auth_does_not_set_content_length_header(self, httpbin):
         """Ensure that a byte stream with size 0 will not set both a Content-Length
@@ -1990,7 +1990,7 @@ class TestRequests:
         class CustomRedirectSession(requests.domain.Session):
             def get_redirect_target(self, resp):
                 # default behavior
-                if resp.is_redirect:
+                if resp.is_redirect():
                     return resp.headers['location']
                 # edge case - check to see if 'location' is in headers anyways
                 location = resp.headers.get('location')
@@ -2003,9 +2003,9 @@ class TestRequests:
         assert len(r.history) == 2
         assert r.status_code == 200
         assert r.history[0].status_code == 302
-        assert r.history[0].is_redirect
+        assert r.history[0].is_redirect()
         assert r.history[1].status_code == 200
-        assert not r.history[1].is_redirect
+        assert not r.history[1].is_redirect()
         assert r.url == urls_test[2]
 
 
@@ -2279,7 +2279,7 @@ class TestTimeout:
     def test_encoded_methods(self, httpbin):
         """See: https://github.com/psf/requests/issues/2316"""
         r = requests.request(b'GET', httpbin('get'))
-        assert r.ok
+        assert r.ok()
 
 
 SendCall = collections.namedtuple('SendCall', ('args', 'kwargs'))
@@ -2307,7 +2307,7 @@ class RedirectSession(SessionRedirectMixin):
             r.status_code = 200
 
         r.headers = CaseInsensitiveDict({'Location': '/'})
-        r.raw = self._build_raw()
+        r.raw(self._build_raw())
         r.request = request
         return r
 
