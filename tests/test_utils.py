@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from requests.x import XOs, XCompat, XUtils
+from requests.x import XOs, XCookieJar, XUtils
 import copy
 import filecmp
 from io import BytesIO
@@ -10,7 +10,7 @@ from collections import deque
 
 import pytest
 from requests import compat
-from requests.domain import RequestsCookieJar
+from requests.domain import CookieJar
 from requests.domain import CaseInsensitiveDict
 from requests.utils import (
     address_in_network, dotted_netmask, extract_zipped_paths,
@@ -685,12 +685,12 @@ def test_should_bypass_proxies_pass_only_hostname(url, expected, mocker):
 
 @pytest.mark.parametrize(
     'cookiejar', (
-        XCompat().cookielib().CookieJar(),
-        RequestsCookieJar()
+            XCookieJar(),
+            CookieJar()
     ))
 def test_add_dict_to_cookiejar(cookiejar):
     """Ensure add_dict_to_cookiejar works for
-    non-RequestsCookieJar CookieJars
+    XCookieJar CookieJars
     """
     cookiedict = {'test': 'cookies',
                   'good': 'cookies'}

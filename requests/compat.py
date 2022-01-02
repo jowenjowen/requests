@@ -56,6 +56,9 @@ if is_py2:
     from urlparse import urldefrag as compat_urldefrag
     from urllib2 import parse_http_list as compat_parse_http_list
     import cookielib as compat_cookielib
+    from cookielib import CookieJar as CompatCookieJar
+    from cookielib import Cookie as CompatCookie
+    from cookielib import DefaultCookiePolicy as CompatDefaultCookiePolicy
     from Cookie import Morsel as CompatMorsel
     from StringIO import StringIO as CompatStringIO
     # Keep OrderedDict for backwards compatibility.
@@ -88,7 +91,9 @@ elif is_py3:
     from urllib.parse import urlsplit as compat_urlsplit
     from urllib.parse import urldefrag as compat_urldefrag
     from urllib.request import parse_http_list as compat_parse_http_list
-    from http import cookiejar as compat_cookielib
+    from http.cookiejar import CookieJar as CompatCookieJar
+    from http.cookiejar import Cookie as CompatCookie
+    from http.cookiejar import DefaultCookiePolicy as CompatDefaultCookiePolicy
     from http.cookies import Morsel as CompatMorsel
     from io import StringIO as CompatStringIO
     # Keep OrderedDict for backwards compatibility.

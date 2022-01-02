@@ -25,7 +25,9 @@ import os
 import re
 
 #imports for cookies
-from .compat import compat_cookielib
+from .compat import CompatCookieJar as XCookieJar
+from .compat import CompatCookie as XCookie
+from .compat import CompatDefaultCookiePolicy as XDefaultCookiePolicy
 from .compat import CompatMorsel as XMorsel
 import copy
 import calendar
@@ -257,7 +259,6 @@ class XThreading:
     def RLock(self, verbose=None):
         return threading.RLock(verbose)
 
-
 class XCompat:
     def is_py2(self):
         return is_py2
@@ -279,9 +280,6 @@ class XCompat:
 
     def urlunparse(self, a):
         return compat_urlunparse(a)
-
-    def cookielib(self):
-        return compat_cookielib
 
     def is_py3(self):
         return is_py3

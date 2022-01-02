@@ -16,7 +16,8 @@ import pytest
 from requests.domain import HTTPAdapter
 from requests.domain import HTTPDigestAuth
 from requests.domain import Auth
-from requests.x import XCompat
+from requests.x import XCookieJar
+from requests.x import XDefaultCookiePolicy
 from requests.x import XOs
 from requests.domain import XMorsel
 from requests.domain import XCompat
@@ -43,7 +44,7 @@ from requests.domain import CaseInsensitiveDict
 from requests.domain import SessionRedirectMixin
 from requests.domain import Hooks, Utils
 from requests.domain import XMutableMapping
-from requests.domain import RequestsCookieJar
+from requests.domain import CookieJar
 
 
 from .compat import CompatStringIO, u
@@ -388,7 +389,7 @@ class TestRequests:
         assert not s.cookies
 
     def test_generic_cookiejar_works(self, httpbin):
-        cj = XCompat().cookielib().CookieJar()
+        cj = XCookieJar()
         CookieUtils().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
         s.cookies = cj
@@ -399,7 +400,7 @@ class TestRequests:
         assert s.cookies is cj
 
     def test_param_cookiejar_works(self, httpbin):
-        cj = XCompat().cookielib().CookieJar()
+        cj = XCookieJar()
         CookieUtils().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
         r = s.get(httpbin('cookies'), cookies=cj)
@@ -408,11 +409,11 @@ class TestRequests:
 
     def test_cookielib_cookiejar_on_redirect(self, httpbin):
         """Tests resolve_redirect doesn't fail when merging cookies
-        with non-RequestsCookieJar cookiejar.
+        with XCookieJar.
 
         See GH #3579
         """
-        cj = CookieUtils().cookiejar_from_dict({'foo': 'bar'}, XCompat().cookielib().CookieJar())
+        cj = CookieUtils().cookiejar_from_dict({'foo': 'bar'}, XCookieJar())
         s = requests.domain.Session()
         s.cookies = CookieUtils().cookiejar_from_dict({'cookie': 'tasty'})
 
@@ -427,10 +428,10 @@ class TestRequests:
         redirects = s.resolve_redirects(resp, prep_req)
         resp = next(redirects)
 
-        # Verify CookieJar isn't being converted to RequestsCookieJar
-        assert isinstance(prep_req._cookies, XCompat().cookielib().CookieJar)
-        assert isinstance(resp.request._cookies, XCompat().cookielib().CookieJar)
-        assert not isinstance(resp.request._cookies, RequestsCookieJar)
+        # Verify XCookieJar isn't being converted to CookieJar
+        assert isinstance(prep_req._cookies, XCookieJar)
+        assert isinstance(resp.request._cookies, XCookieJar)
+        assert not isinstance(resp.request._cookies, CookieJar)
 
         cookies = {}
         for c in resp.request._cookies:
@@ -1113,7 +1114,7 @@ class TestRequests:
         domain = 'test.com'
         rest = {'HttpOnly': True}
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value, secure=secure, domain=domain, rest=rest)
 
         assert len(jar) == 1
@@ -1131,7 +1132,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1151,7 +1152,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1170,7 +1171,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1186,7 +1187,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1202,7 +1203,7 @@ class TestRequests:
         key1 = 'some_cookie1'
         value1 = 'some_value1'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value)
         jar.set(key1, value1)
 
@@ -1217,7 +1218,7 @@ class TestRequests:
         domain1 = 'test1.com'
         domain2 = 'test2.com'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value, domain=domain1)
         jar.set(key, value, domain=domain2)
         assert key in jar
@@ -1237,17 +1238,17 @@ class TestRequests:
         value = 'some_value'
         path = 'some_path'
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set(key, value, path=path)
         jar.set(key, value)
         with pytest.raises(CookieConflictError):
             jar.get(key)
 
     def test_cookie_policy_copy(self):
-        class MyCookiePolicy(XCompat().cookielib().DefaultCookiePolicy):
+        class MyCookiePolicy(XDefaultCookiePolicy):
             pass
 
-        jar = RequestsCookieJar()
+        jar = CookieJar()
         jar.set_policy(MyCookiePolicy())
         assert isinstance(jar.copy().get_policy(), MyCookiePolicy)
 

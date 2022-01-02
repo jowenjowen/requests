@@ -24,6 +24,8 @@ from certifi import where as certifi_where
 # imports needed for Cookies
 from .x import XCopy, XCalendar
 from .x import XMorsel
+from .x import XCookieJar
+from .x import XCookie
 from .x import XCookieJarRequest
 from .x import XCookieJarResponse
 
@@ -394,7 +396,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
     def __setstate__(self, state):  # ./Adapters/HTTPAdapter.py
         # Can't handle by adding 'proxy_manager' to self.__attrs__ because
-        # self.poolmanager uses a lambda function, which isn't pickleable.
+        # self.poolmanager uses a lambda function, which isn't picklable.
         self.proxy_manager = {}
         self.config = {}
 
@@ -821,7 +823,7 @@ class Api:  # ./Api/api.py
             object to send in the body of the :class:`Request`.
         :param json: (optional) A JSON serializable Python object to send in the body of the :class:`Request`.
         :param headers: (optional) Dictionary of HTTP Headers to send with the :class:`Request`.
-        :param cookies: (optional) Dict or CookieJar object (cookielib or Requests based) to send with the :class:`Request`.
+        :param cookies: (optional) Dict or CookieJar object (CookieJar or XCookieJar) to send with the :class:`Request`.
         :param files: (optional) Dictionary of ``'name': file-like-objects`` (or ``{'name': file-tuple}``) for multipart encoding upload.
             ``file-tuple`` can be a 2-tuple ``('filename', fileobj)``, 3-tuple ``('filename', fileobj, 'content_type')``
             or a 4-tuple ``('filename', fileobj, 'content_type', custom_headers)``, where ``'content-type'`` is a string
@@ -1264,9 +1266,9 @@ Compatibility code to be able to use `cookielib.CookieJar` with requests.
 
 class CookieUtils:  # ./Cookies/CookieUtils.py
     def to_jar(self, jar, request, response):
-        """Extract the cookies from the response into a CookieJar object (cookielib or Requests based)
+        """Extract the cookies from the response into a CookieJar object (CookieJar or XCookieJar)
 
-        :param jar: CookieJar object (cookielib or Requests based)r
+        :param jar: CookieJar object (CookieJar or XCookieJar)r
         :param request: our own requests.Request object
         :param response: urllib3.HTTPResponse object
         """
@@ -1292,7 +1294,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
     def remove_cookie_by_name(self, cookiejar, name, domain=None, path=None):  # ./Cookies/CookieUtils.py
         """Unsets a cookie by name, by default over all domains and paths.
 
-        Wraps CookieJar.clear() (cookielib or Requests based), is O(n).
+        Wraps CookieJar.clear() (CookieJar or XCookieJar), is O(n).
         """
         clearables = []
         for cookie in cookiejar:
@@ -1312,9 +1314,9 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
             return None
 
         if hasattr(jar, 'copy'):
-            # We're dealing with an instance of RequestsCookieJar
+            # We're dealing with an instance of CookieJar
             return jar.copy()
-        # We're dealing with a generic CookieJar (cookielib based) instance
+        # We're dealing with a XCookieJar instance
         new_jar = XCopy().copy(jar)
         new_jar.clear()
         for cookie in jar:
@@ -1354,7 +1356,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         result['domain_initial_dot'] = result['domain'].startswith('.')
         result['path_specified'] = bool(result['path'])
 
-        return XCompat().cookielib().Cookie(**result)
+        return XCookie(**result)
 
     def morsel_to_cookie(self, morsel):  # ./Cookies/CookieUtils.py
         """Convert a Morsel object into a Cookie containing the one k/v pair."""
@@ -1389,14 +1391,14 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
     def cookiejar_from_dict(self, cookie_dict, cookiejar=None, overwrite=True):  # ./Cookies/CookieUtils.py
         """Returns a CookieJar from a key/value dictionary.
 
-        :param cookie_dict: Dict of key/values to insert into the CookieJar object (cookielib or Requests based).
-        :param cookiejar: (optional) A CookieJar object (cookielib or Requests based) to add the cookies to.
+        :param cookie_dict: Dict of key/values to insert into the CookieJar object (CookieJar or XCookieJar).
+        :param cookiejar: (optional) A CookieJar object (CookieJar or XCookieJar) to add the cookies to.
         :param overwrite: (optional) If False, will not replace cookies
             already in the jar with new ones.
-        :rtype: CookieJar object (cookielib or Requests based)
+        :rtype: CookieJar object (CookieJar or XCookieJar)
         """
         if cookiejar is None:
-            cookiejar = RequestsCookieJar()
+            cookiejar = CookieJar()
 
         if cookie_dict is not None:
             names_from_jar = [cookie.name for cookie in cookiejar]
@@ -1407,19 +1409,19 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         return cookiejar
 
     def merge_cookies(self, cookiejar, cookies):  # ./Cookies/CookieUtils.py
-        """Add cookies to cookiejar and returns a merged CookieJar object (cookielib or Requests based).
+        """Add cookies to cookiejar and returns a merged CookieJar object (CookieJar or XCookieJar).
 
-        :param cookiejar: CookieJar object (cookielib or Requests based) to add the cookies to.
-        :param cookies: Dictionary or CookieJar object (cookielib or Requests based) to be added.
-        :rtype: CookieJar object (cookielib or Requests based)
+        :param cookiejar: CookieJar object (CookieJar or XCookieJar) to add the cookies to.
+        :param cookies: Dictionary or CookieJar object (CookieJar or XCookieJar) to be added.
+        :rtype: CookieJar object (CookieJar or XCookieJar)
         """
-        if not isinstance(cookiejar, XCompat().cookielib().CookieJar):
+        if not isinstance(cookiejar, XCookieJar):
             raise ValueError('You can only merge into CookieJar')
 
         if isinstance(cookies, dict):
             cookiejar = self.cookiejar_from_dict(
                 cookies, cookiejar=cookiejar, overwrite=False)
-        elif isinstance(cookies, XCompat().cookielib().CookieJar):
+        elif isinstance(cookies, XCookieJar):
             try:
                 cookiejar.update(cookies)
             except AttributeError:
@@ -1459,7 +1461,7 @@ class CookieConflictError(RuntimeError):  # ./Cookies/CookieConflictError.py
     """
 
 
-class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./Cookies/RequestsCookieJar.py
+class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
     """Compatibility class; is a cookielib.CookieJar, but exposes a dict
     interface.
 
@@ -1472,12 +1474,12 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
     out of the box with externally provided instances of ``CookieJar``, e.g.
     ``LWPCookieJar`` and ``FileCookieJar``.
 
-    Unlike a regular cookielib based CookieJar, this class is pickleable.
+    Unlike a XCookieJar, this class is picklable.
 
     .. warning:: dictionary operations that are normally O(1) may be O(n).
     """
 
-    def get(self, name, default=None, domain=None, path=None):  # ./Cookies/RequestsCookieJar.py
+    def get(self, name, default=None, domain=None, path=None):  # ./Cookies/CookieJar.py
         """Dict-like get() that also supports optional domain and path args in
         order to resolve naming collisions from using one cookie jar over
         multiple domains.
@@ -1489,7 +1491,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         except KeyError:
             return default
 
-    def set(self, name, value, **kwargs):  # ./Cookies/RequestsCookieJar.py
+    def set(self, name, value, **kwargs):  # ./Cookies/CookieJar.py
         """Dict-like set() that also supports optional domain and path args in
         order to resolve naming collisions from using one cookie jar over
         multiple domains.
@@ -1506,7 +1508,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         self.set_cookie(c)
         return c
 
-    def iterkeys(self):  # ./Cookies/RequestsCookieJar.py
+    def iterkeys(self):  # ./Cookies/CookieJar.py
         """Dict-like iterkeys() that returns an iterator of names of cookies
         from the jar.
 
@@ -1515,7 +1517,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         for cookie in iter(self):
             yield cookie.name
 
-    def keys(self):  # ./Cookies/RequestsCookieJar.py
+    def keys(self):  # ./Cookies/CookieJar.py
         """Dict-like keys() that returns a list of names of cookies from the
         jar.
 
@@ -1523,7 +1525,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         """
         return list(self.iterkeys())
 
-    def itervalues(self):  # ./Cookies/RequestsCookieJar.py
+    def itervalues(self):  # ./Cookies/CookieJar.py
         """Dict-like itervalues() that returns an iterator of values of cookies
         from the jar.
 
@@ -1532,7 +1534,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         for cookie in iter(self):
             yield cookie.value
 
-    def values(self):  # ./Cookies/RequestsCookieJar.py
+    def values(self):  # ./Cookies/CookieJar.py
         """Dict-like values() that returns a list of values of cookies from the
         jar.
 
@@ -1540,7 +1542,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         """
         return list(self.itervalues())
 
-    def iteritems(self):  # ./Cookies/RequestsCookieJar.py
+    def iteritems(self):  # ./Cookies/CookieJar.py
         """Dict-like iteritems() that returns an iterator of name-value tuples
         from the jar.
 
@@ -1549,16 +1551,16 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         for cookie in iter(self):
             yield cookie.name, cookie.value
 
-    def items(self):  # ./Cookies/RequestsCookieJar.py
+    def items(self):  # ./Cookies/CookieJar.py
         """Dict-like items() that returns a list of name-value tuples from the
-        jar. Allows client-code to call ``dict(RequestsCookieJar)`` and get a
+        jar. Allows client-code to call ``dict(CookieJar)`` and get a
         vanilla python dict of key value pairs.
 
         .. seealso:: keys() and values().
         """
         return list(self.iteritems())
 
-    def list_domains(self):  # ./Cookies/RequestsCookieJar.py
+    def list_domains(self):  # ./Cookies/CookieJar.py
         """Utility method to list all the domains in the jar."""
         domains = []
         for cookie in iter(self):
@@ -1566,7 +1568,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
                 domains.append(cookie.domain)
         return domains
 
-    def list_paths(self):  # ./Cookies/RequestsCookieJar.py
+    def list_paths(self):  # ./Cookies/CookieJar.py
         """Utility method to list all the paths in the jar."""
         paths = []
         for cookie in iter(self):
@@ -1574,7 +1576,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
                 paths.append(cookie.path)
         return paths
 
-    def multiple_domains(self):  # ./Cookies/RequestsCookieJar.py
+    def multiple_domains(self):  # ./Cookies/CookieJar.py
         """Returns True if there are multiple domains in the jar.
         Returns False otherwise.
 
@@ -1587,7 +1589,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
             domains.append(cookie.domain)
         return False  # there is only one domain in jar
 
-    def get_dict(self, domain=None, path=None):  # ./Cookies/RequestsCookieJar.py
+    def get_dict(self, domain=None, path=None):  # ./Cookies/CookieJar.py
         """Takes as an argument an optional domain and path and returns a plain
         old Python dict of name-value pairs of cookies that meet the
         requirements.
@@ -1603,13 +1605,13 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
                 dictionary[cookie.name] = cookie.value
         return dictionary
 
-    def __contains__(self, name):  # ./Cookies/RequestsCookieJar.py
+    def __contains__(self, name):  # ./Cookies/CookieJar.py
         try:
-            return super(RequestsCookieJar, self).__contains__(name)
+            return super(CookieJar, self).__contains__(name)
         except CookieConflictError:
             return True
 
-    def __getitem__(self, name):  # ./Cookies/RequestsCookieJar.py
+    def __getitem__(self, name):  # ./Cookies/CookieJar.py
         """Dict-like __getitem__() for compatibility with client code. Throws
         exception if there are more than one cookie with name. In that case,
         use the more explicit get() method instead.
@@ -1618,33 +1620,33 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
         """
         return self._find_no_duplicates(name)
 
-    def __setitem__(self, name, value):  # ./Cookies/RequestsCookieJar.py
+    def __setitem__(self, name, value):  # ./Cookies/CookieJar.py
         """Dict-like __setitem__ for compatibility with client code. Throws
         exception if there is already a cookie of that name in the jar. In that
         case, use the more explicit set() method instead.
         """
         self.set(name, value)
 
-    def __delitem__(self, name):  # ./Cookies/RequestsCookieJar.py
+    def __delitem__(self, name):  # ./Cookies/CookieJar.py
         """Deletes a cookie given a name. Wraps ``cookielib.CookieJar``'s
         ``remove_cookie_by_name()``.
         """
         CookieUtils().remove_cookie_by_name(self, name)
 
-    def set_cookie(self, cookie, *args, **kwargs):  # ./Cookies/RequestsCookieJar.py
+    def set_cookie(self, cookie, *args, **kwargs):  # ./Cookies/CookieJar.py
         if hasattr(cookie.value, 'startswith') and cookie.value.startswith('"') and cookie.value.endswith('"'):
             cookie.value = cookie.value.replace('\\"', '')
-        return super(RequestsCookieJar, self).set_cookie(cookie, *args, **kwargs)
+        return super(CookieJar, self).set_cookie(cookie, *args, **kwargs)
 
-    def update(self, other):  # ./Cookies/RequestsCookieJar.py
-        """Updates this jar with cookies from another CookieJar (cookielib or Requests based) or dict-like"""
-        if isinstance(other, XCompat().cookielib().CookieJar):
+    def update(self, other):  # ./Cookies/CookieJar.py
+        """Updates this jar with cookies from another CookieJar (CookieJar or XCookieJar) or dict-like"""
+        if isinstance(other, XCookieJar):
             for cookie in other:
                 self.set_cookie(XCopy().copy(cookie))
         else:
-            super(RequestsCookieJar, self).update(other)
+            super(CookieJar, self).update(other)
 
-    def _find(self, name, domain=None, path=None):  # ./Cookies/RequestsCookieJar.py
+    def _find(self, name, domain=None, path=None):  # ./Cookies/CookieJar.py
         """Requests uses this method internally to get cookie values.
 
         If there are conflicting cookies, _find arbitrarily chooses one.
@@ -1664,7 +1666,7 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
 
         raise KeyError('name=%r, domain=%r, path=%r' % (name, domain, path))
 
-    def _find_no_duplicates(self, name, domain=None, path=None):  # ./Cookies/RequestsCookieJar.py
+    def _find_no_duplicates(self, name, domain=None, path=None):  # ./Cookies/CookieJar.py
         """Both ``__get_item__`` and ``get`` call this function: it's never
         used elsewhere in Requests.
 
@@ -1689,27 +1691,27 @@ class RequestsCookieJar(XCompat().cookielib().CookieJar, XMutableMapping):  # ./
             return toReturn
         raise KeyError('name=%r, domain=%r, path=%r' % (name, domain, path))
 
-    def __getstate__(self):  # ./Cookies/RequestsCookieJar.py
-        """Unlike a normal cookielib based CookieJar, this class is pickleable."""
+    def __getstate__(self):  # ./Cookies/CookieJar.py
+        """Unlike a XCookieJar, this class is picklable."""
         state = self.__dict__.copy()
         # remove the unpickleable RLock object
         state.pop('_cookies_lock')
         return state
 
-    def __setstate__(self, state):  # ./Cookies/RequestsCookieJar.py
-        """Unlike a normal cookielib based CookieJar, this class is pickleable."""
+    def __setstate__(self, state):  # ./Cookies/CookieJar.py
+        """Unlike a XCookieJar, this class is picklable."""
         self.__dict__.update(state)
         if '_cookies_lock' not in self.__dict__:
             self._cookies_lock = XThreading().RLock()
 
-    def copy(self):  # ./Cookies/RequestsCookieJar.py
-        """Return a copy of this RequestsCookieJar."""
-        new_cj = RequestsCookieJar()
+    def copy(self):  # ./Cookies/CookieJar.py
+        """Return a copy of this CookieJar."""
+        new_cj = CookieJar()
         new_cj.set_policy(self.get_policy())
         new_cj.update(self)
         return new_cj
 
-    def get_policy(self):  # ./Cookies/RequestsCookieJar.py
+    def get_policy(self):  # ./Cookies/CookieJar.py
         """Return the CookiePolicy instance used."""
         return self._policy
 
@@ -2124,7 +2126,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         self.url = None
         #: dictionary of HTTP headers.
         self.headers = None
-        # The `CookieJar` (cookielib or Requests based) used to create the Cookie header will be stored here
+        # The `CookieJar` (CookieJar or XCookieJar) used to create the Cookie header will be stored here
         # after prepare_cookies is called
         self._cookies = None
         #: request body to send to the server.
@@ -2397,7 +2399,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         to ``prepare_cookies`` will have no actual effect, unless the "Cookie"
         header is removed beforehand.
         """
-        if isinstance(cookies, XCompat().cookielib().CookieJar):
+        if isinstance(cookies, XCookieJar):
             self._cookies = cookies
         else:
             self._cookies = CookieUtils().cookiejar_from_dict(cookies)
@@ -2458,7 +2460,7 @@ class Response(object):  # ./Models/Response.py
         #: Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
         self.reason = None
 
-        #: A CookieJar (cookielib or Requests based) of Cookies the server sent back.
+        #: A CookieJar (CookieJar or XCookieJar) of Cookies the server sent back.
         self.cookies = CookieUtils().cookiejar_from_dict({})
 
         #: The amount of time elapsed between sending the request
@@ -3202,10 +3204,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: authentication and similar.
         self.trust_env = True
 
-        #: A CookieJar (cookielib or Requests based) containing all currently outstanding cookies set on this
+        #: A CookieJar (CookieJar or XCookieJar) containing all currently outstanding cookies set on this
         #: session. By default it is a
-        #: :class:`RequestsCookieJar <requests.cookies.RequestsCookieJar>`, but
-        #: may be any other ``cookielib.CookieJar`` compatible object.
+        #: :class:`CookieJar` or `XCookieJar`
         self.cookies = CookieUtils().cookiejar_from_dict({})
 
         # Default connection adapters.
@@ -3232,12 +3233,12 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         cookies = request.cookies or {}
 
         # Bootstrap CookieJar.
-        if not isinstance(cookies, XCompat().cookielib().CookieJar):
+        if not isinstance(cookies, XCookieJar):
             cookies = CookieUtils().cookiejar_from_dict(cookies)
 
         # Merge with session cookies
         merged_cookies = CookieUtils().merge_cookies(
-            CookieUtils().merge_cookies(RequestsCookieJar(), self.cookies), cookies)
+            CookieUtils().merge_cookies(CookieJar(), self.cookies), cookies)
 
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth
