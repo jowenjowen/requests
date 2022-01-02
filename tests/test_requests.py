@@ -242,7 +242,7 @@ class TestRequests:
 
     def test_http_301_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '301'), allow_redirects=True)
-        print(r.content)
+        print(r.content_())
         assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
         assert r.history[0].status_code_() == 301
@@ -856,7 +856,7 @@ class TestRequests:
 
     def test_decompress_gzip(self, httpbin):
         r = requests.get(httpbin('gzip'))
-        r.content.decode('ascii')
+        r.content_().decode('ascii')
 
     @pytest.mark.parametrize(
         'url, params', (
@@ -1260,7 +1260,7 @@ class TestRequests:
 
     def test_empty_response_has_content_none(self):
         r = requests.Response()
-        assert r.content is None
+        assert r.content_() is None
 
     def test_response_is_iterable(self):
         r = requests.Response()
@@ -1916,7 +1916,7 @@ class TestRequests:
         r._content = False
         r._content_consumed = False
 
-        assert r.content is None
+        assert r.content_() is None
         with pytest.raises(ValueError):
             r.json()
 

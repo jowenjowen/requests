@@ -1190,7 +1190,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
             # Consume content and release the original connection
             # to allow our new request to reuse the same one.
-            r.content
+            r.content_()
             r.close()
             prep = r.request.copy()
             CookieUtils().to_jar(prep._cookies, r.request, r.raw())
@@ -2803,6 +2803,9 @@ class Response(object):  # ./Models/Response.py
     def status_code_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'status_code', *args)
 
+    def content_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'content', *args)
+
 
 # *************************** classes in Packages section *****************
 class Packages:  # ./Packages/Packages.py
@@ -2952,7 +2955,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             resp.history = hist[1:]
 
             try:
-                resp.content  # Consume socket so it can be released
+                resp.content_()  # Consume socket so it can be released
             except (ChunkedEncodingError, ContentDecodingError, RuntimeError):
                 resp.raw().read(decode_content=False)
 
@@ -3492,7 +3495,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
                 pass
 
         if not stream:
-            r.content
+            r.content_()
 
         return r
 
@@ -4106,15 +4109,15 @@ class Utils:  # ./Utils/utils.py
 
         if encoding:
             try:
-                return str(r.content, encoding)
+                return str(r.content_(), encoding)
             except UnicodeError:
                 tried_encodings.append(encoding)
 
         # Fall back:
         try:
-            return str(r.content, encoding, errors='replace')
+            return str(r.content_(), encoding, errors='replace')
         except TypeError:
-            return r.content
+            return r.content_()
 
     def unquote_unreserved(self, uri):  # ./Utils/utils.py
         """Un-escape any percent-escape sequences in a URI that are unreserved

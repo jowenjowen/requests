@@ -72,8 +72,8 @@ def test_chunked_upload_uses_only_specified_host_header():
         close_server.set()  # release server block
 
     expected_header = b'Host: %s\r\n' % custom_host.encode('utf-8')
-    assert expected_header in r.content
-    assert r.content.count(b'Host: ') == 1
+    assert expected_header in r.content_()
+    assert r.content_().count(b'Host: ') == 1
 
 
 def test_chunked_upload_doesnt_skip_host_header():
@@ -90,8 +90,8 @@ def test_chunked_upload_doesnt_skip_host_header():
         close_server.set()  # release server block
 
     expected_header = b'Host: %s\r\n' % expected_host.encode('utf-8')
-    assert expected_header in r.content
-    assert r.content.count(b'Host: ') == 1
+    assert expected_header in r.content_()
+    assert r.content_().count(b'Host: ') == 1
 
 
 def test_conflicting_content_lengths():
@@ -348,7 +348,7 @@ def test_fragment_not_sent_with_request():
     with server as (host, port):
         url = 'http://{}:{}/path/to/thing/#view=edit&token=hunter2'.format(host, port)
         r = requests.get(url)
-        raw_request = r.content
+        raw_request = r.content_()
 
         assert r.status_code_() == 200
         headers, body = raw_request.split(b'\r\n\r\n', 1)
@@ -391,7 +391,7 @@ def test_fragment_update_on_redirect():
     with server as (host, port):
         url = 'http://{}:{}/path/to/thing/#view=edit&token=hunter2'.format(host, port)
         r = requests.get(url)
-        raw_request = r.content
+        raw_request = r.content_()
 
         assert r.status_code_() == 200
         assert len(r.history) == 2
