@@ -14,7 +14,7 @@ Basic GET usage:
 
    >>> import requests
    >>> r = requests.get('https://www.python.org')
-   >>> r.status_code
+   >>> r.status_code_()
    200
    >>> b'Python is a programming language' in r.content
    True

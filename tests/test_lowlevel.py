@@ -32,7 +32,7 @@ def test_chunked_upload():
         r = requests.post(url, data=data, stream=True)
         close_server.set()  # release server block
 
-    assert r.status_code == 200
+    assert r.status_code_() == 200
     assert r.request.headers['Transfer-Encoding'] == 'chunked'
 
 
@@ -176,12 +176,12 @@ def test_digestauth_401_count_reset_on_redirect():
         url = 'http://{}:{}/'.format(host, port)
         r = requests.get(url, auth=auth)
         # Verify server succeeded in authenticating.
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         # Verify Authorization was sent in final request.
         assert 'Authorization' in r.request.headers
         assert r.request.headers['Authorization'].startswith('Digest ')
         # Verify redirect happened as we expected.
-        assert r.history[0].status_code == 302
+        assert r.history[0].status_code_() == 302
         close_server.set()
 
 
@@ -226,8 +226,8 @@ def test_digestauth_401_only_sent_once():
         url = 'http://{}:{}/'.format(host, port)
         r = requests.get(url, auth=auth)
         # Verify server didn't authenticate us.
-        assert r.status_code == 401
-        assert r.history[0].status_code == 401
+        assert r.status_code_() == 401
+        assert r.history[0].status_code_() == 401
         close_server.set()
 
 
@@ -263,7 +263,7 @@ def test_digestauth_only_on_4xx():
         url = 'http://{}:{}/'.format(host, port)
         r = requests.get(url, auth=auth)
         # Verify server didn't receive auth from us.
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert len(r.history) == 0
         close_server.set()
 
@@ -324,9 +324,9 @@ def test_redirect_rfc1808_to_non_ascii_location():
     with server as (host, port):
         url = u'http://{}:{}'.format(host, port)
         r = requests.get(url=url, allow_redirects=True)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert len(r.history) == 1
-        assert r.history[0].status_code == 301
+        assert r.history[0].status_code_() == 301
         assert redirect_request[0].startswith(b'GET /' + expected_path + b' HTTP/1.1')
         assert r.url == u'{}/{}'.format(url, expected_path.decode('ascii'))
 
@@ -350,7 +350,7 @@ def test_fragment_not_sent_with_request():
         r = requests.get(url)
         raw_request = r.content
 
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         headers, body = raw_request.split(b'\r\n\r\n', 1)
         status_line, headers = headers.split(b'\r\n', 1)
 
@@ -393,7 +393,7 @@ def test_fragment_update_on_redirect():
         r = requests.get(url)
         raw_request = r.content
 
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert len(r.history) == 2
         assert r.history[0].request.url == url
 

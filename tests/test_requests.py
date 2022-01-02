@@ -177,7 +177,7 @@ class TestRequests:
         url = scheme + parts.netloc + parts.path
         r = requests.Request('GET', url)
         r = s.send(r.prepare())
-        assert r.status_code == 200, 'failed for scheme {}'.format(scheme)
+        assert r.status_code_() == 200, 'failed for scheme {}'.format(scheme)
 
     def test_HTTP_200_OK_GET_ALTERNATIVE(self, httpbin):
         r = requests.Request('GET', httpbin('get'))
@@ -186,27 +186,27 @@ class TestRequests:
 
         r = s.send(r.prepare())
 
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_HTTP_302_ALLOW_REDIRECT_GET(self, httpbin):
         r = requests.get(httpbin('redirect', '1'))
-        assert r.status_code == 200
-        assert r.history[0].status_code == 302
-        assert r.history[0].is_redirect
+        assert r.status_code_() == 200
+        assert r.history[0].status_code_() == 302
+        assert r.history[0].is_redirect()
 
     def test_HTTP_307_ALLOW_REDIRECT_POST(self, httpbin):
         r = requests.post(httpbin('redirect-to'), data='test', params={'url': 'post', 'status_code': 307})
-        assert r.status_code == 200
-        assert r.history[0].status_code == 307
-        assert r.history[0].is_redirect
+        assert r.status_code_() == 200
+        assert r.history[0].status_code_() == 307
+        assert r.history[0].is_redirect()
         assert r.json()['data'] == 'test'
 
     def test_HTTP_307_ALLOW_REDIRECT_POST_WITH_SEEKABLE(self, httpbin):
         byte_str = b'test'
         r = requests.post(httpbin('redirect-to'), data=io.BytesIO(byte_str), params={'url': 'post', 'status_code': 307})
-        assert r.status_code == 200
-        assert r.history[0].status_code == 307
-        assert r.history[0].is_redirect
+        assert r.status_code_() == 200
+        assert r.history[0].status_code_() == 307
+        assert r.history[0].is_redirect()
         assert r.json()['data'] == byte_str.decode('utf-8')
 
     def test_HTTP_302_TOO_MANY_REDIRECTS(self, httpbin):
@@ -235,45 +235,45 @@ class TestRequests:
 
     def test_http_301_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '301'))
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.request.method == 'GET'
-        assert r.history[0].status_code == 301
-        assert r.history[0].is_redirect
+        assert r.history[0].status_code_() == 301
+        assert r.history[0].is_redirect()
 
     def test_http_301_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '301'), allow_redirects=True)
         print(r.content)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
-        assert r.history[0].status_code == 301
-        assert r.history[0].is_redirect
+        assert r.history[0].status_code_() == 301
+        assert r.history[0].is_redirect()
 
     def test_http_302_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '302'))
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.request.method == 'GET'
-        assert r.history[0].status_code == 302
+        assert r.history[0].status_code_() == 302
         assert r.history[0].is_redirect()
 
     def test_http_302_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '302'), allow_redirects=True)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
-        assert r.history[0].status_code == 302
+        assert r.history[0].status_code_() == 302
         assert r.history[0].is_redirect()
 
     def test_http_303_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '303'))
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.request.method == 'GET'
-        assert r.history[0].status_code == 303
+        assert r.history[0].status_code_() == 303
         assert r.history[0].is_redirect()
 
     def test_http_303_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '303'), allow_redirects=True)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
-        assert r.history[0].status_code == 303
+        assert r.history[0].status_code_() == 303
         assert r.history[0].is_redirect()
 
     def test_header_and_body_removal_on_redirect(self, httpbin):
@@ -284,7 +284,7 @@ class TestRequests:
         resp = ses.send(prep)
 
         # Mimic a redirect response
-        resp.status_code = 302
+        resp.status_code_(302)
         resp.headers['location'] = 'get'
 
         # Run request through resolve_redirects
@@ -307,7 +307,7 @@ class TestRequests:
         setattr(resp.raw(), 'release_conn', lambda *args: args)
 
         # Mimic a redirect response
-        resp.status_code = 302
+        resp.status_code_(302)
         resp.headers['location'] = httpbin('get')
 
         # Run request through resolve_redirect
@@ -330,13 +330,13 @@ class TestRequests:
         r = requests.get(httpbin('user-agent'), headers=heads)
 
         assert heads['User-agent'] in r.text
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_HTTP_200_OK_GET_WITH_MIXED_PARAMS(self, httpbin):
         heads = {'User-agent': 'Mozilla/5.0'}
 
         r = requests.get(httpbin('get') + '?test=true', params={'q': 'test'}, headers=heads)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_set_cookie_on_301(self, httpbin):
         s = requests.domain.Session()
@@ -423,7 +423,7 @@ class TestRequests:
 
         # Send request and simulate redirect
         resp = s.send(prep_req)
-        resp.status_code = 302
+        resp.status_code_(302)
         resp.headers['location'] = httpbin('get')
         redirects = s.resolve_redirects(resp, prep_req)
         resp = next(redirects)
@@ -491,26 +491,26 @@ class TestRequests:
 
     def test_HTTP_200_OK_HEAD(self, httpbin):
         r = requests.head(httpbin('get'))
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_HTTP_200_OK_PUT(self, httpbin):
         r = requests.put(httpbin('put'))
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_BASICAUTH_TUPLE_HTTP_200_OK_GET(self, httpbin):
         auth = ('user', 'pass')
         url = httpbin('basic-auth', 'user', 'pass')
 
         r = requests.get(url, auth=auth)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
         r = requests.get(url)
-        assert r.status_code == 401
+        assert r.status_code_() == 401
 
         s = requests.domain.Session()
         s.auth = auth
         r = s.get(url)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     @pytest.mark.parametrize(
         'username, password', (
@@ -628,22 +628,22 @@ class TestRequests:
 
             # Should use netrc and work.
             r = requests.get(url)
-            assert r.status_code == 200
+            assert r.status_code_() == 200
 
             # Given auth should override and fail.
             r = requests.get(url, auth=wrong_auth)
-            assert r.status_code == 401
+            assert r.status_code_() == 401
 
             s = requests.domain.Session()
 
             # Should use netrc and work.
             r = s.get(url)
-            assert r.status_code == 200
+            assert r.status_code_() == 200
 
             # Given auth should override and fail.
             s.auth = wrong_auth
             r = s.get(url)
-            assert r.status_code == 401
+            assert r.status_code_() == 401
         finally:
             Utils.get_netrc_auth = old_auth
 
@@ -654,16 +654,16 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype, 'never')
 
             r = requests.get(url, auth=auth)
-            assert r.status_code == 200
+            assert r.status_code_() == 200
 
             r = requests.get(url)
-            assert r.status_code == 401
+            assert r.status_code_() == 401
             print(r.headers['WWW-Authenticate'])
 
             s = requests.domain.Session()
             s.auth = HTTPDigestAuth('user', 'pass')
             r = s.get(url)
-            assert r.status_code == 200
+            assert r.status_code_() == 200
 
     def test_DIGEST_AUTH_RETURNS_COOKIE(self, httpbin):
 
@@ -674,7 +674,7 @@ class TestRequests:
             assert r.cookies['fake'] == 'fake_value'
 
             r = requests.get(url, auth=auth)
-            assert r.status_code == 200
+            assert r.status_code_() == 200
 
     def test_DIGEST_AUTH_SETS_SESSION_COOKIES(self, httpbin):
 
@@ -704,15 +704,15 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
             r = requests.get(url, auth=auth)
-            assert r.status_code == 401
+            assert r.status_code_() == 401
 
             r = requests.get(url)
-            assert r.status_code == 401
+            assert r.status_code_() == 401
 
             s = requests.domain.Session()
             s.auth = auth
             r = s.get(url)
-            assert r.status_code == 401
+            assert r.status_code_() == 401
 
     def test_DIGESTAUTH_QUOTES_QOP_VALUE(self, httpbin):
 
@@ -729,14 +729,14 @@ class TestRequests:
         requests.post(url).raise_for_status()
 
         post1 = requests.post(url, data={'some': 'data'})
-        assert post1.status_code == 200
+        assert post1.status_code_() == 200
 
         with open('requirements-dev.txt') as f:
             post2 = requests.post(url, files={'some': f})
-        assert post2.status_code == 200
+        assert post2.status_code_() == 200
 
         post4 = requests.post(url, data='[{"some": "json"}]')
-        assert post4.status_code == 200
+        assert post4.status_code_() == 200
 
         with pytest.raises(ValueError):
             requests.post(url, files=['bad file data'])
@@ -782,13 +782,13 @@ class TestRequests:
 
         test = TestStream('test')
         post1 = requests.post(httpbin('post'), data=test)
-        assert post1.status_code == 200
+        assert post1.status_code_() == 200
         assert post1.json()['data'] == 'test'
 
         test = TestStream('test')
         test.seek(2)
         post2 = requests.post(httpbin('post'), data=test)
-        assert post2.status_code == 200
+        assert post2.status_code_() == 200
         assert post2.json()['data'] == 'st'
 
     def test_POSTBIN_GET_POST_FILES_WITH_DATA(self, httpbin):
@@ -797,14 +797,14 @@ class TestRequests:
         requests.post(url).raise_for_status()
 
         post1 = requests.post(url, data={'some': 'data'})
-        assert post1.status_code == 200
+        assert post1.status_code_() == 200
 
         with open('requirements-dev.txt') as f:
             post2 = requests.post(url, data={'some': 'data'}, files={'some': f})
-        assert post2.status_code == 200
+        assert post2.status_code_() == 200
 
         post4 = requests.post(url, data='[{"some": "json"}]')
-        assert post4.status_code == 200
+        assert post4.status_code_() == 200
 
         with pytest.raises(ValueError):
             requests.post(url, files=['bad file data'])
@@ -896,7 +896,7 @@ class TestRequests:
 
     def test_http_with_certificate(self, httpbin):
         r = requests.get(httpbin(), cert='.')
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_https_warnings(self, nosan_server):
         """warnings are emitted with requests.get"""
@@ -931,7 +931,7 @@ class TestRequests:
     def test_urlencoded_get_query_multivalued_param(self, httpbin):
 
         r = requests.get(httpbin('get'), params={'test': ['foo', 'baz']})
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.url == httpbin('get?test=foo&test=baz')
 
     def test_form_encoded_post_query_multivalued_element(self, httpbin):
@@ -945,7 +945,7 @@ class TestRequests:
             data={'stuff': json.dumps({'a': 123})},
             params={'blah': 'asdf1234'},
             files={'file': ('test_requests.py', open(__file__, 'rb'))})
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     @pytest.mark.parametrize(
         'data', (
@@ -958,7 +958,7 @@ class TestRequests:
         r = requests.post(httpbin('post'),
             data=data,
             files={'file': ('test_requests.py', open(__file__, 'rb'))})
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_unicode_multipart_post_fieldnames(self, httpbin):
         filename = XOs().path().splitext(__file__)[0] + '.py'
@@ -974,7 +974,7 @@ class TestRequests:
         files = {'file': open(__file__, 'rb')}
         r = requests.request(
             method=u('POST'), url=httpbin('post'), files=files)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_unicode_method_name_with_request_object(self, httpbin):
         files = {'file': open(__file__, 'rb')}
@@ -985,7 +985,7 @@ class TestRequests:
         assert prep.method == 'POST'
 
         resp = s.send(prep)
-        assert resp.status_code == 200
+        assert resp.status_code_() == 200
 
     def test_non_prepared_request_error(self):
         s = requests.domain.Session()
@@ -1003,7 +1003,7 @@ class TestRequests:
                 'file1': ('test_requests.py', open(__file__, 'rb')),
                 'file2': ('test_requests', open(__file__, 'rb'),
                     'text/py-content-type')})
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert b"text/py-content-type" in r.request.body
 
     def test_hook_receives_request_arguments(self, httpbin):
@@ -1298,7 +1298,7 @@ class TestRequests:
         r = requests.Response()
         r.url = u'unicode URL'
         r.reason = u'Komponenttia ei löydy'.encode('utf-8')
-        r.status_code = 404
+        r.status_code_(404)
         r.encoding = None
         assert not r.ok()  # old behaviour - crashes here
 
@@ -1308,7 +1308,7 @@ class TestRequests:
         r.url = 'some url'
         reason = u'Komponenttia ei löydy'
         r.reason = reason.encode('latin-1')
-        r.status_code = 500
+        r.status_code_(500)
         r.encoding = None
         with pytest.raises(requests.exceptions.HTTPError) as e:
             r.raise_for_status()
@@ -1357,7 +1357,7 @@ class TestRequests:
         # Verify unpickled PreparedRequest sends properly
         s = requests.domain.Session()
         resp = s.send(r)
-        assert resp.status_code == 200
+        assert resp.status_code_() == 200
 
     def test_prepared_request_with_file_is_pickleable(self, httpbin):
         files = {'file': open(__file__, 'rb')}
@@ -1373,7 +1373,7 @@ class TestRequests:
         # Verify unpickled PreparedRequest sends properly
         s = requests.domain.Session()
         resp = s.send(r)
-        assert resp.status_code == 200
+        assert resp.status_code_() == 200
 
     def test_prepared_request_with_hook_is_pickleable(self, httpbin):
         r = requests.Request('GET', httpbin('get'), hooks=Hooks().default_hooks())
@@ -1389,7 +1389,7 @@ class TestRequests:
         # Verify unpickled PreparedRequest sends properly
         s = requests.domain.Session()
         resp = s.send(r)
-        assert resp.status_code == 200
+        assert resp.status_code_() == 200
 
     def test_cannot_send_unprepared_requests(self, httpbin):
         r = requests.Request(url=httpbin())
@@ -1414,7 +1414,7 @@ class TestRequests:
         s.proxies = XCompat().getproxies()
 
         r = s.send(r.prepare())
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     def test_fixes_1329(self, httpbin):
         """Ensure that header updates are done case-insensitively."""
@@ -1431,7 +1431,7 @@ class TestRequests:
         parts = XCompat().urlparse(httpbin('html'))
         url = "HTTP://" + parts.netloc + parts.path
         r = requests.get(httpbin('redirect-to'), params={'url': url})
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert r.url.lower() == url.lower()
 
     def test_transport_adapter_ordering(self):
@@ -1845,7 +1845,7 @@ class TestRequests:
             httpbin('post'),
             json={'life': 42}
         )
-        assert r.status_code == 200
+        assert r.status_code_() == 200
         assert 'application/json' in r.request.headers['Content-Type']
         assert {'life': 42} == r.json()['json']
 
@@ -1858,7 +1858,7 @@ class TestRequests:
 
     def test_response_iter_lines(self, httpbin):
         r = requests.get(httpbin('stream/4'), stream=True)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
         it = r.iter_lines()
         next(it)
@@ -1883,7 +1883,7 @@ class TestRequests:
     def test_response_iter_lines_reentrant(self, httpbin):
         """Response.iter_lines() is not reentrant safe"""
         r = requests.get(httpbin('stream/4'), stream=True)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
         next(r.iter_lines())
         assert len(list(r.iter_lines())) == 3
@@ -1912,7 +1912,7 @@ class TestRequests:
     def test_response_json_when_content_is_None(self, httpbin):
         r = requests.get(httpbin('/status/204'))
         # Make sure r.content is None
-        r.status_code = 0
+        r.status_code_(0)
         r._content = False
         r._content_consumed = False
 
@@ -2001,10 +2001,10 @@ class TestRequests:
         session = CustomRedirectSession()
         r = session.get(urls_test[0])
         assert len(r.history) == 2
-        assert r.status_code == 200
-        assert r.history[0].status_code == 302
+        assert r.status_code_() == 200
+        assert r.history[0].status_code_() == 302
         assert r.history[0].is_redirect()
-        assert r.history[1].status_code == 200
+        assert r.history[1].status_code_() == 200
         assert not r.history[1].is_redirect()
         assert r.url == urls_test[2]
 
@@ -2237,7 +2237,7 @@ class TestTimeout:
         request from succeeding.
         """
         r = requests.get(httpbin('get'), timeout=timeout)
-        assert r.status_code == 200
+        assert r.status_code_() == 200
 
     @pytest.mark.parametrize(
         'timeout', (
@@ -2302,9 +2302,9 @@ class RedirectSession(SessionRedirectMixin):
         r = requests.Response()
 
         try:
-            r.status_code = int(self.redirects.pop(0))
+            r.status_code_(int(self.redirects.pop(0)))
         except IndexError:
-            r.status_code = 200
+            r.status_code_(200)
 
         r.headers = CaseInsensitiveDict({'Location': '/'})
         r.raw(self._build_raw())

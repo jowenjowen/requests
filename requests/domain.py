@@ -528,7 +528,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         response = Response()
 
         # Fallback to None if there's no status_code, for whatever reason.
-        response.status_code = getattr(resp, 'status', None)
+        response.status_code_(getattr(resp, 'status', None))
 
         # Make headers case-insensitive.
         response.headers = CaseInsensitiveDict(getattr(resp, 'headers', {}))
@@ -1001,35 +1001,35 @@ class Auth:  # ./Auth/auth.py
         return authstr
 
 
-class AuthBase(object):
+class AuthBase(object):  # ./Auth/AuthBase.py
     """Base class that all auth implementations derive from"""
 
-    def __call__(self, r):
+    def __call__(self, r):  # ./Auth/AuthBase.py
         raise NotImplementedError('Auth hooks must be callable.')
 
 
-class HTTPBasicAuth(AuthBase):
+class HTTPBasicAuth(AuthBase):  # ./Auth/HTTPBasicAuth.py
     """Attaches HTTP Basic Authentication to the given Request object."""
 
-    def __init__(self, username, password):
+    def __init__(self, username, password):  # ./Auth/HTTPBasicAuth.py
         self.username = username
         self.password = password
 
-    def __eq__(self, other):
+    def __eq__(self, other):  # ./Auth/HTTPBasicAuth.py
         return all([
             self.username == getattr(other, 'username', None),
             self.password == getattr(other, 'password', None)
         ])
 
-    def __ne__(self, other):
+    def __ne__(self, other):  # ./Auth/HTTPBasicAuth.py
         return not self == other
 
-    def __call__(self, r):
+    def __call__(self, r):  # ./Auth/HTTPBasicAuth.py
         r.headers['Authorization'] = Auth().basic_auth_str(self.username, self.password)
         return r
 
 
-class HTTPProxyAuth(HTTPBasicAuth):
+class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
     """Attaches HTTP Proxy Authentication to a given Request object."""
 
     def __call__(self, r):
@@ -1037,16 +1037,16 @@ class HTTPProxyAuth(HTTPBasicAuth):
         return r
 
 
-class HTTPDigestAuth(AuthBase):
+class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
     """Attaches HTTP Digest Authentication to the given Request object."""
 
-    def __init__(self, username, password):
+    def __init__(self, username, password):  # ./Auth/HTTPDigestAuth.py
         self.username = username
         self.password = password
         # Keep state in per-thread local storage
         self._thread_local = XThreading().local()
 
-    def init_per_thread_state(self):
+    def init_per_thread_state(self):  # ./Auth/HTTPDigestAuth.py
         # Ensure state is initialized just once per-thread
         if not hasattr(self._thread_local, 'init'):
             self._thread_local.init = True
@@ -1056,7 +1056,7 @@ class HTTPDigestAuth(AuthBase):
             self._thread_local.pos = None
             self._thread_local.num_401_calls = None
 
-    def build_digest_header(self, method, url):
+    def build_digest_header(self, method, url):  # ./Auth/HTTPDigestAuth.py
         """
         :rtype: XCompat().str_class()
         """
@@ -1158,12 +1158,12 @@ class HTTPDigestAuth(AuthBase):
 
         return 'Digest %s' % (base)
 
-    def handle_redirect(self, r, **kwargs):
+    def handle_redirect(self, r, **kwargs):  # ./Auth/HTTPDigestAuth.py
         """Reset num_401_calls counter on redirects."""
         if r.is_redirect():
             self._thread_local.num_401_calls = 1
 
-    def handle_401(self, r, **kwargs):
+    def handle_401(self, r, **kwargs):  # ./Auth/HTTPDigestAuth.py
         """
         Takes the given response and tries digest-auth, if needed.
 
@@ -1172,7 +1172,7 @@ class HTTPDigestAuth(AuthBase):
 
         # If response is not 4xx, do not auth
         # See https://github.com/psf/requests/issues/3772
-        if not 400 <= r.status_code < 500:
+        if not 400 <= r.status_code_() < 500:
             self._thread_local.num_401_calls = 1
             return r
 
@@ -1207,7 +1207,7 @@ class HTTPDigestAuth(AuthBase):
         self._thread_local.num_401_calls = 1
         return r
 
-    def __call__(self, r):
+    def __call__(self, r):  # ./Auth/HTTPDigestAuth.py
         # Initialize per-thread state, if needed
         self.init_per_thread_state()
         # If we have a saved nonce, skip the 401
@@ -1227,13 +1227,13 @@ class HTTPDigestAuth(AuthBase):
 
         return r
 
-    def __eq__(self, other):
+    def __eq__(self, other):  # ./Auth/HTTPDigestAuth.py
         return all([
             self.username == getattr(other, 'username', None),
             self.password == getattr(other, 'password', None)
         ])
 
-    def __ne__(self, other):
+    def __ne__(self, other):  # ./Auth/HTTPDigestAuth.py
         return not self == other
 
 
@@ -2500,7 +2500,7 @@ class Response(object):  # ./Models/Response.py
         setattr(self, 'raw', None)
 
     def __repr__(self):  # ./Models/Response.py
-        return '<Response [%s]>' % (self.status_code)
+        return '<Response [%s]>' % (self.status_code_())
 
     def __bool__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
@@ -2550,9 +2550,9 @@ class Response(object):  # ./Models/Response.py
         """True if this Response one of the permanent versions of redirect."""
         return ('location' in self.headers and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
-    def next(self, value=None):
+    def next(self, *args):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
-        return XUtils().get_or_set(self, '_next', value)
+        return XUtils().get_or_set(self, '_next', *args)
 
     def apparent_encoding(self):
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
@@ -2797,8 +2797,11 @@ class Response(object):  # ./Models/Response.py
         if release_conn is not None:
             release_conn()
 
-    def raw(self, value=None):  # ./Models/Response.py
-        return XUtils().get_or_set(self, '_raw', value)
+    def raw(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, '_raw', *args)
+
+    def status_code_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'status_code', *args)
 
 
 # *************************** classes in Packages section *****************
@@ -3109,17 +3112,17 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         method = prepared_request.method
 
         # https://tools.ietf.org/html/rfc7231#section-6.4.4
-        if response.status_code == StatusCodes().get('see_other') and method != 'HEAD':
+        if response.status_code_() == StatusCodes().get('see_other') and method != 'HEAD':
             method = 'GET'
 
         # Do what the browsers do, despite standards...
         # First, turn 302s into GETs.
-        if response.status_code == StatusCodes().get('found') and method != 'HEAD':
+        if response.status_code_() == StatusCodes().get('found') and method != 'HEAD':
             method = 'GET'
 
         # Second, if a POST is responded to with a 301, turn it into a GET.
         # This bizarre behaviour is explained in Issue 1704.
-        if response.status_code == StatusCodes().get('moved') and method == 'POST':
+        if response.status_code_() == StatusCodes().get('moved') and method == 'POST':
             method = 'GET'
 
         prepared_request.method = method

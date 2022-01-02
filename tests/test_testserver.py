@@ -52,7 +52,7 @@ class TestTestServer:
         with server as (host, port):
             r = requests.get('http://{}:{}'.format(host, port))
 
-            assert r.status_code == 200
+            assert r.status_code_() == 200
             assert r.text == u'roflol'
             assert r.headers['Content-Length'] == '6'
 
@@ -60,7 +60,7 @@ class TestTestServer:
         """the basic response server returns an empty http response"""
         with Server.basic_response_server() as (host, port):
             r = requests.get('http://{}:{}'.format(host, port))
-            assert r.status_code == 200
+            assert r.status_code_() == 200
             assert r.text == u''
             assert r.headers['Content-Length'] == '0'
 
@@ -86,7 +86,7 @@ class TestTestServer:
             server_url = 'http://{}:{}'.format(host, port)
             for _ in range(requests_to_handle):
                 r = requests.get(server_url)
-                assert r.status_code == 200
+                assert r.status_code_() == 200
 
             # the (n+1)th request fails
             with pytest.raises(requests.exceptions.ConnectionError):
