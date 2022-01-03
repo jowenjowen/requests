@@ -1279,8 +1279,8 @@ class TestRequests:
         return unicode.
         """
         r = requests.Response()
-        r._content_consumed = True
-        r._content = b'the content'
+        r.contentClass._content_consumed = True
+        r.contentClass._content = b'the content'
         r.encoding = 'ascii'
 
         chunks = r.iter_content(decode_unicode=True)
@@ -1876,7 +1876,7 @@ class TestRequests:
         with contextlib.closing(s.get(httpbin('stream/4'), stream=True)) as response:
             pass
 
-        assert response._content_consumed is False
+        assert response.contentClass._content_consumed is False
         assert response.raw().closed
 
     @pytest.mark.xfail
@@ -1913,8 +1913,8 @@ class TestRequests:
         r = requests.get(httpbin('/status/204'))
         # Make sure r.content is None
         r.status_code_(0)
-        r._content = False
-        r._content_consumed = False
+        r.contentClass._content = False
+        r.contentClass._content_consumed = False
 
         assert r.content_() is None
         with pytest.raises(ValueError):

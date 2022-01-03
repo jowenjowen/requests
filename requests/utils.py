@@ -63,7 +63,7 @@ def get_encoding_from_headers(headers):
     return Utils().get_encoding_from_headers(headers)
 
 def stream_decode_response_unicode(iterator, r):
-    return Utils().stream_decode_response_unicode(iterator, r)
+    return Utils().stream_decode_response_unicode(iterator, r.encoding)
 
 def iter_slices(string, slice_length):
     return Utils().iter_slices(string, slice_length)

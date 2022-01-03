@@ -2417,8 +2417,179 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         for event in hooks:
             self.register_hook(event, hooks[event])
 
+class Content:
+    def __init__(self, read_func):
+        self._content = False
+        self._content_consumed = False
+        self._read = read_func
 
-class Response(object):  # ./Models/Response.py
+    def check_for_consistency(self, chunk_size):
+        if self._content_consumed and isinstance(self._content, bool):
+            raise StreamConsumedError()
+        elif chunk_size is not None and not isinstance(chunk_size, int):
+            raise TypeError("chunk_size must be an int, it is instead a %s." % type(chunk_size))
+
+    def iterate(self, chunk_size, decode_unicode, raw, encoding):  # ./Models/Response.py
+        """Iterates over the response data.  When stream=True is set on the
+        request, this avoids reading the content at once into memory for
+        large responses.  The chunk size is the number of bytes it should
+        read into memory.  This is not necessarily the length of each item
+        returned as decoding can take place.
+
+        chunk_size must be of type int or None. A value of None will
+        function differently depending on the value of `stream`.
+        stream=True will read data as it arrives in whatever size the
+        chunks are received. If stream=False, data is returned as
+        a single chunk.
+
+        If decode_unicode is True, content will be decoded using the best
+        available encoding based on the response.
+        """
+
+        def generate():
+            # Special case for urllib3.
+            if hasattr(raw, 'stream'):
+                try:
+                    for chunk in raw.stream(chunk_size, decode_content=True):
+                        yield chunk
+                except XUrllib3().exceptions().ProtocolError as e:
+                    raise ChunkedEncodingError(e)
+                except XUrllib3().exceptions().DecodeError as e:
+                    raise ContentDecodingError(e)
+                except XUrllib3().exceptions().ReadTimeoutError as e:
+                    raise ConnectionError(e)
+            else:
+                # Standard file-like object.
+                while True:
+                    chunk = raw.read(chunk_size)
+                    if not chunk:
+                        break
+                    yield chunk
+
+            self._content_consumed = True
+
+        self.check_for_consistency(chunk_size)
+        # simulate reading small chunks of the content
+        reused_chunks = Utils().iter_slices(self._content, chunk_size)
+
+        stream_chunks = generate()
+
+        chunks = reused_chunks if self._content_consumed else stream_chunks
+
+        if decode_unicode:
+            chunks = Utils().stream_decode_response_unicode(chunks, encoding)
+
+        return chunks
+
+    def close(self, raw):
+        if not self._content_consumed:
+            raw.close()
+
+    def content(self):  # ./Models/Response.py
+        if self._content is False:
+            # Read the contents.
+            if self._content_consumed:
+                raise RuntimeError(
+                    'The content for this response was already consumed')
+            self._content = b''
+            self._content = self._read()
+
+        self._content_consumed = True
+        # don't need to release the connection; that's been handled by urllib3
+        # since we exhausted the data.
+        return self._content
+
+    def consume_everything(self):
+        # Consume everything; accessing the content attribute makes
+        # sure the content has been fully read.
+        if not self._content_consumed:
+            self.content()
+
+
+    def apparent_encoding(self):
+        """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
+        return XCompat().chardet().detect(self.content())['encoding']
+
+    def text(self, encoding):
+        """Content of the response, in unicode.
+
+        If Response.encoding is None, encoding will be guessed using
+        ``charset_normalizer`` or ``chardet``.
+
+        The encoding of the response content is determined based solely on HTTP
+        headers, following RFC 2616 to the letter. If you can take advantage of
+        non-HTTP knowledge to make a better guess at the encoding, you should
+        set ``r.encoding`` appropriately before accessing this property.
+        """
+
+        # Try charset from content-type
+        content = None
+
+        if not self.content():
+            return XCompat().str('')
+
+        # Fallback to auto-detected encoding.
+        if encoding is None:
+            encoding = self.apparent_encoding()
+
+        # Decode unicode from given encoding.
+        try:
+            content = XCompat().str(self.content(), encoding, errors='replace')
+        except (LookupError, TypeError):
+            # A LookupError is raised if the encoding was not found which could
+            # indicate a misspelling or similar mistake.
+            #
+            # A TypeError can be raised if encoding is None
+            #
+            # So we try blindly encoding.
+            content = XCompat().str(self.content(), errors='replace')
+
+        return content
+
+    def json(self, encoding, **kwargs):
+        r"""Returns the json-encoded content of a response, if any.
+
+        :param \*\*kwargs: Optional arguments that ``json.loads`` takes.
+        :raises requests.exceptions.JSONDecodeError: If the response body does not
+            contain valid json.
+        """
+
+        if not encoding and self.content and len(self.content()) > 3:
+            # No encoding set. JSON RFC 4627 section 3 states we should expect
+            # UTF-8, -16 or -32. Detect which one to use; If the detection or
+            # decoding fails, fall back to `self.text` (using charset_normalizer to make
+            # a best guess).
+            encoding = Utils().guess_json_utf(self.content())
+            if encoding is not None:
+                try:
+                    return complexjson.loads(
+                        self.content().decode(encoding), **kwargs
+                    )
+                except UnicodeDecodeError:
+                    # Wrong UTF codec detected; usually because it's not UTF-8
+                    # but some other 8-bit codec.  This is an RFC violation,
+                    # and the server didn't bother to tell us what codec *was*
+                    # used.
+                    pass
+
+        try:
+            return complexjson.loads(self.text(encoding), **kwargs)
+        except XJSONDecodeError as e:
+            # Catch JSON-related errors and raise as requests.JSONDecodeError
+            # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
+            if XCompat().is_py2(): # e is a ValueError
+                raise JSONDecodeError(e.message)
+            else:
+                raise JSONDecodeError(e.msg, e.doc, e.pos)
+
+    def reset_content_consumed(self):
+        self._content_consumed = True
+
+    def internal_content(self, *args):
+        XUtils().get_or_set(self, '_content', *args)
+
+
+class Response:  # ./Models/Response.py
     """The :class:`Response <Response>` object, which contains a
     server's response to an HTTP request.
     """
@@ -2429,8 +2600,8 @@ class Response(object):  # ./Models/Response.py
     ]
 
     def __init__(self):  # ./Models/Response.py
-        self._content = False
-        self._content_consumed = False
+
+        self.contentClass = Content(self.read_content)
         self._next = None
 
         #: Integer Code of responded HTTP Status, e.g. 404 or 200.
@@ -2477,6 +2648,12 @@ class Response(object):  # ./Models/Response.py
 
         self.auth = None
 
+    def read_content(self):
+        if self.status_code == 0 or self._raw is None:
+            return None
+        else:
+            return b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
+
     def __enter__(self):  # ./Models/Response.py
         return self
 
@@ -2484,19 +2661,19 @@ class Response(object):  # ./Models/Response.py
         self.close()
 
     def __getstate__(self):  # ./Models/Response.py
-        # Consume everything; accessing the content attribute makes
-        # sure the content has been fully read.
-        if not self._content_consumed:
-            self.content
-
+        self.contentClass.consume_everything()
+        self._content = self.contentClass.internal_content()
         return {attr: getattr(self, attr, None) for attr in self.__attrs__}
 
     def __setstate__(self, state):  # ./Models/Response.py
         for name, value in state.items():
             setattr(self, name, value)
 
+        self.contentClass = Content(self.read_content)
+        self.contentClass.internal_content(self._content)
+
         # pickled objects do not have .raw
-        setattr(self, '_content_consumed', True)
+        self.contentClass.reset_content_consumed()
         setattr(self, 'raw', None)
 
     def __repr__(self):  # ./Models/Response.py
@@ -2554,64 +2731,8 @@ class Response(object):  # ./Models/Response.py
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
         return XUtils().get_or_set(self, '_next', *args)
 
-    def apparent_encoding(self):
-        """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
-        return XCompat().chardet().detect(self.content)['encoding']
-
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
-        """Iterates over the response data.  When stream=True is set on the
-        request, this avoids reading the content at once into memory for
-        large responses.  The chunk size is the number of bytes it should
-        read into memory.  This is not necessarily the length of each item
-        returned as decoding can take place.
-
-        chunk_size must be of type int or None. A value of None will
-        function differently depending on the value of `stream`.
-        stream=True will read data as it arrives in whatever size the
-        chunks are received. If stream=False, data is returned as
-        a single chunk.
-
-        If decode_unicode is True, content will be decoded using the best
-        available encoding based on the response.
-        """
-
-        def generate():
-            # Special case for urllib3.
-            if hasattr(self._raw, 'stream'):
-                try:
-                    for chunk in self.raw().stream(chunk_size, decode_content=True):
-                        yield chunk
-                except XUrllib3().exceptions().ProtocolError as e:
-                    raise ChunkedEncodingError(e)
-                except XUrllib3().exceptions().DecodeError as e:
-                    raise ContentDecodingError(e)
-                except XUrllib3().exceptions().ReadTimeoutError as e:
-                    raise ConnectionError(e)
-            else:
-                # Standard file-like object.
-                while True:
-                    chunk = self.raw().read(chunk_size)
-                    if not chunk:
-                        break
-                    yield chunk
-
-            self._content_consumed = True
-
-        if self._content_consumed and isinstance(self._content, bool):
-            raise StreamConsumedError()
-        elif chunk_size is not None and not isinstance(chunk_size, int):
-            raise TypeError("chunk_size must be an int, it is instead a %s." % type(chunk_size))
-        # simulate reading small chunks of the content
-        reused_chunks = Utils().iter_slices(self._content, chunk_size)
-
-        stream_chunks = generate()
-
-        chunks = reused_chunks if self._content_consumed else stream_chunks
-
-        if decode_unicode:
-            chunks = Utils().stream_decode_response_unicode(chunks, self)
-
-        return chunks
+        return self.contentClass.iterate(chunk_size, decode_unicode, self.raw(), self.encoding)
 
     def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./Models/Response.py
         """Iterates over the response data, one line at a time.  When
@@ -2650,96 +2771,14 @@ class Response(object):  # ./Models/Response.py
     @property
     def content(self):  # ./Models/Response.py
         """Content of the response, in bytes."""
-
-        if self._content is False:
-            # Read the contents.
-            if self._content_consumed:
-                raise RuntimeError(
-                    'The content for this response was already consumed')
-
-            if self.status_code == 0 or self._raw is None:
-                self._content = None
-            else:
-                self._content = b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
-
-        self._content_consumed = True
-        # don't need to release the connection; that's been handled by urllib3
-        # since we exhausted the data.
-        return self._content
+        return self.contentClass.content()
 
     @property
     def text(self):  # ./Models/Response.py
-        """Content of the response, in unicode.
-
-        If Response.encoding is None, encoding will be guessed using
-        ``charset_normalizer`` or ``chardet``.
-
-        The encoding of the response content is determined based solely on HTTP
-        headers, following RFC 2616 to the letter. If you can take advantage of
-        non-HTTP knowledge to make a better guess at the encoding, you should
-        set ``r.encoding`` appropriately before accessing this property.
-        """
-
-        # Try charset from content-type
-        content = None
-        encoding = self.encoding
-
-        if not self.content:
-            return XCompat().str('')
-
-        # Fallback to auto-detected encoding.
-        if self.encoding is None:
-            encoding = self.apparent_encoding()
-
-        # Decode unicode from given encoding.
-        try:
-            content = XCompat().str(self.content, encoding, errors='replace')
-        except (LookupError, TypeError):
-            # A LookupError is raised if the encoding was not found which could
-            # indicate a misspelling or similar mistake.
-            #
-            # A TypeError can be raised if encoding is None
-            #
-            # So we try blindly encoding.
-            content = XCompat().str(self.content, errors='replace')
-
-        return content
+        return self.contentClass.text(self.encoding)
 
     def json(self, **kwargs):  # ./Models/Response.py
-        r"""Returns the json-encoded content of a response, if any.
-
-        :param \*\*kwargs: Optional arguments that ``json.loads`` takes.
-        :raises requests.exceptions.JSONDecodeError: If the response body does not
-            contain valid json.
-        """
-
-        if not self.encoding and self.content and len(self.content) > 3:
-            # No encoding set. JSON RFC 4627 section 3 states we should expect
-            # UTF-8, -16 or -32. Detect which one to use; If the detection or
-            # decoding fails, fall back to `self.text` (using charset_normalizer to make
-            # a best guess).
-            encoding = Utils().guess_json_utf(self.content)
-            if encoding is not None:
-                try:
-                    return complexjson.loads(
-                        self.content.decode(encoding), **kwargs
-                    )
-                except UnicodeDecodeError:
-                    # Wrong UTF codec detected; usually because it's not UTF-8
-                    # but some other 8-bit codec.  This is an RFC violation,
-                    # and the server didn't bother to tell us what codec *was*
-                    # used.
-                    pass
-
-        try:
-            return complexjson.loads(self.text, **kwargs)
-        except XJSONDecodeError as e:
-            # Catch JSON-related errors and raise as requests.JSONDecodeError
-            # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
-            if XCompat().is_py2(): # e is a ValueError
-                raise JSONDecodeError(e.message)
-            else:
-                raise JSONDecodeError(e.msg, e.doc, e.pos)
+        return self.contentClass.json(self.encoding, **kwargs)
 
     @property
     def links(self):  # ./Models/Response.py
@@ -2790,8 +2829,7 @@ class Response(object):  # ./Models/Response.py
 
         *Note: Should not normally need to be called explicitly.*
         """
-        if not self._content_consumed:
-            self.raw().close()
+        self.contentClass.close(self.raw())
 
         release_conn = getattr(self._raw, 'release_conn', None)
         if release_conn is not None:
@@ -4058,15 +4096,15 @@ class Utils:  # ./Utils/utils.py
             # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
             return 'utf-8'
 
-    def stream_decode_response_unicode(self, iterator, r):  # ./Utils/utils.py
+    def stream_decode_response_unicode(self, iterator, encoding):  # ./Utils/utils.py
         """Stream decodes a iterator."""
 
-        if r.encoding is None:
+        if encoding is None:
             for item in iterator:
                 yield item
             return
 
-        decoder = XCodecs().getincrementaldecoder(r.encoding)(errors='replace')
+        decoder = XCodecs().getincrementaldecoder(encoding)(errors='replace')
         for chunk in iterator:
             rv = decoder.decode(chunk)
             if rv:
