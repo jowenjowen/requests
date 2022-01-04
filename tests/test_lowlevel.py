@@ -328,7 +328,7 @@ def test_redirect_rfc1808_to_non_ascii_location():
         assert len(r.history) == 1
         assert r.history[0].status_code_() == 301
         assert redirect_request[0].startswith(b'GET /' + expected_path + b' HTTP/1.1')
-        assert r.url == u'{}/{}'.format(url, expected_path.decode('ascii'))
+        assert r.url_() == u'{}/{}'.format(url, expected_path.decode('ascii'))
 
         close_server.set()
 
@@ -395,11 +395,11 @@ def test_fragment_update_on_redirect():
 
         assert r.status_code_() == 200
         assert len(r.history) == 2
-        assert r.history[0].request.url == url
+        assert r.history[0].request.url_() == url
 
         # Verify we haven't overwritten the location with our previous fragment.
-        assert r.history[1].request.url == 'http://{}:{}/get#relevant-section'.format(host, port)
+        assert r.history[1].request.url_() == 'http://{}:{}/get#relevant-section'.format(host, port)
         # Verify previous fragment is used and not the original.
-        assert r.url == 'http://{}:{}/final-url/#relevant-section'.format(host, port)
+        assert r.url_() == 'http://{}:{}/final-url/#relevant-section'.format(host, port)
 
         close_server.set()

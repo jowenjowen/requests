@@ -103,11 +103,11 @@ class TestRequests:
 
     def test_basic_building(self):
         req = requests.Request()
-        req.url = 'http://kennethreitz.org/'
+        req.url_('http://kennethreitz.org/')
         req.data = {'life': '42'}
 
         pr = req.prepare()
-        assert pr.url == req.url
+        assert pr.url_() == req.url_()
         assert pr.body == 'life=42'
 
     @pytest.mark.parametrize('method', ('GET', 'HEAD'))
@@ -145,19 +145,19 @@ class TestRequests:
         ))
     def test_params_are_added_before_fragment(self, url, expected):
         request = requests.Request('GET', url, params={"a": "b"}).prepare()
-        assert request.url == expected
+        assert request.url_() == expected
 
     def test_params_original_order_is_preserved_by_default(self):
         param_ordered_dict = collections.OrderedDict((('z', 1), ('a', 1), ('k', 1), ('d', 1)))
         session = requests.domain.Session()
         request = requests.Request('GET', 'http://example.com/', params=param_ordered_dict)
         prep = session.prepare_request(request)
-        assert prep.url == 'http://example.com/?z=1&a=1&k=1&d=1'
+        assert prep.url_() == 'http://example.com/?z=1&a=1&k=1&d=1'
 
     def test_params_bytes_are_encoded(self):
         request = requests.Request('GET', 'http://example.com',
                                    params=b'test=foo').prepare()
-        assert request.url == 'http://example.com/?test=foo'
+        assert request.url_() == 'http://example.com/?test=foo'
 
     def test_binary_put(self):
         request = requests.Request('PUT', 'http://example.com',
@@ -167,7 +167,7 @@ class TestRequests:
     def test_whitespaces_are_removed_from_url(self):
         # Test for issue #3696
         request = requests.Request('GET', ' http://example.com').prepare()
-        assert request.url == 'http://example.com/'
+        assert request.url_() == 'http://example.com/'
 
     @pytest.mark.parametrize('scheme', ('http://', 'HTTP://', 'hTTp://', 'HttP://'))
     def test_mixed_case_scheme_acceptable(self, httpbin, scheme):
@@ -214,8 +214,8 @@ class TestRequests:
             requests.get(httpbin('relative-redirect', '50'))
         except TooManyRedirects as e:
             url = httpbin('relative-redirect', '20')
-            assert e.request.url == url
-            assert e.response.url == url
+            assert e.request.url_() == url
+            assert e.response.url_() == url
             assert len(e.response.history) == 30
         else:
             pytest.fail('Expected redirect to raise TooManyRedirects but it did not')
@@ -227,8 +227,8 @@ class TestRequests:
             s.get(httpbin('relative-redirect', '50'))
         except TooManyRedirects as e:
             url = httpbin('relative-redirect', '45')
-            assert e.request.url == url
-            assert e.response.url == url
+            assert e.request.url_() == url
+            assert e.response.url_() == url
             assert len(e.response.history) == 5
         else:
             pytest.fail('Expected custom max number of redirects to be respected but was not')
@@ -321,8 +321,8 @@ class TestRequests:
         r = requests.get(httpbin('redirect-to?url=get')+fragment)
 
         assert len(r.history) > 0
-        assert r.history[0].request.url == httpbin('redirect-to?url=get')+fragment
-        assert r.url == httpbin('get')+fragment
+        assert r.history[0].request.url_() == httpbin('redirect-to?url=get')+fragment
+        assert r.url_() == httpbin('get')+fragment
 
     def test_HTTP_200_OK_GET_WITH_PARAMS(self, httpbin):
         heads = {'User-agent': 'Mozilla/5.0'}
@@ -441,8 +441,8 @@ class TestRequests:
 
     def test_requests_in_history_are_not_overridden(self, httpbin):
         resp = requests.get(httpbin('redirect/3'))
-        urls = [r.url for r in resp.history]
-        req_urls = [r.request.url for r in resp.history]
+        urls = [r.url_() for r in resp.history]
+        req_urls = [r.request.url_() for r in resp.history]
         assert urls == req_urls
 
     def test_history_is_always_a_list(self, httpbin):
@@ -932,7 +932,7 @@ class TestRequests:
 
         r = requests.get(httpbin('get'), params={'test': ['foo', 'baz']})
         assert r.status_code_() == 200
-        assert r.url == httpbin('get?test=foo&test=baz')
+        assert r.url_() == httpbin('get?test=foo&test=baz')
 
     def test_form_encoded_post_query_multivalued_element(self, httpbin):
         r = requests.Request(method='POST', url=httpbin('post'),
@@ -1071,7 +1071,7 @@ class TestRequests:
         req = requests.Request('GET', b'https://httpbin.org/')
         s = requests.domain.Session()
         prep = s.prepare_request(req)
-        assert prep.url == "https://httpbin.org/"
+        assert prep.url_() == "https://httpbin.org/"
 
     def test_request_with_bytestring_host(self, httpbin):
         s = requests.domain.Session()
@@ -1296,7 +1296,7 @@ class TestRequests:
     def test_response_reason_unicode(self):
         # check for unicode HTTP status
         r = requests.Response()
-        r.url = u'unicode URL'
+        r.url_(u'unicode URL')
         r.reason = u'Komponenttia ei löydy'.encode('utf-8')
         r.status_code_(404)
         r.encoding = None
@@ -1305,7 +1305,7 @@ class TestRequests:
     def test_response_reason_unicode_fallback(self):
         # check raise_status falls back to ISO-8859-1
         r = requests.Response()
-        r.url = 'some url'
+        r.url_('some url')
         reason = u'Komponenttia ei löydy'
         r.reason = reason.encode('latin-1')
         r.status_code_(500)
@@ -1342,7 +1342,7 @@ class TestRequests:
         # verify we can pickle the response and that we have access to
         # the original request.
         pr = pickle.loads(pickle.dumps(r))
-        assert r.request.url == pr.request.url
+        assert r.request.url_() == pr.request.url_()
         assert r.request.headers_() == pr.request.headers_()
 
     def test_prepared_request_is_pickleable(self, httpbin):
@@ -1350,7 +1350,7 @@ class TestRequests:
 
         # Verify PreparedRequest can be pickled and unpickled
         r = pickle.loads(pickle.dumps(p))
-        assert r.url == p.url
+        assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
         assert r.body == p.body
 
@@ -1366,7 +1366,7 @@ class TestRequests:
 
         # Verify PreparedRequest can be pickled and unpickled
         r = pickle.loads(pickle.dumps(p))
-        assert r.url == p.url
+        assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
         assert r.body == p.body
 
@@ -1381,7 +1381,7 @@ class TestRequests:
 
         # Verify PreparedRequest can be pickled
         r = pickle.loads(pickle.dumps(p))
-        assert r.url == p.url
+        assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
         assert r.body == p.body
         assert r.hooks == p.hooks
@@ -1432,7 +1432,7 @@ class TestRequests:
         url = "HTTP://" + parts.netloc + parts.path
         r = requests.get(httpbin('redirect-to'), params={'url': url})
         assert r.status_code_() == 200
-        assert r.url.lower() == url.lower()
+        assert r.url_().lower() == url.lower()
 
     def test_transport_adapter_ordering(self):
         s = requests.domain.Session()
@@ -1530,7 +1530,7 @@ class TestRequests:
             'exactly-------------sixty-----------three------------characters',
         )
         r = requests.Request('GET', url).prepare()
-        assert r.url == url
+        assert r.url_() == url
 
     def test_header_keys_are_native(self, httpbin):
         headers = {u('unicode'): 'blah', 'byte'.encode('ascii'): 'blah'}
@@ -1637,7 +1637,7 @@ class TestRequests:
         for test_url in test_urls:
             req = requests.Request('GET', test_url)
             preq = req.prepare()
-            assert test_url == preq.url
+            assert test_url == preq.url_()
 
     def test_auth_is_stripped_on_http_downgrade(self, httpbin, httpbin_secure, httpbin_ca_bundle):
         r = requests.get(
@@ -1994,7 +1994,7 @@ class TestRequests:
                     return resp.headers_()['location']
                 # edge case - check to see if 'location' is in headers anyways
                 location = resp.headers_().get('location')
-                if location and (location != resp.url):
+                if location and (location != resp.url_()):
                     return location
                 return None
 
@@ -2006,7 +2006,7 @@ class TestRequests:
         assert r.history[0].is_redirect()
         assert r.history[1].status_code_() == 200
         assert not r.history[1].is_redirect()
-        assert r.url == urls_test[2]
+        assert r.url_() == urls_test[2]
 
 
 class TestCaseInsensitiveDict:
@@ -2494,7 +2494,7 @@ class TestPreparingURLs(object):
         
         r = requests.Request('GET', url=url)
         p = r.prepare()
-        assert normalize_percent_encode(p.url) == expected
+        assert normalize_percent_encode(p.url_()) == expected
 
     @pytest.mark.parametrize(
         'url',
@@ -2555,7 +2555,7 @@ class TestPreparingURLs(object):
         """
         r = requests.Request('GET', url=input)
         p = r.prepare()
-        assert p.url == expected
+        assert p.url_() == expected
 
     @pytest.mark.parametrize(
         'input, params, expected',
@@ -2589,7 +2589,7 @@ class TestPreparingURLs(object):
         """
         r = requests.Request('GET', url=input, params=params)
         p = r.prepare()
-        assert p.url == expected
+        assert p.url_() == expected
 
     def test_post_json_nan(self, httpbin):
         data = {"foo": float("nan")}

@@ -538,10 +538,10 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         response.raw_(resp)
         response.reason = response.raw_().reason
 
-        if isinstance(req.url, bytes):
-            response.url = req.url.decode('utf-8')
+        if isinstance(req.url_(), bytes):
+            response.url_(req.url_().decode('utf-8'))
         else:
-            response.url = req.url
+            response.url_(req.url_())
 
         # Add new cookies from the server.
         CookieUtils().to_jar(response.cookies, req, resp)
@@ -603,8 +603,8 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs.
         :rtype: str
         """
-        proxy = Utils().select_proxy(request.url, proxies)
-        scheme = XCompat().urlparse(request.url).scheme
+        proxy = Utils().select_proxy(request.url_(), proxies)
+        scheme = XCompat().urlparse(request.url_()).scheme
 
         is_proxied_http_request = (proxy and scheme != 'https')
         using_socks_proxy = False
@@ -614,7 +614,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
         url = request.path_url
         if is_proxied_http_request and not using_socks_proxy:
-            url = Utils().urldefragauth(request.url)
+            url = Utils().urldefragauth(request.url_())
 
         return url
 
@@ -672,11 +672,11 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         """
 
         try:
-            conn = self.get_connection(request.url, proxies)
+            conn = self.get_connection(request.url_(), proxies)
         except XUrllib3().exceptions().LocationValueError as e:
             raise InvalidURL(e, request=request)
 
-        self.cert_verify(conn, request.url, verify, cert)
+        self.cert_verify(conn, request.url_(), verify, cert)
         url = self.request_url(request, proxies)
         self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
@@ -1197,7 +1197,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             prep.prepare_cookies(prep._cookies)
 
             prep.headers_()['Authorization'] = self.build_digest_header(
-                prep.method, prep.url)
+                prep.method, prep.url_())
             _r = r.connection.send(prep, **kwargs)
             _r.history.append(r)
             _r.request = prep
@@ -1212,7 +1212,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         self.init_per_thread_state()
         # If we have a saved nonce, skip the 401
         if self._thread_local.last_nonce:
-            r.headers_()['Authorization'] = self.build_digest_header(r.method, r.url)
+            r.headers_()['Authorization'] = self.build_digest_header(r.method, r.url_())
         try:
             self._thread_local.pos = r.body.tell()
         except AttributeError:
@@ -1886,14 +1886,14 @@ class Models:  # ./Models/models.py
         return self._ITER_CHUNK_SIZE
 
 
-class RequestEncodingMixin(object):  # ./Models/RequestEncodingMixin.py
+class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
     @property
     def path_url(self):  # ./Models/RequestEncodingMixin.py
         """Build the path URL to use."""
 
         url = []
 
-        p = XCompat().urlsplit(self.url)
+        p = XCompat().urlsplit(self.url_())
 
         path = p.path
         if not path:
@@ -2068,7 +2068,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             self.register_hook(event=k, hook=v)
 
         self.method = method
-        self.url = url
+        self.url_(url)
         self.headers_(headers)
         self.files = files
         self.data = data
@@ -2085,7 +2085,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         p = PreparedRequest()
         p.prepare(
             method=self.method,
-            url=self.url,
+            url=self.url_(),
             headers=self.headers_(),
             files=self.files,
             data=self.data,
@@ -2099,6 +2099,9 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
 
     def headers_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'headers', *args)
+
+    def url_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'url', *args)
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
@@ -2126,7 +2129,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         #: HTTP verb to send to the server.
         self.method = None
         #: HTTP URL to send the request to.
-        self.url = None
+        self.url_(None)
         #: dictionary of HTTP headers.
         self.headers_(None)
         # The `CookieJar` (CookieJar or XCookieJar) used to create the Cookie header will be stored here
@@ -2163,7 +2166,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
     def copy(self):  # ./Models/PreparedRequest.py
         p = PreparedRequest()
         p.method = self.method
-        p.url = self.url
+        p.url_(self.url_())
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
         p._cookies = CookieUtils()._copy_cookie_jar(self._cookies)
         p.body = self.body
@@ -2204,7 +2207,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         # `data` etc to work around exceptions from `url_parse`, which
         # handles RFC 3986 only.
         if ':' in url and not url.lower().startswith('http'):
-            self.url = url
+            self.url_(url)
             return
 
         # Support for unicode domain names and paths.
@@ -2269,7 +2272,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
                 query = enc_params
 
         url = Utils().requote_uri(XCompat().urlunparse([scheme, netloc, path, None, query, fragment]))
-        self.url = url
+        self.url_(url)
 
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP headers."""
@@ -2374,7 +2377,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         # If no Auth is explicitly provided, extract it from the URL first.
         if auth is None:
-            url_auth = Utils().get_auth_from_url(self.url)
+            url_auth = Utils().get_auth_from_url(self.url_())
             auth = url_auth if any(url_auth) else None
 
         if auth:
@@ -2422,6 +2425,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def headers_(self, *args):  # ./Models/PreparedRequest.py
         return XUtils().get_or_set(self, 'headers', *args)
+
+    def url_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'url', *args)
 
 
 class Content:
@@ -2622,10 +2628,10 @@ class Response:  # ./Models/Response.py
         #: File-like object representation of response (for advanced usage).
         #: Use of ``raw`` requires that ``stream=True`` be set on the request.
         #: This requirement does not apply for use internally to Requests.
-        self.raw = None
+        self.raw_(None)
 
         #: Final URL location of Response.
-        self.url = None
+        self.url_(None)
 
         #: Encoding to decode with when accessing r.text.
         self.encoding = None
@@ -2655,8 +2661,8 @@ class Response:  # ./Models/Response.py
 
         self.auth = None
 
-    def read_content(self):
-        if self.status_code == 0 or self.raw is None:
+    def read_content(self):  # ./Models/Response.py
+        if self.status_code == 0 or self.raw_() is None:
             return None
         else:
             return b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
@@ -2822,10 +2828,10 @@ class Response:  # ./Models/Response.py
             reason = self.reason
 
         if 400 <= self.status_code < 500:
-            http_error_msg = u'%s Client Error: %s for url: %s' % (self.status_code, reason, self.url)
+            http_error_msg = u'%s Client Error: %s for url: %s' % (self.status_code, reason, self.url_())
 
         elif 500 <= self.status_code < 600:
-            http_error_msg = u'%s Server Error: %s for url: %s' % (self.status_code, reason, self.url)
+            http_error_msg = u'%s Server Error: %s for url: %s' % (self.status_code, reason, self.url_())
 
         if http_error_msg:
             raise HTTPError(http_error_msg, response=self)
@@ -2838,7 +2844,7 @@ class Response:  # ./Models/Response.py
         """
         self.contentClass.close(self.raw_())
 
-        release_conn = getattr(self.raw, 'release_conn', None)
+        release_conn = getattr(self.raw_(), 'release_conn', None)
         if release_conn is not None:
             release_conn()
 
@@ -2853,6 +2859,9 @@ class Response:  # ./Models/Response.py
 
     def headers_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'headers', *args)
+
+    def url_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'url', *args)
 
 
 # *************************** classes in Packages section *****************
@@ -2993,7 +3002,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         hist = []  # keep track of history
 
         url = self.get_redirect_target(resp)
-        previous_fragment = XCompat().urlparse(req.url).fragment
+        previous_fragment = XCompat().urlparse(req.url_()).fragment
         while url:
             prepared_request = req.copy()
 
@@ -3015,7 +3024,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
             # Handle redirection without scheme (see: RFC 1808 Section 4)
             if url.startswith('//'):
-                parsed_rurl = XCompat().urlparse(resp.url)
+                parsed_rurl = XCompat().urlparse(resp.url_())
                 url = ':'.join([XUtils().to_native_string(parsed_rurl.scheme), url])
 
             # Normalize url case and attach previous fragment if needed (RFC 7231 7.1.2)
@@ -3030,11 +3039,11 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
             # Compliant with RFC3986, we percent encode the url.
             if not parsed.netloc:
-                url = XCompat().urljoin(resp.url, Utils().requote_uri(url))
+                url = XCompat().urljoin(resp.url_(), Utils().requote_uri(url))
             else:
                 url = Utils().requote_uri(url)
 
-            prepared_request.url = XUtils().to_native_string(url)
+            prepared_request.url_(XUtils().to_native_string(url))
 
             self.rebuild_method(prepared_request, resp)
 
@@ -3053,7 +3062,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # Extract any cookies sent on the response to the cookiejar
             # in the new request. Because we've mutated our copied prepared
             # request, use the old one that we haven't yet touched.
-            CookieUtils().to_jar(prepared_request._cookies, req, resp.raw)
+            CookieUtils().to_jar(prepared_request._cookies, req, resp.raw_())
             CookieUtils().merge_cookies(prepared_request._cookies, self.cookies)
             prepared_request.prepare_cookies(prepared_request._cookies)
 
@@ -3103,9 +3112,9 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         and reapplies authentication where possible to avoid credential loss.
         """
         headers = prepared_request.headers_()
-        url = prepared_request.url
+        url = prepared_request.url_()
 
-        if 'Authorization' in headers and self.should_strip_auth(response.request.url, url):
+        if 'Authorization' in headers and self.should_strip_auth(response.request.url_(), url):
             # If we get redirected to a new host, we should strip out any
             # authentication headers.
             del headers['Authorization']
@@ -3129,7 +3138,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         """
         proxies = proxies if proxies is not None else {}
         headers = prepared_request.headers_()
-        url = prepared_request.url
+        url = prepared_request.url_()
         scheme = XCompat().urlparse(url).scheme
         new_proxies = proxies.copy()
         no_proxy = proxies.get('no_proxy')
@@ -3295,12 +3304,12 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth
         if self.trust_env and not auth and not self.auth:
-            auth = Utils().get_netrc_auth(request.url)
+            auth = Utils().get_netrc_auth(request.url_())
 
         p = PreparedRequest()
         p.prepare(
             method=request.method.upper(),
-            url=request.url,
+            url=request.url_(),
             files=request.files,
             data=request.data,
             json=request.json,
@@ -3376,7 +3385,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         proxies = proxies or {}
 
         settings = self.merge_environment_settings(
-            prep.url, proxies, stream, verify, cert
+            prep.url_(), proxies, stream, verify, cert
         )
 
         # Send the request.
@@ -3495,7 +3504,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         hooks = request.hooks
 
         # Get the appropriate adapter to use
-        adapter = self.get_adapter(url=request.url)
+        adapter = self.get_adapter(url=request.url_())
 
         # Start time (approximately) of the request
         start = Sessions().preferred_clock()
@@ -4400,7 +4409,7 @@ class Utils:  # ./Utils/utils.py
         :rtype: dict
         """
         proxies = proxies if proxies is not None else {}
-        url = request.url
+        url = request.url_()
         scheme = XCompat().urlparse(url).scheme
         no_proxy = proxies.get('no_proxy')
         new_proxies = proxies.copy()

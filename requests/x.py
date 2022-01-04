@@ -514,23 +514,23 @@ class XCookieJarRequest:
     def __init__(self, request):
         self._r = request
         self._new_headers = {}
-        self.type = XCompat().urlparse(self._r.url).scheme
+        self.type = XCompat().urlparse(self._r.url_()).scheme
 
     def get_host(self):  # not called but needed py py2
-        return XCompat().urlparse(self._r.url).netloc
+        return XCompat().urlparse(self._r.url_()).netloc
 
     def get_origin_req_host(self):  # needed by cookielib.py (python2.7)
-        return XCompat().urlparse(self._r.url).netloc
+        return XCompat().urlparse(self._r.url_()).netloc
         # return self.get_host()
 
     def get_full_url(self):  # needed by http.cookiejar.py
         # Only return the response's URL if the user hadn't set the Host
         # header
         if not self._r.headers_().get('Host'):
-            return self._r.url
+            return self._r.url_()
         # If they did set it, retrieve it and reconstruct the expected domain
         host = XUtils().to_native_string(self._r.headers_()['Host'], encoding='utf-8')
-        parsed = XCompat().urlparse(self._r.url)
+        parsed = XCompat().urlparse(self._r.url_())
         # Reconstruct the URL as we expect it
         return XCompat().urlunparse([
             parsed.scheme, host, parsed.path, parsed.params, parsed.query,
