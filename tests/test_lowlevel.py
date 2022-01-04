@@ -181,7 +181,7 @@ def test_digestauth_401_count_reset_on_redirect():
         assert 'Authorization' in r.request.headers_()
         assert r.request.headers_()['Authorization'].startswith('Digest ')
         # Verify redirect happened as we expected.
-        assert r.history[0].status_code_() == 302
+        assert r.history_()[0].status_code_() == 302
         close_server.set()
 
 
@@ -227,7 +227,7 @@ def test_digestauth_401_only_sent_once():
         r = requests.get(url, auth=auth)
         # Verify server didn't authenticate us.
         assert r.status_code_() == 401
-        assert r.history[0].status_code_() == 401
+        assert r.history_()[0].status_code_() == 401
         close_server.set()
 
 
@@ -264,7 +264,7 @@ def test_digestauth_only_on_4xx():
         r = requests.get(url, auth=auth)
         # Verify server didn't receive auth from us.
         assert r.status_code_() == 200
-        assert len(r.history) == 0
+        assert len(r.history_()) == 0
         close_server.set()
 
 
@@ -325,8 +325,8 @@ def test_redirect_rfc1808_to_non_ascii_location():
         url = u'http://{}:{}'.format(host, port)
         r = requests.get(url=url, allow_redirects=True)
         assert r.status_code_() == 200
-        assert len(r.history) == 1
-        assert r.history[0].status_code_() == 301
+        assert len(r.history_()) == 1
+        assert r.history_()[0].status_code_() == 301
         assert redirect_request[0].startswith(b'GET /' + expected_path + b' HTTP/1.1')
         assert r.url_() == u'{}/{}'.format(url, expected_path.decode('ascii'))
 
@@ -394,11 +394,11 @@ def test_fragment_update_on_redirect():
         raw_request = r.content_()
 
         assert r.status_code_() == 200
-        assert len(r.history) == 2
-        assert r.history[0].request.url_() == url
+        assert len(r.history_()) == 2
+        assert r.history_()[0].request.url_() == url
 
         # Verify we haven't overwritten the location with our previous fragment.
-        assert r.history[1].request.url_() == 'http://{}:{}/get#relevant-section'.format(host, port)
+        assert r.history_()[1].request.url_() == 'http://{}:{}/get#relevant-section'.format(host, port)
         # Verify previous fragment is used and not the original.
         assert r.url_() == 'http://{}:{}/final-url/#relevant-section'.format(host, port)
 

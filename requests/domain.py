@@ -1199,7 +1199,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             prep.headers_()['Authorization'] = self.build_digest_header(
                 prep.method, prep.url_())
             _r = r.connection.send(prep, **kwargs)
-            _r.history.append(r)
+            _r.history_().append(r)
             _r.request = prep
 
             return _r
@@ -2639,7 +2639,7 @@ class Response:  # ./Models/Response.py
         #: A list of :class:`Response <Response>` objects from
         #: the history of the Request. Any redirect responses will end
         #: up here. The list is sorted from the oldest to the most recent request.
-        self.history = []
+        self.history_([])
 
         #: Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
         self.reason = None
@@ -2866,6 +2866,9 @@ class Response:  # ./Models/Response.py
     def encoding_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'encoding', *args)
 
+    def history_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'history', *args)
+
 
 # *************************** classes in Packages section *****************
 class Packages:  # ./Packages/Packages.py
@@ -3010,16 +3013,16 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             prepared_request = req.copy()
 
             # Update history and keep track of redirects.
-            # resp.history must ignore the original request in this loop
+            # resp.history_( must ignore the original request in this loop
             hist.append(resp)
-            resp.history = hist[1:]
+            resp.history_(hist[1:])
 
             try:
                 resp.content_()  # Consume socket so it can be released
             except (ChunkedEncodingError, ContentDecodingError, RuntimeError):
                 resp.raw_().read(decode_content=False)
 
-            if len(resp.history) >= self.max_redirects:
+            if len(resp.history_()) >= self.max_redirects:
                 raise TooManyRedirects('Exceeded {} redirects.'.format(self.max_redirects), response=resp)
 
             # Release the connection back into the pool.
@@ -3523,10 +3526,10 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         r = Hooks().dispatch_hook('response', hooks, r, **kwargs)
 
         # Persist cookies
-        if r.history:
+        if r.history_():
 
             # If the hooks create history then we want those cookies too
-            for resp in r.history:
+            for resp in r.history_():
                 CookieUtils().to_jar(self.cookies, resp.request, resp.raw_())
 
         CookieUtils().to_jar(self.cookies, request, r.raw_())
@@ -3545,7 +3548,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             history.insert(0, r)
             # Get the last request made
             r = history.pop()
-            r.history = history
+            r.history_(history)
 
         # If redirects aren't being followed, store the response on the Request for Response.next().
         if not allow_redirects:

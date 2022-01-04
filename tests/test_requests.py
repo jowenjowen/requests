@@ -191,22 +191,22 @@ class TestRequests:
     def test_HTTP_302_ALLOW_REDIRECT_GET(self, httpbin):
         r = requests.get(httpbin('redirect', '1'))
         assert r.status_code_() == 200
-        assert r.history[0].status_code_() == 302
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 302
+        assert r.history_()[0].is_redirect()
 
     def test_HTTP_307_ALLOW_REDIRECT_POST(self, httpbin):
         r = requests.post(httpbin('redirect-to'), data='test', params={'url': 'post', 'status_code': 307})
         assert r.status_code_() == 200
-        assert r.history[0].status_code_() == 307
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 307
+        assert r.history_()[0].is_redirect()
         assert r.json()['data'] == 'test'
 
     def test_HTTP_307_ALLOW_REDIRECT_POST_WITH_SEEKABLE(self, httpbin):
         byte_str = b'test'
         r = requests.post(httpbin('redirect-to'), data=io.BytesIO(byte_str), params={'url': 'post', 'status_code': 307})
         assert r.status_code_() == 200
-        assert r.history[0].status_code_() == 307
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 307
+        assert r.history_()[0].is_redirect()
         assert r.json()['data'] == byte_str.decode('utf-8')
 
     def test_HTTP_302_TOO_MANY_REDIRECTS(self, httpbin):
@@ -216,7 +216,7 @@ class TestRequests:
             url = httpbin('relative-redirect', '20')
             assert e.request.url_() == url
             assert e.response.url_() == url
-            assert len(e.response.history) == 30
+            assert len(e.response.history_()) == 30
         else:
             pytest.fail('Expected redirect to raise TooManyRedirects but it did not')
 
@@ -229,7 +229,7 @@ class TestRequests:
             url = httpbin('relative-redirect', '45')
             assert e.request.url_() == url
             assert e.response.url_() == url
-            assert len(e.response.history) == 5
+            assert len(e.response.history_()) == 5
         else:
             pytest.fail('Expected custom max number of redirects to be respected but was not')
 
@@ -237,44 +237,44 @@ class TestRequests:
         r = requests.post(httpbin('status', '301'))
         assert r.status_code_() == 200
         assert r.request.method == 'GET'
-        assert r.history[0].status_code_() == 301
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 301
+        assert r.history_()[0].is_redirect()
 
     def test_http_301_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '301'), allow_redirects=True)
         print(r.content_())
         assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
-        assert r.history[0].status_code_() == 301
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 301
+        assert r.history_()[0].is_redirect()
 
     def test_http_302_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '302'))
         assert r.status_code_() == 200
         assert r.request.method == 'GET'
-        assert r.history[0].status_code_() == 302
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 302
+        assert r.history_()[0].is_redirect()
 
     def test_http_302_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '302'), allow_redirects=True)
         assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
-        assert r.history[0].status_code_() == 302
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 302
+        assert r.history_()[0].is_redirect()
 
     def test_http_303_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '303'))
         assert r.status_code_() == 200
         assert r.request.method == 'GET'
-        assert r.history[0].status_code_() == 303
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 303
+        assert r.history_()[0].is_redirect()
 
     def test_http_303_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '303'), allow_redirects=True)
         assert r.status_code_() == 200
         assert r.request.method == 'HEAD'
-        assert r.history[0].status_code_() == 303
-        assert r.history[0].is_redirect()
+        assert r.history_()[0].status_code_() == 303
+        assert r.history_()[0].is_redirect()
 
     def test_header_and_body_removal_on_redirect(self, httpbin):
         purged_headers = ('Content-Length', 'Content-Type')
@@ -320,8 +320,8 @@ class TestRequests:
         fragment = "#view=edit&token=hunter2"
         r = requests.get(httpbin('redirect-to?url=get')+fragment)
 
-        assert len(r.history) > 0
-        assert r.history[0].request.url_() == httpbin('redirect-to?url=get')+fragment
+        assert len(r.history_()) > 0
+        assert r.history_()[0].request.url_() == httpbin('redirect-to?url=get')+fragment
         assert r.url_() == httpbin('get')+fragment
 
     def test_HTTP_200_OK_GET_WITH_PARAMS(self, httpbin):
@@ -372,7 +372,7 @@ class TestRequests:
         s = requests.domain.Session()
         r = s.get(httpbin('redirect/1'), cookies={'foo': 'bar'})
         assert 'foo' in r.request.headers_()['Cookie']
-        assert 'foo' in r.history[0].request.headers_()['Cookie']
+        assert 'foo' in r.history_()[0].request.headers_()['Cookie']
 
     def test_request_cookie_overrides_session_cookie(self, httpbin):
         s = requests.domain.Session()
@@ -441,17 +441,17 @@ class TestRequests:
 
     def test_requests_in_history_are_not_overridden(self, httpbin):
         resp = requests.get(httpbin('redirect/3'))
-        urls = [r.url_() for r in resp.history]
-        req_urls = [r.request.url_() for r in resp.history]
+        urls = [r.url_() for r in resp.history_()]
+        req_urls = [r.request.url_() for r in resp.history_()]
         assert urls == req_urls
 
     def test_history_is_always_a_list(self, httpbin):
-        """Show that even with redirects, Response.history is always a list."""
+        """Show that even with redirects, Response.history_() is always a list."""
         resp = requests.get(httpbin('get'))
-        assert isinstance(resp.history, list)
+        assert isinstance(resp.history_(), list)
         resp = requests.get(httpbin('redirect/1'))
-        assert isinstance(resp.history, list)
-        assert not isinstance(resp.history, tuple)
+        assert isinstance(resp.history_(), list)
+        assert not isinstance(resp.history_(), tuple)
 
     def test_headers_on_session_with_None_are_not_sent(self, httpbin):
         """Do not send headers in Session.headers with None values."""
@@ -1646,12 +1646,12 @@ class TestRequests:
             auth=('user', 'pass'),
             verify=httpbin_ca_bundle
         )
-        assert r.history[0].request.headers_()['Authorization']
+        assert r.history_()[0].request.headers_()['Authorization']
         assert 'Authorization' not in r.request.headers_()
 
     def test_auth_is_retained_for_redirect_on_host(self, httpbin):
         r = requests.get(httpbin('redirect/1'), auth=('user', 'pass'))
-        h1 = r.history[0].request.headers_()['Authorization']
+        h1 = r.history_()[0].request.headers_()['Authorization']
         h2 = r.request.headers_()['Authorization']
 
         assert h1 == h2
@@ -1834,10 +1834,10 @@ class TestRequests:
 
     def test_requests_history_is_saved(self, httpbin):
         r = requests.get(httpbin('redirect/5'))
-        total = r.history[-1].history
+        total = r.history_()[-1].history_()
         i = 0
-        for item in r.history:
-            assert item.history == total[0:i]
+        for item in r.history_():
+            assert item.history_() == total[0:i]
             i += 1
 
     def test_json_param_post_content_type_works(self, httpbin):
@@ -2000,12 +2000,12 @@ class TestRequests:
 
         session = CustomRedirectSession()
         r = session.get(urls_test[0])
-        assert len(r.history) == 2
+        assert len(r.history_()) == 2
         assert r.status_code_() == 200
-        assert r.history[0].status_code_() == 302
-        assert r.history[0].is_redirect()
-        assert r.history[1].status_code_() == 200
-        assert not r.history[1].is_redirect()
+        assert r.history_()[0].status_code_() == 302
+        assert r.history_()[0].is_redirect()
+        assert r.history_()[1].status_code_() == 200
+        assert not r.history_()[1].is_redirect()
         assert r.url_() == urls_test[2]
 
 
