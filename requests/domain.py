@@ -534,7 +534,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         response.headers_(CaseInsensitiveDict(getattr(resp, 'headers', {})))
 
         # Set encoding.
-        response.encoding = Utils().get_encoding_from_headers(response.headers_())
+        response.encoding_(Utils().get_encoding_from_headers(response.headers_()))
         response.raw_(resp)
         response.reason = response.raw_().reason
 
@@ -2526,13 +2526,13 @@ class Content:
     def text(self, encoding):
         """Content of the response, in unicode.
 
-        If Response.encoding is None, encoding will be guessed using
+        If Response.encoding_() is None, encoding will be guessed using
         ``charset_normalizer`` or ``chardet``.
 
         The encoding of the response content is determined based solely on HTTP
         headers, following RFC 2616 to the letter. If you can take advantage of
         non-HTTP knowledge to make a better guess at the encoding, you should
-        set ``r.encoding`` appropriately before accessing this property.
+        set ``r.encoding_()`` appropriately before accessing this property.
         """
 
         # Try charset from content-type
@@ -2634,7 +2634,7 @@ class Response:  # ./Models/Response.py
         self.url_(None)
 
         #: Encoding to decode with when accessing r.text.
-        self.encoding = None
+        self.encoding_(None)
 
         #: A list of :class:`Response <Response>` objects from
         #: the history of the Request. Any redirect responses will end
@@ -2745,7 +2745,7 @@ class Response:  # ./Models/Response.py
         return XUtils().get_or_set(self, '_next', *args)
 
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
-        return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding)
+        return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding_())
 
     def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./Models/Response.py
         """Iterates over the response data, one line at a time.  When
@@ -2788,10 +2788,10 @@ class Response:  # ./Models/Response.py
 
     @property
     def text(self):  # ./Models/Response.py
-        return self.contentClass.text(self.encoding)
+        return self.contentClass.text(self.encoding_())
 
     def json(self, **kwargs):  # ./Models/Response.py
-        return self.contentClass.json(self.encoding, **kwargs)
+        return self.contentClass.json(self.encoding_(), **kwargs)
 
     @property
     def links(self):  # ./Models/Response.py
@@ -2862,6 +2862,9 @@ class Response:  # ./Models/Response.py
 
     def url_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'url', *args)
+
+    def encoding_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'encoding', *args)
 
 
 # *************************** classes in Packages section *****************

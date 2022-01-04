@@ -1281,7 +1281,7 @@ class TestRequests:
         r = requests.Response()
         r.contentClass._content_consumed = True
         r.contentClass._content = b'the content'
-        r.encoding = 'ascii'
+        r.encoding_('ascii')
 
         chunks = r.iter_content(decode_unicode=True)
         assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
@@ -1289,7 +1289,7 @@ class TestRequests:
         # also for streaming
         r = requests.Response()
         r.raw_(io.BytesIO(b'the content'))
-        r.encoding = 'ascii'
+        r.encoding_('ascii')
         chunks = r.iter_content(decode_unicode=True)
         assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
 
@@ -1299,7 +1299,7 @@ class TestRequests:
         r.url_(u'unicode URL')
         r.reason = u'Komponenttia ei löydy'.encode('utf-8')
         r.status_code_(404)
-        r.encoding = None
+        r.encoding_(None)
         assert not r.ok()  # old behaviour - crashes here
 
     def test_response_reason_unicode_fallback(self):
@@ -1309,7 +1309,7 @@ class TestRequests:
         reason = u'Komponenttia ei löydy'
         r.reason = reason.encode('latin-1')
         r.status_code_(500)
-        r.encoding = None
+        r.encoding_(None)
         with pytest.raises(requests.exceptions.HTTPError) as e:
             r.raise_for_status()
         assert reason in e.value.args[0]
