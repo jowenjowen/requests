@@ -526,10 +526,10 @@ class XCookieJarRequest:
     def get_full_url(self):  # needed by http.cookiejar.py
         # Only return the response's URL if the user hadn't set the Host
         # header
-        if not self._r.headers.get('Host'):
+        if not self._r.headers_().get('Host'):
             return self._r.url
         # If they did set it, retrieve it and reconstruct the expected domain
-        host = XUtils().to_native_string(self._r.headers['Host'], encoding='utf-8')
+        host = XUtils().to_native_string(self._r.headers_()['Host'], encoding='utf-8')
         parsed = XCompat().urlparse(self._r.url)
         # Reconstruct the URL as we expect it
         return XCompat().urlunparse([
@@ -541,10 +541,10 @@ class XCookieJarRequest:
         return True
 
     def has_header(self, name):  # needed by http.cookiejar.py
-        return name in self._r.headers or name in self._new_headers
+        return name in self._r.headers_() or name in self._new_headers
 
     def get_header(self, name, default=None):  # not called but needed py py2
-        return self._r.headers.get(name, self._new_headers.get(name, default))
+        return self._r.headers_().get(name, self._new_headers.get(name, default))
 
     def add_unredirected_header(self, name, value):  # needed by http.cookiejar.py
         self._new_headers[name] = value

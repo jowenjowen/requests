@@ -113,25 +113,25 @@ class TestRequests:
     @pytest.mark.parametrize('method', ('GET', 'HEAD'))
     def test_no_content_length(self, httpbin, method):
         req = requests.Request(method, httpbin(method.lower())).prepare()
-        assert 'Content-Length' not in req.headers
+        assert 'Content-Length' not in req.headers_()
 
     @pytest.mark.parametrize('method', ('POST', 'PUT', 'PATCH', 'OPTIONS'))
     def test_no_body_content_length(self, httpbin, method):
         req = requests.Request(method, httpbin(method.lower())).prepare()
-        assert req.headers['Content-Length'] == '0'
+        assert req.headers_()['Content-Length'] == '0'
 
     @pytest.mark.parametrize('method', ('POST', 'PUT', 'PATCH', 'OPTIONS'))
     def test_empty_content_length(self, httpbin, method):
         req = requests.Request(method, httpbin(method.lower()), data='').prepare()
-        assert req.headers['Content-Length'] == '0'
+        assert req.headers_()['Content-Length'] == '0'
 
     def test_override_content_length(self, httpbin):
         headers = {
             'Content-Length': 'not zero'
         }
         r = requests.Request('POST', httpbin('post'), headers=headers).prepare()
-        assert 'Content-Length' in r.headers
-        assert r.headers['Content-Length'] == 'not zero'
+        assert 'Content-Length' in r.headers_()
+        assert r.headers_()['Content-Length'] == 'not zero'
 
     def test_path_is_not_double_encoded(self):
         request = requests.Request('GET', "http://0.0.0.0/get/test case").prepare()
@@ -285,36 +285,36 @@ class TestRequests:
 
         # Mimic a redirect response
         resp.status_code_(302)
-        resp.headers['location'] = 'get'
+        resp.headers_()['location'] = 'get'
 
         # Run request through resolve_redirects
         next_resp = next(ses.resolve_redirects(resp, prep))
         assert next_resp.request.body is None
         for header in purged_headers:
-            assert header not in next_resp.request.headers
+            assert header not in next_resp.request.headers_()
 
     def test_transfer_enc_removal_on_redirect(self, httpbin):
         purged_headers = ('Transfer-Encoding', 'Content-Type')
         ses = requests.domain.Session()
         req = requests.Request('POST', httpbin('post'), data=(b'x' for x in range(1)))
         prep = ses.prepare_request(req)
-        assert 'Transfer-Encoding' in prep.headers
+        assert 'Transfer-Encoding' in prep.headers_()
 
         # Create Response to avoid https://github.com/kevin1024/pytest-httpbin/issues/33
         resp = requests.Response()
-        resp.raw(io.BytesIO(b'the content'))
+        resp.raw_(io.BytesIO(b'the content'))
         resp.request = prep
-        setattr(resp.raw(), 'release_conn', lambda *args: args)
+        setattr(resp.raw_(), 'release_conn', lambda *args: args)
 
         # Mimic a redirect response
         resp.status_code_(302)
-        resp.headers['location'] = httpbin('get')
+        resp.headers_()['location'] = httpbin('get')
 
         # Run request through resolve_redirect
         next_resp = next(ses.resolve_redirects(resp, prep))
         assert next_resp.request.body is None
         for header in purged_headers:
-            assert header not in next_resp.request.headers
+            assert header not in next_resp.request.headers_()
 
     def test_fragment_maintained_on_redirect(self, httpbin):
         fragment = "#view=edit&token=hunter2"
@@ -371,8 +371,8 @@ class TestRequests:
     def test_cookie_persists_via_api(self, httpbin):
         s = requests.domain.Session()
         r = s.get(httpbin('redirect/1'), cookies={'foo': 'bar'})
-        assert 'foo' in r.request.headers['Cookie']
-        assert 'foo' in r.history[0].request.headers['Cookie']
+        assert 'foo' in r.request.headers_()['Cookie']
+        assert 'foo' in r.history[0].request.headers_()['Cookie']
 
     def test_request_cookie_overrides_session_cookie(self, httpbin):
         s = requests.domain.Session()
@@ -424,7 +424,7 @@ class TestRequests:
         # Send request and simulate redirect
         resp = s.send(prep_req)
         resp.status_code_(302)
-        resp.headers['location'] = httpbin('get')
+        resp.headers_()['location'] = httpbin('get')
         redirects = s.resolve_redirects(resp, prep_req)
         resp = next(redirects)
 
@@ -456,24 +456,24 @@ class TestRequests:
     def test_headers_on_session_with_None_are_not_sent(self, httpbin):
         """Do not send headers in Session.headers with None values."""
         ses = requests.domain.Session()
-        ses.headers['Accept-Encoding'] = None
+        ses.headers_()['Accept-Encoding'] = None
         req = requests.Request('GET', httpbin('get'))
         prep = ses.prepare_request(req)
-        assert 'Accept-Encoding' not in prep.headers
+        assert 'Accept-Encoding' not in prep.headers_()
 
     def test_headers_preserve_order(self, httpbin):
         """Preserve order when headers provided as OrderedDict."""
         ses = requests.domain.Session()
-        ses.headers = collections.OrderedDict()
-        ses.headers['Accept-Encoding'] = 'identity'
-        ses.headers['First'] = '1'
-        ses.headers['Second'] = '2'
+        ses.headers_(collections.OrderedDict())
+        ses.headers_()['Accept-Encoding'] = 'identity'
+        ses.headers_()['First'] = '1'
+        ses.headers_()['Second'] = '2'
         headers = collections.OrderedDict([('Third', '3'), ('Fourth', '4')])
         headers['Fifth'] = '5'
         headers['Second'] = '222'
         req = requests.Request('GET', httpbin('get'), headers=headers)
         prep = ses.prepare_request(req)
-        items = list(prep.headers.items())
+        items = list(prep.headers_().items())
         assert items[0] == ('Accept-Encoding', 'identity')
         assert items[1] == ('First', '1')
         assert items[2] == ('Second', '222')
@@ -526,7 +526,7 @@ class TestRequests:
         r = requests.Request('GET', url, auth=auth)
         p = r.prepare()
 
-        assert p.headers['Authorization'] == Auth().basic_auth_str(username, password)
+        assert p.headers_()['Authorization'] == Auth().basic_auth_str(username, password)
 
     def test_basicauth_encodes_byte_strings(self):
         """Ensure b'test' formats as the byte string "test" rather
@@ -536,7 +536,7 @@ class TestRequests:
         r = requests.Request('GET', 'http://localhost', auth=auth)
         p = r.prepare()
 
-        assert p.headers['Authorization'] == 'Basic xa9zZXJuYW1lOnRlc3TGtg=='
+        assert p.headers_()['Authorization'] == 'Basic xa9zZXJuYW1lOnRlc3TGtg=='
 
     @pytest.mark.parametrize(
         'url, exception', (
@@ -608,7 +608,7 @@ class TestRequests:
     def test_proxy_authorization_preserved_on_request(self, httpbin):
         proxy_auth_value = "Bearer XXX"
         session = requests.domain.Session()
-        session.headers.update({"Proxy-Authorization": proxy_auth_value})
+        session.headers_().update({"Proxy-Authorization": proxy_auth_value})
         resp = session.request(method='GET', url=httpbin('get'))
         sent_headers = resp.json().get('headers', {})
 
@@ -658,7 +658,7 @@ class TestRequests:
 
             r = requests.get(url)
             assert r.status_code_() == 401
-            print(r.headers['WWW-Authenticate'])
+            print(r.headers_()['WWW-Authenticate'])
 
             s = requests.domain.Session()
             s.auth = HTTPDigestAuth('user', 'pass')
@@ -692,10 +692,10 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
             r = requests.get(url, auth=auth, stream=True)
-            assert r.raw().read() != b''
+            assert r.raw_().read() != b''
 
             r = requests.get(url, auth=auth, stream=False)
-            assert r.raw().read() == b''
+            assert r.raw_().read() == b''
 
     def test_DIGESTAUTH_WRONG_HTTP_401_GET(self, httpbin):
 
@@ -721,7 +721,7 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
             r = requests.get(url, auth=auth)
-            assert '"auth"' in r.request.headers['Authorization']
+            assert '"auth"' in r.request.headers_()['Authorization']
 
     def test_POSTBIN_GET_POST_FILES(self, httpbin):
 
@@ -1052,7 +1052,7 @@ class TestRequests:
     def test_prepared_from_session(self, httpbin):
         class DummyAuth(requests.domain.AuthBase):
             def __call__(self, r):
-                r.headers['Dummy-Auth-Test'] = 'dummy-auth-test-ok'
+                r.headers_()['Dummy-Auth-Test'] = 'dummy-auth-test-ok'
                 return r
 
         req = requests.Request('GET', httpbin('headers'))
@@ -1085,7 +1085,7 @@ class TestRequests:
 
     def test_links(self):
         r = requests.Response()
-        r.headers = {
+        r.headers_({
             'cache-control': 'public, max-age=60, s-maxage=60',
             'connection': 'keep-alive',
             'content-encoding': 'gzip',
@@ -1104,7 +1104,7 @@ class TestRequests:
             'x-github-media-type': 'github.beta',
             'x-ratelimit-limit': '60',
             'x-ratelimit-remaining': '57'
-        }
+        })
         assert r.links['next']['rel'] == 'next'
 
     def test_cookie_parameters(self):
@@ -1270,7 +1270,7 @@ class TestRequests:
         def read_mock(amt, decode_content=None):
             return read_(amt)
         setattr(io, 'read', read_mock)
-        r.raw(io)
+        r.raw_(io)
         assert next(iter(r))
         io.close()
 
@@ -1288,7 +1288,7 @@ class TestRequests:
 
         # also for streaming
         r = requests.Response()
-        r.raw(io.BytesIO(b'the content'))
+        r.raw_(io.BytesIO(b'the content'))
         r.encoding = 'ascii'
         chunks = r.iter_content(decode_unicode=True)
         assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
@@ -1319,17 +1319,17 @@ class TestRequests:
         raise a TypeError.
         """
         r = requests.Response()
-        r.raw(io.BytesIO(b'the content'))
+        r.raw_(io.BytesIO(b'the content'))
         chunks = r.iter_content(1)
         assert all(len(chunk) == 1 for chunk in chunks)
 
         r = requests.Response()
-        r.raw(io.BytesIO(b'the content'))
+        r.raw_(io.BytesIO(b'the content'))
         chunks = r.iter_content(None)
         assert list(chunks) == [b'the content']
 
         r = requests.Response()
-        r.raw(io.BytesIO(b'the content'))
+        r.raw_(io.BytesIO(b'the content'))
         with pytest.raises(TypeError):
             chunks = r.iter_content("1024")
 
@@ -1343,7 +1343,7 @@ class TestRequests:
         # the original request.
         pr = pickle.loads(pickle.dumps(r))
         assert r.request.url == pr.request.url
-        assert r.request.headers == pr.request.headers
+        assert r.request.headers_() == pr.request.headers_()
 
     def test_prepared_request_is_pickleable(self, httpbin):
         p = requests.Request('GET', httpbin('get')).prepare()
@@ -1351,7 +1351,7 @@ class TestRequests:
         # Verify PreparedRequest can be pickled and unpickled
         r = pickle.loads(pickle.dumps(p))
         assert r.url == p.url
-        assert r.headers == p.headers
+        assert r.headers_() == p.headers_()
         assert r.body == p.body
 
         # Verify unpickled PreparedRequest sends properly
@@ -1367,7 +1367,7 @@ class TestRequests:
         # Verify PreparedRequest can be pickled and unpickled
         r = pickle.loads(pickle.dumps(p))
         assert r.url == p.url
-        assert r.headers == p.headers
+        assert r.headers_() == p.headers_()
         assert r.body == p.body
 
         # Verify unpickled PreparedRequest sends properly
@@ -1382,7 +1382,7 @@ class TestRequests:
         # Verify PreparedRequest can be pickled
         r = pickle.loads(pickle.dumps(p))
         assert r.url == p.url
-        assert r.headers == p.headers
+        assert r.headers_() == p.headers_()
         assert r.body == p.body
         assert r.hooks == p.hooks
 
@@ -1419,10 +1419,10 @@ class TestRequests:
     def test_fixes_1329(self, httpbin):
         """Ensure that header updates are done case-insensitively."""
         s = requests.domain.Session()
-        s.headers.update({'ACCEPT': 'BOGUS'})
-        s.headers.update({'accept': 'application/json'})
+        s.headers_().update({'ACCEPT': 'BOGUS'})
+        s.headers_().update({'accept': 'application/json'})
         r = s.get(httpbin('get'))
-        headers = r.request.headers
+        headers = r.request.headers_()
         assert headers['accept'] == 'application/json'
         assert headers['Accept'] == 'application/json'
         assert headers['ACCEPT'] == 'application/json'
@@ -1513,9 +1513,9 @@ class TestRequests:
     def test_header_remove_is_case_insensitive(self, httpbin):
         # From issue #1321
         s = requests.domain.Session()
-        s.headers['foo'] = 'bar'
+        s.headers_()['foo'] = 'bar'
         r = s.get(httpbin('get'), headers={'FOO': None})
-        assert 'foo' not in r.request.headers
+        assert 'foo' not in r.request.headers_()
 
     def test_params_are_merged_case_sensitive(self, httpbin):
         s = requests.domain.Session()
@@ -1539,8 +1539,8 @@ class TestRequests:
 
         # This is testing that they are builtin strings. A bit weird, but there
         # we go.
-        assert 'unicode' in p.headers.keys()
-        assert 'byte' in p.headers.keys()
+        assert 'unicode' in p.headers_().keys()
+        assert 'byte' in p.headers_().keys()
 
     def test_header_validation(self, httpbin):
         """Ensure prepare_headers regex isn't flagging valid header contents."""
@@ -1549,7 +1549,7 @@ class TestRequests:
                       'baz': '',
                       'qux': '1'}
         r = requests.get(httpbin('get'), headers=headers_ok)
-        assert r.request.headers['foo'] == headers_ok['foo']
+        assert r.request.headers_()['foo'] == headers_ok['foo']
 
     def test_header_value_not_str(self, httpbin):
         """Ensure the header value is of type string or bytes as
@@ -1610,7 +1610,7 @@ class TestRequests:
         files = {'b': files}
         r = requests.Request('POST', httpbin('post'), data=data, files=files)
         p = r.prepare()
-        assert 'multipart/form-data' in p.headers['Content-Type']
+        assert 'multipart/form-data' in p.headers_()['Content-Type']
 
     def test_can_send_file_object_with_non_string_filename(self, httpbin):
         f = io.BytesIO()
@@ -1618,7 +1618,7 @@ class TestRequests:
         r = requests.Request('POST', httpbin('post'), files={'f': f})
         p = r.prepare()
 
-        assert 'multipart/form-data' in p.headers['Content-Type']
+        assert 'multipart/form-data' in p.headers_()['Content-Type']
 
     def test_autoset_header_values_are_native(self, httpbin):
         data = 'this is a string'
@@ -1626,7 +1626,7 @@ class TestRequests:
         req = requests.Request('POST', httpbin('post'), data=data)
         p = req.prepare()
 
-        assert p.headers['Content-Length'] == length
+        assert p.headers_()['Content-Length'] == length
 
     def test_nonhttp_schemes_dont_check_URLs(self):
         test_urls = (
@@ -1646,13 +1646,13 @@ class TestRequests:
             auth=('user', 'pass'),
             verify=httpbin_ca_bundle
         )
-        assert r.history[0].request.headers['Authorization']
-        assert 'Authorization' not in r.request.headers
+        assert r.history[0].request.headers_()['Authorization']
+        assert 'Authorization' not in r.request.headers_()
 
     def test_auth_is_retained_for_redirect_on_host(self, httpbin):
         r = requests.get(httpbin('redirect/1'), auth=('user', 'pass'))
-        h1 = r.history[0].request.headers['Authorization']
-        h2 = r.request.headers['Authorization']
+        h1 = r.history[0].request.headers_()['Authorization']
+        h2 = r.request.headers_()['Authorization']
 
         assert h1 == h2
 
@@ -1810,7 +1810,7 @@ class TestRequests:
         def build_response(*args, **kwargs):
             resp = org_build_response(*args, **kwargs)
             if not self._patched_response:
-                resp.raw().headers['content-encoding'] = 'gzip'
+                resp.raw_().headers['content-encoding'] = 'gzip'
                 self._patched_response = True
             return resp
 
@@ -1846,7 +1846,7 @@ class TestRequests:
             json={'life': 42}
         )
         assert r.status_code_() == 200
-        assert 'application/json' in r.request.headers['Content-Type']
+        assert 'application/json' in r.request.headers_()['Content-Type']
         assert {'life': 42} == r.json()['json']
 
     def test_json_param_post_should_not_override_data_param(self, httpbin):
@@ -1868,7 +1868,7 @@ class TestRequests:
         with requests.get(httpbin('stream/4'), stream=True) as response:
             assert isinstance(response, requests.Response)
 
-        assert response.raw().closed
+        assert response.raw_().closed
 
     def test_unconsumed_session_response_closes_connection(self, httpbin):
         s = requests.domain.Session()
@@ -1877,7 +1877,7 @@ class TestRequests:
             pass
 
         assert response.contentClass._content_consumed is False
-        assert response.raw().closed
+        assert response.raw_().closed
 
     @pytest.mark.xfail
     def test_response_iter_lines_reentrant(self, httpbin):
@@ -1925,10 +1925,10 @@ class TestRequests:
         Should work when `release_conn` attr doesn't exist on `response.raw`.
         """
         resp = requests.Response()
-        resp.raw(CompatStringIO.StringIO('test'))
-        assert not resp.raw().closed
+        resp.raw_(CompatStringIO.StringIO('test'))
+        assert not resp.raw_().closed
         resp.close()
-        assert resp.raw().closed
+        assert resp.raw_().closed
 
     def test_empty_stream_with_auth_does_not_set_content_length_header(self, httpbin):
         """Ensure that a byte stream with size 0 will not set both a Content-Length
@@ -1939,8 +1939,8 @@ class TestRequests:
         file_obj = io.BytesIO(b'')
         r = requests.Request('POST', url, auth=auth, data=file_obj)
         prepared_request = r.prepare()
-        assert 'Transfer-Encoding' in prepared_request.headers
-        assert 'Content-Length' not in prepared_request.headers
+        assert 'Transfer-Encoding' in prepared_request.headers_()
+        assert 'Content-Length' not in prepared_request.headers_()
 
     def test_stream_with_auth_does_not_set_transfer_encoding_header(self, httpbin):
         """Ensure that a byte stream with size > 0 will not set both a Content-Length
@@ -1951,8 +1951,8 @@ class TestRequests:
         file_obj = io.BytesIO(b'test data')
         r = requests.Request('POST', url, auth=auth, data=file_obj)
         prepared_request = r.prepare()
-        assert 'Transfer-Encoding' not in prepared_request.headers
-        assert 'Content-Length' in prepared_request.headers
+        assert 'Transfer-Encoding' not in prepared_request.headers_()
+        assert 'Content-Length' in prepared_request.headers_()
 
     def test_chunked_upload_does_not_set_content_length_header(self, httpbin):
         """Ensure that requests with a generator body stream using
@@ -1962,8 +1962,8 @@ class TestRequests:
         url = httpbin('post')
         r = requests.Request('POST', url, data=data)
         prepared_request = r.prepare()
-        assert 'Transfer-Encoding' in prepared_request.headers
-        assert 'Content-Length' not in prepared_request.headers
+        assert 'Transfer-Encoding' in prepared_request.headers_()
+        assert 'Content-Length' not in prepared_request.headers_()
 
     def test_custom_redirect_mixin(self, httpbin):
         """Tests a custom mixin to overwrite ``get_redirect_target``.
@@ -1991,9 +1991,9 @@ class TestRequests:
             def get_redirect_target(self, resp):
                 # default behavior
                 if resp.is_redirect():
-                    return resp.headers['location']
+                    return resp.headers_()['location']
                 # edge case - check to see if 'location' is in headers anyways
-                location = resp.headers.get('location')
+                location = resp.headers_().get('location')
                 if location and (location != resp.url):
                     return location
                 return None
@@ -2306,8 +2306,8 @@ class RedirectSession(SessionRedirectMixin):
         except IndexError:
             r.status_code_(200)
 
-        r.headers = CaseInsensitiveDict({'Location': '/'})
-        r.raw(self._build_raw())
+        r.headers_(CaseInsensitiveDict({'Location': '/'}))
+        r.raw_(self._build_raw())
         r.request = request
         return r
 

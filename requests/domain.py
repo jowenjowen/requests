@@ -94,7 +94,7 @@ class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.
         cid['aCCEPT'] == 'application/json'  # True
         list(cid) == ['Accept']  # True
 
-    For example, ``headers['content-encoding']`` will return the
+    For example, ``headers_()['content-encoding']`` will return the
     value of a ``'Content-Encoding'`` response header, regardless
     of how the header name was originally stored.
 
@@ -531,12 +531,12 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         response.status_code_(getattr(resp, 'status', None))
 
         # Make headers case-insensitive.
-        response.headers = CaseInsensitiveDict(getattr(resp, 'headers', {}))
+        response.headers_(CaseInsensitiveDict(getattr(resp, 'headers', {})))
 
         # Set encoding.
-        response.encoding = Utils().get_encoding_from_headers(response.headers)
-        response.raw(resp)
-        response.reason = response.raw().reason
+        response.encoding = Utils().get_encoding_from_headers(response.headers_())
+        response.raw_(resp)
+        response.reason = response.raw_().reason
 
         if isinstance(req.url, bytes):
             response.url = req.url.decode('utf-8')
@@ -680,7 +680,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         url = self.request_url(request, proxies)
         self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
-        chunked = not (request.body is None or 'Content-Length' in request.headers)
+        chunked = not (request.body is None or 'Content-Length' in request.headers_())
 
         if isinstance(timeout, tuple):
             try:
@@ -703,7 +703,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                     method=request.method,
                     url=url,
                     body=request.body,
-                    headers=request.headers,
+                    headers=request.headers_(),
                     redirect=False,
                     assert_same_host=False,
                     preload_content=False,
@@ -720,13 +720,13 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 low_conn = conn._get_conn(timeout=Adapters().DEFAULT_POOL_TIMEOUT())
 
                 try:
-                    skip_host = 'Host' in request.headers
+                    skip_host = 'Host' in request.headers_()
                     low_conn.putrequest(request.method,
                                         url,
                                         skip_accept_encoding=True,
                                         skip_host=skip_host)
 
-                    for header, value in request.headers.items():
+                    for header, value in request.headers_().items():
                         low_conn.putheader(header, value)
 
                     low_conn.endheaders()
@@ -1025,7 +1025,7 @@ class HTTPBasicAuth(AuthBase):  # ./Auth/HTTPBasicAuth.py
         return not self == other
 
     def __call__(self, r):  # ./Auth/HTTPBasicAuth.py
-        r.headers['Authorization'] = Auth().basic_auth_str(self.username, self.password)
+        r.headers_()['Authorization'] = Auth().basic_auth_str(self.username, self.password)
         return r
 
 
@@ -1033,7 +1033,7 @@ class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
     """Attaches HTTP Proxy Authentication to a given Request object."""
 
     def __call__(self, r):
-        r.headers['Proxy-Authorization'] = Auth().basic_auth_str(self.username, self.password)
+        r.headers_()['Proxy-Authorization'] = Auth().basic_auth_str(self.username, self.password)
         return r
 
 
@@ -1180,7 +1180,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             # Rewind the file position indicator of the body to where
             # it was to resend the request.
             r.request().body().seek(self._thread_local.pos)
-        s_auth = r.headers.get('www-authenticate', '')
+        s_auth = r.headers_().get('www-authenticate', '')
 
         if 'digest' in s_auth.lower() and self._thread_local.num_401_calls < 2:
 
@@ -1193,10 +1193,10 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             r.content_()
             r.close()
             prep = r.request.copy()
-            CookieUtils().to_jar(prep._cookies, r.request, r.raw())
+            CookieUtils().to_jar(prep._cookies, r.request, r.raw_())
             prep.prepare_cookies(prep._cookies)
 
-            prep.headers['Authorization'] = self.build_digest_header(
+            prep.headers_()['Authorization'] = self.build_digest_header(
                 prep.method, prep.url)
             _r = r.connection.send(prep, **kwargs)
             _r.history.append(r)
@@ -1212,7 +1212,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         self.init_per_thread_state()
         # If we have a saved nonce, skip the 401
         if self._thread_local.last_nonce:
-            r.headers['Authorization'] = self.build_digest_header(r.method, r.url)
+            r.headers_()['Authorization'] = self.build_digest_header(r.method, r.url)
         try:
             self._thread_local.pos = r.body.tell()
         except AttributeError:
@@ -1268,7 +1268,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
     def to_jar(self, jar, request, response):
         """Extract the cookies from the response into a CookieJar object (CookieJar or XCookieJar)
 
-        :param jar: CookieJar object (CookieJar or XCookieJar)r
+        :param jar: CookieJar object (CookieJar or XCookieJar)
         :param request: our own requests.Request object
         :param response: urllib3.HTTPResponse object
         """
@@ -2069,7 +2069,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
 
         self.method = method
         self.url = url
-        self.headers = headers
+        self.headers_(headers)
         self.files = files
         self.data = data
         self.json = json
@@ -2086,7 +2086,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         p.prepare(
             method=self.method,
             url=self.url,
-            headers=self.headers,
+            headers=self.headers_(),
             files=self.files,
             data=self.data,
             json=self.json,
@@ -2096,6 +2096,9 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             hooks=self.hooks,
         )
         return p
+
+    def headers_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'headers', *args)
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
@@ -2125,7 +2128,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         #: HTTP URL to send the request to.
         self.url = None
         #: dictionary of HTTP headers.
-        self.headers = None
+        self.headers_(None)
         # The `CookieJar` (CookieJar or XCookieJar) used to create the Cookie header will be stored here
         # after prepare_cookies is called
         self._cookies = None
@@ -2161,7 +2164,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         p = PreparedRequest()
         p.method = self.method
         p.url = self.url
-        p.headers = self.headers.copy() if self.headers is not None else None
+        p.headers_(self.headers_().copy() if self.headers_() is not None else None)
         p._cookies = CookieUtils()._copy_cookie_jar(self._cookies)
         p.body = self.body
         p.hooks = self.hooks
@@ -2271,13 +2274,13 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP headers."""
 
-        self.headers = CaseInsensitiveDict()
+        self.headers_(CaseInsensitiveDict())
         if headers:
             for header in headers.items():
                 # Raise exception on invalid header value.
                 Utils().check_header_validity(header)
                 name, value = header
-                self.headers[XUtils().to_native_string(name)] = value
+                self.headers_()[XUtils().to_native_string(name)] = value
 
     def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP body data."""
@@ -2330,9 +2333,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
                 raise NotImplementedError('Streamed bodies and files are mutually exclusive.')
 
             if length:
-                self.headers['Content-Length'] = XCompat().builtin_str(length)
+                self.headers_()['Content-Length'] = XCompat().builtin_str(length)
             else:
-                self.headers['Transfer-Encoding'] = 'chunked'
+                self.headers_()['Transfer-Encoding'] = 'chunked'
         else:
             # Multi-part file uploads.
             if files:
@@ -2348,8 +2351,8 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             self.prepare_content_length(body)
 
             # Add content-type if it wasn't explicitly provided.
-            if content_type and ('content-type' not in self.headers):
-                self.headers['Content-Type'] = content_type
+            if content_type and ('content-type' not in self.headers_()):
+                self.headers_()['Content-Type'] = content_type
 
         self.body = body
 
@@ -2360,11 +2363,11 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             if length:
                 # If length exists, set it. Otherwise, we fallback
                 # to Transfer-Encoding: chunked.
-                self.headers['Content-Length'] = XCompat().builtin_str(length)
-        elif self.method not in ('GET', 'HEAD') and self.headers.get('Content-Length') is None:
+                self.headers_()['Content-Length'] = XCompat().builtin_str(length)
+        elif self.method not in ('GET', 'HEAD') and self.headers_().get('Content-Length') is None:
             # Set Content-Length to 0 for methods that can have a body
             # but don't provide one. (i.e. not GET or HEAD)
-            self.headers['Content-Length'] = '0'
+            self.headers_()['Content-Length'] = '0'
 
     def prepare_auth(self, auth, url=''):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP auth data."""
@@ -2406,7 +2409,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         cookie_header = CookieUtils().get_cookie_header(self._cookies, self)
         if cookie_header is not None:
-            self.headers['Cookie'] = cookie_header
+            self.headers_()['Cookie'] = cookie_header
 
     def prepare_hooks(self, hooks):  # ./Models/PreparedRequest.py
         """Prepares the given hooks."""
@@ -2416,6 +2419,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         hooks = hooks or []
         for event in hooks:
             self.register_hook(event, hooks[event])
+
+    def headers_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'headers', *args)
+
 
 class Content:
     def __init__(self, read_func):
@@ -2608,14 +2615,14 @@ class Response:  # ./Models/Response.py
         self.status_code = None
 
         #: Case-insensitive Dictionary of Response Headers.
-        #: For example, ``headers['content-encoding']`` will return the
+        #: For example, ``headers_()['content-encoding']`` will return the
         #: value of a ``'Content-Encoding'`` response header.
-        self.headers = CaseInsensitiveDict()
+        self.headers_(CaseInsensitiveDict())
 
         #: File-like object representation of response (for advanced usage).
         #: Use of ``raw`` requires that ``stream=True`` be set on the request.
         #: This requirement does not apply for use internally to Requests.
-        self._raw = None
+        self.raw = None
 
         #: Final URL location of Response.
         self.url = None
@@ -2649,7 +2656,7 @@ class Response:  # ./Models/Response.py
         self.auth = None
 
     def read_content(self):
-        if self.status_code == 0 or self._raw is None:
+        if self.status_code == 0 or self.raw is None:
             return None
         else:
             return b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
@@ -2721,18 +2728,18 @@ class Response:  # ./Models/Response.py
         """True if this Response is a well-formed HTTP redirect that could have
         been processed automatically (by :meth:`Session.resolve_redirects`).
         """
-        return ('location' in self.headers and self.status_code in Models().REDIRECT_STATI())
+        return ('location' in self.headers_() and self.status_code in Models().REDIRECT_STATI())
 
     def is_permanent_redirect(self):
         """True if this Response one of the permanent versions of redirect."""
-        return ('location' in self.headers and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
+        return ('location' in self.headers_() and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
     def next(self, *args):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
         return XUtils().get_or_set(self, '_next', *args)
 
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
-        return self.contentClass.iterate(chunk_size, decode_unicode, self.raw(), self.encoding)
+        return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding)
 
     def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./Models/Response.py
         """Iterates over the response data, one line at a time.  When
@@ -2784,7 +2791,7 @@ class Response:  # ./Models/Response.py
     def links(self):  # ./Models/Response.py
         """Returns the parsed header links of the response, if any."""
 
-        header = self.headers.get('link')
+        header = self.headers_().get('link')
 
         # l = MultiDict()
         l = {}
@@ -2829,20 +2836,23 @@ class Response:  # ./Models/Response.py
 
         *Note: Should not normally need to be called explicitly.*
         """
-        self.contentClass.close(self.raw())
+        self.contentClass.close(self.raw_())
 
-        release_conn = getattr(self._raw, 'release_conn', None)
+        release_conn = getattr(self.raw, 'release_conn', None)
         if release_conn is not None:
             release_conn()
 
-    def raw(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, '_raw', *args)
+    def raw_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'raw', *args)
 
     def status_code_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'status_code', *args)
 
     def content_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'content', *args)
+
+    def headers_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'headers', *args)
 
 
 # *************************** classes in Packages section *****************
@@ -2938,7 +2948,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         # to cache the redirect location onto the response object as a private
         # attribute.
         if resp.is_redirect():
-            location = resp.headers['location']
+            location = resp.headers_()['location']
             # Currently the underlying http module on py3 decode headers
             # in latin1, but empirical evidence suggests that latin1 is very
             # rarely used with non-ASCII characters in HTTP headers.
@@ -2995,7 +3005,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             try:
                 resp.content_()  # Consume socket so it can be released
             except (ChunkedEncodingError, ContentDecodingError, RuntimeError):
-                resp.raw().read(decode_content=False)
+                resp.raw_().read(decode_content=False)
 
             if len(resp.history) >= self.max_redirects:
                 raise TooManyRedirects('Exceeded {} redirects.'.format(self.max_redirects), response=resp)
@@ -3034,10 +3044,10 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                 # https://github.com/psf/requests/issues/3490
                 purged_headers = ('Content-Length', 'Content-Type', 'Transfer-Encoding')
                 for header in purged_headers:
-                    prepared_request.headers.pop(header, None)
+                    prepared_request.headers_().pop(header, None)
                 prepared_request.body = None
 
-            headers = prepared_request.headers
+            headers = prepared_request.headers_()
             headers.pop('Cookie', None)
 
             # Extract any cookies sent on the response to the cookiejar
@@ -3081,7 +3091,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                     **adapter_kwargs
                 )
 
-                CookieUtils().to_jar(self.cookies, prepared_request, resp.raw())
+                CookieUtils().to_jar(self.cookies, prepared_request, resp.raw_())
 
                 # extract redirect url, if any, for the next loop
                 url = self.get_redirect_target(resp)
@@ -3092,7 +3102,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         request to avoid leaking credentials. This method intelligently removes
         and reapplies authentication where possible to avoid credential loss.
         """
-        headers = prepared_request.headers
+        headers = prepared_request.headers_()
         url = prepared_request.url
 
         if 'Authorization' in headers and self.should_strip_auth(response.request.url, url):
@@ -3118,7 +3128,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         :rtype: dict
         """
         proxies = proxies if proxies is not None else {}
-        headers = prepared_request.headers
+        headers = prepared_request.headers_()
         url = prepared_request.url
         scheme = XCompat().urlparse(url).scheme
         new_proxies = proxies.copy()
@@ -3134,7 +3144,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                 new_proxies.setdefault(scheme, proxy)
 
         if 'Proxy-Authorization' in headers:
-            del headers['Proxy-Authorization']
+            del headers_()['Proxy-Authorization']
 
         try:
             username, password = Utils().get_auth_from_url(new_proxies[scheme])
@@ -3142,7 +3152,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             username, password = None, None
 
         if username and password:
-            headers['Proxy-Authorization'] = Auth().basic_auth_str(username, password)
+            headers_()['Proxy-Authorization'] = Auth().basic_auth_str(username, password)
 
         return new_proxies
 
@@ -3199,7 +3209,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: A case-insensitive dictionary of headers to be sent on each
         #: :class:`Request <Request>` sent from this
         #: :class:`Session <Session>`.
-        self.headers = Utils().default_headers()
+        self.headers_(Utils().default_headers())
 
         #: Default Authentication tuple or object to attach to
         #: :class:`Request <Request>`.
@@ -3294,7 +3304,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             files=request.files,
             data=request.data,
             json=request.json,
-            headers=Sessions().merge_setting(request.headers, self.headers, dict_class=CaseInsensitiveDict),
+            headers=Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict),
             params=Sessions().merge_setting(request.params, self.params),
             auth=Sessions().merge_setting(auth, self.auth),
             cookies=merged_cookies,
@@ -3505,9 +3515,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
             # If the hooks create history then we want those cookies too
             for resp in r.history:
-                CookieUtils().to_jar(self.cookies, resp.request, resp.raw())
+                CookieUtils().to_jar(self.cookies, resp.request, resp.raw_())
 
-        CookieUtils().to_jar(self.cookies, request, r.raw())
+        CookieUtils().to_jar(self.cookies, request, r.raw_())
 
         # Resolve redirects if allowed.
         if allow_redirects:
@@ -3603,6 +3613,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     def __setstate__(self, state):
         for attr, value in state.items():
             setattr(self, attr, value)
+
+    def headers_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'headers', *args)
 
 
 # *************************** classes in Utils section *****************
@@ -4143,7 +4156,7 @@ class Utils:  # ./Utils/utils.py
         tried_encodings = []
 
         # Try charset from content-type
-        encoding = self.get_encoding_from_headers(r.headers)
+        encoding = self.get_encoding_from_headers(r.headers_())
 
         if encoding:
             try:

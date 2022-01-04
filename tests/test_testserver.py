@@ -54,7 +54,7 @@ class TestTestServer:
 
             assert r.status_code_() == 200
             assert r.text == u'roflol'
-            assert r.headers['Content-Length'] == '6'
+            assert r.headers_()['Content-Length'] == '6'
 
     def test_basic_response(self):
         """the basic response server returns an empty http response"""
@@ -62,7 +62,7 @@ class TestTestServer:
             r = requests.get('http://{}:{}'.format(host, port))
             assert r.status_code_() == 200
             assert r.text == u''
-            assert r.headers['Content-Length'] == '0'
+            assert r.headers_()['Content-Length'] == '0'
 
     def test_basic_waiting_server(self):
         """the server waits for the block_server event to be set before closing"""

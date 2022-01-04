@@ -33,7 +33,7 @@ def test_chunked_upload():
         close_server.set()  # release server block
 
     assert r.status_code_() == 200
-    assert r.request.headers['Transfer-Encoding'] == 'chunked'
+    assert r.request.headers_()['Transfer-Encoding'] == 'chunked'
 
 
 def test_chunked_encoding_error():
@@ -178,8 +178,8 @@ def test_digestauth_401_count_reset_on_redirect():
         # Verify server succeeded in authenticating.
         assert r.status_code_() == 200
         # Verify Authorization was sent in final request.
-        assert 'Authorization' in r.request.headers
-        assert r.request.headers['Authorization'].startswith('Digest ')
+        assert 'Authorization' in r.request.headers_()
+        assert r.request.headers_()['Authorization'].startswith('Digest ')
         # Verify redirect happened as we expected.
         assert r.history[0].status_code_() == 302
         close_server.set()
