@@ -295,18 +295,18 @@ class Adapters:  # ./Adapters/Adapters.py
     ~~~~~~~~~~~~~~~~~
 
     This module contains the transport adapters that Requests uses to define
-    and maintain connections.
+    and maintain xconnections.
     """
-    def DEFAULT_POOLBLOCK(self):
+    def DEFAULT_XPOOLBLOCK(self):
         return False
 
-    def DEFAULT_POOLSIZE(self):
+    def DEFAULT_XPOOLSIZE(self):
         return 10
 
     def DEFAULT_RETRIES(self):
         return 0
 
-    def DEFAULT_POOL_TIMEOUT(self):
+    def DEFAULT_XPOOL_TIMEOUT(self):
         return None
 
     def SOCKSProxyManager(self, *args, **kwargs):
@@ -352,16 +352,16 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
     usually be created by the :class:`Session <Session>` class under the
     covers.
 
-    :param pool_connections: The number of urllib3 connection pools to cache.
-    :param pool_maxsize: The maximum number of connections to save in the pool.
-    :param max_retries: The maximum number of retries each connection
+    :param xpool_connections: The number of xconnection xpools to cache.
+    :param pool_maxsize: The maximum number of xconnections to save in the xpool.
+    :param max_retries: The maximum number of retries each xconnection
         should attempt. Note, this applies only to failed DNS lookups, socket
-        connections and connection timeouts, never to requests where data has
+        xconnections and xconnection timeouts, never to requests where data has
         made it to the server. By default, Requests does not retry failed
-        connections. If you need granular control over the conditions under
+        xconnections. If you need granular control over the conditions under
         which we retry a request, import urllib3's ``Retry`` class and pass
         that instead.
-    :param pool_block: Whether the connection pool should block for connections.
+    :param pool_block: Whether the xconnection xpool should block for xconnections.
 
     Usage::
 
@@ -370,12 +370,12 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
       >>> a = requests.adapters.HTTPAdapter(max_retries=3)
       >>> s.mount('http://', a)
     """
-    __attrs__ = ['max_retries', 'config', '_pool_connections', '_pool_maxsize',
-                 '_pool_block']
+    __attrs__ = ['max_retries', 'config', '_xpool_connections', '_xpool_maxsize',
+                 '_xpool_block']
 
-    def __init__(self, pool_connections=Adapters().DEFAULT_POOLSIZE(),
-                 pool_maxsize=Adapters().DEFAULT_POOLSIZE(), max_retries=Adapters().DEFAULT_RETRIES(),
-                 pool_block=Adapters().DEFAULT_POOLBLOCK()):  # ./Adapters/HTTPAdapter.py
+    def __init__(self, xpool_connections=Adapters().DEFAULT_XPOOLSIZE(),
+                 pool_maxsize=Adapters().DEFAULT_XPOOLSIZE(), max_retries=Adapters().DEFAULT_RETRIES(),
+                 pool_block=Adapters().DEFAULT_XPOOLBLOCK()):  # ./Adapters/HTTPAdapter.py
         if max_retries == Adapters().DEFAULT_RETRIES():
             self.max_retries = XUrllib3().util().retry.Retry(0, read=False)
         else:
@@ -385,45 +385,45 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
         super(HTTPAdapter, self).__init__()
 
-        self._pool_connections = pool_connections
-        self._pool_maxsize = pool_maxsize
-        self._pool_block = pool_block
+        self._xpool_connections = xpool_connections
+        self._xpool_maxsize = pool_maxsize
+        self._xpool_block = pool_block
 
-        self.init_poolmanager(pool_connections, pool_maxsize, block=pool_block)
+        self.init_xpoolmanager(xpool_connections, pool_maxsize, block=pool_block)
 
     def __getstate__(self):  # ./Adapters/HTTPAdapter.py
         return {attr: getattr(self, attr, None) for attr in self.__attrs__}
 
     def __setstate__(self, state):  # ./Adapters/HTTPAdapter.py
         # Can't handle by adding 'proxy_manager' to self.__attrs__ because
-        # self.poolmanager uses a lambda function, which isn't picklable.
+        # self.xpoolmanager uses a lambda function, which isn't picklable.
         self.proxy_manager = {}
         self.config = {}
 
         for attr, value in state.items():
             setattr(self, attr, value)
 
-        self.init_poolmanager(self._pool_connections, self._pool_maxsize,
-                              block=self._pool_block)
+        self.init_xpoolmanager(self._xpool_connections, self._xpool_maxsize,
+                              block=self._xpool_block)
 
-    def init_poolmanager(self, connections, maxsize, block=Adapters().DEFAULT_POOLBLOCK(), **pool_kwargs):  # ./Adapters/HTTPAdapter.py
+    def init_xpoolmanager(self, xconnections, maxsize, block=Adapters().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Adapters/HTTPAdapter.py
         """Initializes a urllib3 PoolManager.
 
         This method should not be called from user code, and is only
         exposed for use when subclassing the
         :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
 
-        :param connections: The number of urllib3 connection pools to cache.
-        :param maxsize: The maximum number of connections to save in the pool.
-        :param block: Block when no free connections are available.
+        :param xconnections: The number of xconnection xpools to cache.
+        :param maxsize: The maximum number of xconnections to save in the xpool.
+        :param block: Block when no free xconnections are available.
         :param pool_kwargs: Extra keyword arguments used to initialize the Pool Manager.
         """
         # save these values for pickling
-        self._pool_connections = connections
-        self._pool_maxsize = maxsize
-        self._pool_block = block
+        self._xpool_connections = xconnections
+        self._xpool_maxsize = maxsize
+        self._xpool_block = block
 
-        self.poolmanager = XUrllib3().poolmanager().PoolManager(num_pools=connections, maxsize=maxsize,
+        self.xpoolmanager = XUrllib3().xpoolmanager().PoolManager(num_pools=xconnections, maxsize=maxsize,
                                        block=block, strict=True, **pool_kwargs)
 
     def proxy_manager_for(self, proxy, **proxy_kwargs):  # ./Adapters/HTTPAdapter.py
@@ -446,29 +446,29 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 proxy,
                 username=username,
                 password=password,
-                num_pools=self._pool_connections,
-                maxsize=self._pool_maxsize,
-                block=self._pool_block,
+                num_pools=self._xpool_connections,
+                maxsize=self._xpool_maxsize,
+                block=self._xpool_block,
                 **proxy_kwargs
             )
         else:
             proxy_headers = self.proxy_headers(proxy)
-            manager = self.proxy_manager[proxy] = XUrllib3().poolmanager().proxy_from_url(
+            manager = self.proxy_manager[proxy] = XUrllib3().xpoolmanager().proxy_from_url(
                 proxy,
                 proxy_headers=proxy_headers,
-                num_pools=self._pool_connections,
-                maxsize=self._pool_maxsize,
-                block=self._pool_block,
+                num_pools=self._xpool_connections,
+                maxsize=self._xpool_maxsize,
+                block=self._xpool_block,
                 **proxy_kwargs)
 
         return manager
 
-    def cert_verify(self, conn, url, verify, cert):  # ./Adapters/HTTPAdapter.py
+    def cert_verify(self, xconn, url, verify, cert):  # ./Adapters/HTTPAdapter.py
         """Verify a SSL certificate. This method should not be called from user
         code, and is only exposed for use when subclassing the
         :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
 
-        :param conn: The urllib3 connection object associated with the cert.
+        :param xconn: The urllib3 xconnection object associated with the cert.
         :param url: The requested URL.
         :param verify: Either a boolean, in which case it controls whether we verify
             the server's TLS certificate, or a string, in which case it must be a path
@@ -490,30 +490,30 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 raise IOError("Could not find a suitable TLS CA certificate bundle, "
                               "invalid path: {}".format(cert_loc))
 
-            conn.cert_reqs = 'CERT_REQUIRED'
+            xconn.cert_reqs = 'CERT_REQUIRED'
 
             if not XOs().path().isdir(cert_loc):
-                conn.ca_certs = cert_loc
+                xconn.ca_certs = cert_loc
             else:
-                conn.ca_cert_dir = cert_loc
+                xconn.ca_cert_dir = cert_loc
         else:
-            conn.cert_reqs = 'CERT_NONE'
-            conn.ca_certs = None
-            conn.ca_cert_dir = None
+            xconn.cert_reqs = 'CERT_NONE'
+            xconn.ca_certs = None
+            xconn.ca_cert_dir = None
 
         if cert:
             if not XCompat().is_basestring_instance(cert):
-                conn.cert_file = cert[0]
-                conn.key_file = cert[1]
+                xconn.cert_file = cert[0]
+                xconn.key_file = cert[1]
             else:
-                conn.cert_file = cert
-                conn.key_file = None
-            if conn.cert_file and not XOs().path().exists(conn.cert_file):
+                xconn.cert_file = cert
+                xconn.key_file = None
+            if xconn.cert_file and not XOs().path().exists(xconn.cert_file):
                 raise IOError("Could not find the TLS certificate file, "
-                              "invalid path: {}".format(conn.cert_file))
-            if conn.key_file and not XOs().path().exists(conn.key_file):
+                              "invalid path: {}".format(xconn.cert_file))
+            if xconn.key_file and not XOs().path().exists(xconn.key_file):
                 raise IOError("Could not find the TLS key file, "
-                              "invalid path: {}".format(conn.key_file))
+                              "invalid path: {}".format(xconn.key_file))
 
     def build_response(self, req, resp):  # ./Adapters/HTTPAdapter.py
         """Builds a :class:`Response <requests.Response>` object from a urllib3
@@ -548,12 +548,12 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
         # Give the Response some context.
         response.request_(req)
-        response.connection = self
+        response.xconnection = self
 
         return response
 
     def get_connection(self, url, proxies=None):  # ./Adapters/HTTPAdapter.py
-        """Returns a urllib3 connection for the given URL. This should not be
+        """Returns a urllib3 xconnection for the given URL. This should not be
         called from user code, and is only exposed for use when subclassing the
         :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
 
@@ -570,22 +570,22 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 raise InvalidProxyURL("Please check proxy URL. It is malformed"
                                       " and could be missing the host.")
             proxy_manager = self.proxy_manager_for(proxy)
-            conn = proxy_manager.connection_from_url(url)
+            xconn = proxy_manager.connection_from_url(url)
         else:
             # Only scheme should be lower case
             parsed = XCompat().urlparse(url)
             url = parsed.geturl()
-            conn = self.poolmanager.connection_from_url(url)
+            xconn = self.xpoolmanager.connection_from_url(url)
 
-        return conn
+        return xconn
 
     def close(self):  # ./Adapters/HTTPAdapter.py
         """Disposes of any internal state.
 
         Currently, this closes the PoolManager and any active ProxyManager,
-        which closes any pooled connections.
+        which closes any pooled xconnections.
         """
-        self.poolmanager.clear()
+        self.xpoolmanager.clear()
         for proxy in self.proxy_manager.values():
             proxy.clear()
 
@@ -619,7 +619,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         return url
 
     def add_headers(self, request, **kwargs):  # ./Adapters/HTTPAdapter.py
-        """Add any headers needed by the connection. As of v2.0 this does
+        """Add any headers needed by the xconnection. As of v2.0 this does
         nothing by default, but is left for overriding by users that subclass
         the :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
 
@@ -672,11 +672,11 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         """
 
         try:
-            conn = self.get_connection(request.url_(), proxies)
+            xconn = self.get_connection(request.url_(), proxies)
         except XUrllib3().exceptions().LocationValueError as e:
             raise InvalidURL(e, request=request)
 
-        self.cert_verify(conn, request.url_(), verify, cert)
+        self.cert_verify(xconn, request.url_(), verify, cert)
         url = self.request_url(request, proxies)
         self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
@@ -699,7 +699,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
         try:
             if not chunked:
-                resp = conn.urlopen(
+                resp = xconn.urlopen(
                     method=request.method,
                     url=url,
                     body=request.body,
@@ -714,10 +714,10 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
             # Send the request.
             else:
-                if hasattr(conn, 'proxy_pool'):
-                    conn = conn.proxy_pool
+                if hasattr(xconn, 'proxy_pool'):
+                    xconn = xconn.proxy_pool
 
-                low_conn = conn._get_conn(timeout=Adapters().DEFAULT_POOL_TIMEOUT())
+                low_conn = xconn._get_conn(timeout=Adapters().DEFAULT_XPOOL_TIMEOUT())
 
                 try:
                     skip_host = 'Host' in request.headers_()
@@ -748,7 +748,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
                     resp = XUrllib3().response().HTTPResponse.from_httplib(
                         r,
-                        pool=conn,
+                        pool=xconn,
                         connection=low_conn,
                         preload_content=False,
                         decode_content=False
@@ -1188,7 +1188,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             pat = XRe().compile(r'digest ', flags=XRe().IGNORECASE())
             self._thread_local.chal = Utils().parse_dict_header(pat.sub('', s_auth, count=1))
 
-            # Consume content and release the original connection
+            # Consume content and release the original xconnection
             # to allow our new request to reuse the same one.
             r.content_()
             r.close()
@@ -1198,7 +1198,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
             prep.headers_()['Authorization'] = self.build_digest_header(
                 prep.method, prep.url_())
-            _r = r.connection.send(prep, **kwargs)
+            _r = r.xconnection.send(prep, **kwargs)
             _r.history_().append(r)
             _r.request_(prep)
 
@@ -2514,7 +2514,7 @@ class Content:
             self._content = self._read()
 
         self._content_consumed = True
-        # don't need to release the connection; that's been handled by urllib3
+        # don't need to release the xconnection; that's been handled by urllib3
         # since we exhausted the data.
         return self._content
 
@@ -2843,7 +2843,7 @@ class Response:  # ./Models/Response.py
             raise HTTPError(http_error_msg, response=self)
 
     def close(self):  # ./Models/Response.py
-        """Releases the connection back to the pool. Once this method has been
+        """Releases the xconnection back to the xpool. Once this method has been
         called the underlying ``raw`` object must not be accessed again.
 
         *Note: Should not normally need to be called explicitly.*
@@ -3046,7 +3046,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             if len(resp.history_()) >= self.max_redirects:
                 raise TooManyRedirects('Exceeded {} redirects.'.format(self.max_redirects), response=resp)
 
-            # Release the connection back into the pool.
+            # Release the xconnection back into the xpool.
             resp.close()
 
             # Handle redirection without scheme (see: RFC 1808 Section 4)
@@ -3099,7 +3099,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
             # A failed tell() sets `_body_position` to `object()`. This non-None
             # value ensures `rewindable` will be True, allowing us to raise an
-            # UnrewindableBodyError, instead of hanging the connection.
+            # UnrewindableBodyError, instead of hanging the xconnection.
             rewindable = (
                 prepared_request._body_position is not None and
                 ('Content-Length' in headers or 'Transfer-Encoding' in headers)

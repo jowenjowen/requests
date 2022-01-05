@@ -2434,7 +2434,7 @@ def test_urllib3_retries(httpbin):
 
 def test_urllib3_pool_connection_closed(httpbin):
     s = requests.domain.Session()
-    s.mount('http://', HTTPAdapter(pool_connections=0, pool_maxsize=0))
+    s.mount('http://', HTTPAdapter(xpool_connections=0, pool_maxsize=0))
 
     try:
         s.get(httpbin('status/200'))

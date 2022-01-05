@@ -124,7 +124,7 @@ class Server(threading.Thread):
                 # if an exception is found in the main thread
                 self.wait_to_close_event.set()
 
-        # ensure server thread doesn't get stuck waiting for connections
+        # ensure server thread doesn't get stuck waiting for xconnections
         self._close_server_sock_ignore_errors()
         self.join()
         return False # allow exceptions to propagate

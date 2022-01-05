@@ -190,7 +190,7 @@ class XUrllib3:
     def version(self):
         return urllib3.__version__
 
-    def poolmanager(self):
+    def xpoolmanager(self):
         return urllib3.poolmanager
 
     def response(self):

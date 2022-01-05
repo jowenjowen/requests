@@ -155,7 +155,7 @@ class TestTestServer:
         # and get killed by the jenkins timeout.
 
     def test_server_finishes_when_no_connections(self):
-        """the server thread exits even if there are no connections"""
+        """the server thread exits even if there are no xconnections"""
         server = Server.basic_response_server()
         with server:
             pass
