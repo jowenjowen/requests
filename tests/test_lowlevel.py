@@ -33,7 +33,7 @@ def test_chunked_upload():
         close_server.set()  # release server block
 
     assert r.status_code_() == 200
-    assert r.request.headers_()['Transfer-Encoding'] == 'chunked'
+    assert r.request_().headers_()['Transfer-Encoding'] == 'chunked'
 
 
 def test_chunked_encoding_error():
@@ -178,8 +178,8 @@ def test_digestauth_401_count_reset_on_redirect():
         # Verify server succeeded in authenticating.
         assert r.status_code_() == 200
         # Verify Authorization was sent in final request.
-        assert 'Authorization' in r.request.headers_()
-        assert r.request.headers_()['Authorization'].startswith('Digest ')
+        assert 'Authorization' in r.request_().headers_()
+        assert r.request_().headers_()['Authorization'].startswith('Digest ')
         # Verify redirect happened as we expected.
         assert r.history_()[0].status_code_() == 302
         close_server.set()
@@ -395,10 +395,10 @@ def test_fragment_update_on_redirect():
 
         assert r.status_code_() == 200
         assert len(r.history_()) == 2
-        assert r.history_()[0].request.url_() == url
+        assert r.history_()[0].request_().url_() == url
 
         # Verify we haven't overwritten the location with our previous fragment.
-        assert r.history_()[1].request.url_() == 'http://{}:{}/get#relevant-section'.format(host, port)
+        assert r.history_()[1].request_().url_() == 'http://{}:{}/get#relevant-section'.format(host, port)
         # Verify previous fragment is used and not the original.
         assert r.url_() == 'http://{}:{}/final-url/#relevant-section'.format(host, port)
 

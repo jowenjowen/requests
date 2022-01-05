@@ -536,7 +536,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         # Set encoding.
         response.encoding_(Utils().get_encoding_from_headers(response.headers_()))
         response.raw_(resp)
-        response.reason = response.raw_().reason
+        response.reason_(response.raw_().reason)
 
         if isinstance(req.url_(), bytes):
             response.url_(req.url_().decode('utf-8'))
@@ -544,10 +544,10 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             response.url_(req.url_())
 
         # Add new cookies from the server.
-        CookieUtils().to_jar(response.cookies, req, resp)
+        CookieUtils().to_jar(response.cookies_(), req, resp)
 
         # Give the Response some context.
-        response.request = req
+        response.request_(req)
         response.connection = self
 
         return response
@@ -1179,7 +1179,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         if self._thread_local.pos is not None:
             # Rewind the file position indicator of the body to where
             # it was to resend the request.
-            r.request().body().seek(self._thread_local.pos)
+            r.request_().body().seek(self._thread_local.pos)
         s_auth = r.headers_().get('www-authenticate', '')
 
         if 'digest' in s_auth.lower() and self._thread_local.num_401_calls < 2:
@@ -1192,15 +1192,15 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             # to allow our new request to reuse the same one.
             r.content_()
             r.close()
-            prep = r.request.copy()
-            CookieUtils().to_jar(prep._cookies, r.request, r.raw_())
+            prep = r.request_().copy()
+            CookieUtils().to_jar(prep._cookies, r.request_(), r.raw_())
             prep.prepare_cookies(prep._cookies)
 
             prep.headers_()['Authorization'] = self.build_digest_header(
                 prep.method, prep.url_())
             _r = r.connection.send(prep, **kwargs)
             _r.history_().append(r)
-            _r.request = prep
+            _r.request_(prep)
 
             return _r
 
@@ -1466,8 +1466,8 @@ class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
     interface.
 
     This is the CookieJar we create by default for requests and sessions that
-    don't specify one, since some clients may expect response.cookies and
-    session.cookies to support dict operations.
+    don't specify one, since some clients may expect response.cookies_() and
+    session.cookies_() to support dict operations.
 
     Requests does not use the dict interface internally; it's just for
     compatibility with external client code. All requests code should work
@@ -2074,8 +2074,8 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         self.data = data
         self.json = json
         self.params = params
-        self.auth = auth
-        self.cookies = cookies
+        self.auth_(auth)
+        self.cookies_(cookies)
 
     def __repr__(self):  # ./Models/Request.py
         return '<Request [%s]>' % (self.method)
@@ -2091,8 +2091,8 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             data=self.data,
             json=self.json,
             params=self.params,
-            auth=self.auth,
-            cookies=self.cookies,
+            auth=self.auth_(),
+            cookies=self.cookies_(),
             hooks=self.hooks,
         )
         return p
@@ -2102,6 +2102,12 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
 
     def url_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'url', *args)
+
+    def cookies_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'cookies', *args)
+
+    def  auth_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'auth', *args)
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
@@ -2642,10 +2648,10 @@ class Response:  # ./Models/Response.py
         self.history_([])
 
         #: Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
-        self.reason = None
+        self.reason_(None)
 
         #: A CookieJar (CookieJar or XCookieJar) of Cookies the server sent back.
-        self.cookies = CookieUtils().cookiejar_from_dict({})
+        self.cookies_(CookieUtils().cookiejar_from_dict({}))
 
         #: The amount of time elapsed between sending the request
         #: and the arrival of the response (as a timedelta).
@@ -2653,13 +2659,13 @@ class Response:  # ./Models/Response.py
         #: the first byte of the request and finishing parsing the headers. It
         #: is therefore unaffected by consuming the response content or the
         #: value of the ``stream`` keyword argument.
-        self.elapsed = XDateTime().timedelta(0)
+        self.elapsed_(XDateTime().timedelta(0))
 
         #: The :class:`PreparedRequest <PreparedRequest>` object to which this
         #: is a response.
-        self.request = None
+        self.request_(None)
 
-        self.auth = None
+        self.auth_(None)
 
     def read_content(self):  # ./Models/Response.py
         if self.status_code == 0 or self.raw_() is None:
@@ -2815,17 +2821,17 @@ class Response:  # ./Models/Response.py
         """Raises :class:`HTTPError`, if one occurred."""
 
         http_error_msg = ''
-        if XCompat().is_bytes_instance(self.reason):
+        if XCompat().is_bytes_instance(self.reason_()):
             # We attempt to decode utf-8 first because some servers
             # choose to localize their reason strings. If the string
             # isn't utf-8, we fall back to iso-8859-1 for all other
             # encodings. (See PR #3538)
             try:
-                reason = self.reason.decode('utf-8')
+                reason = self.reason_().decode('utf-8')
             except UnicodeDecodeError:
-                reason = self.reason.decode('iso-8859-1')
+                reason = self.reason_().decode('iso-8859-1')
         else:
-            reason = self.reason
+            reason = self.reason_()
 
         if 400 <= self.status_code < 500:
             http_error_msg = u'%s Client Error: %s for url: %s' % (self.status_code, reason, self.url_())
@@ -2868,6 +2874,21 @@ class Response:  # ./Models/Response.py
 
     def history_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'history', *args)
+
+    def reason_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'reason', *args)
+
+    def cookies_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'cookies', *args)
+
+    def elapsed_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'elapsed', *args)
+
+    def request_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'request', *args)
+
+    def  auth_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'auth', *args)
 
 
 # *************************** classes in Packages section *****************
@@ -3069,7 +3090,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # in the new request. Because we've mutated our copied prepared
             # request, use the old one that we haven't yet touched.
             CookieUtils().to_jar(prepared_request._cookies, req, resp.raw_())
-            CookieUtils().merge_cookies(prepared_request._cookies, self.cookies)
+            CookieUtils().merge_cookies(prepared_request._cookies, self.cookies_())
             prepared_request.prepare_cookies(prepared_request._cookies)
 
             # Rebuild auth and proxy information.
@@ -3106,7 +3127,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                     **adapter_kwargs
                 )
 
-                CookieUtils().to_jar(self.cookies, prepared_request, resp.raw_())
+                CookieUtils().to_jar(self.cookies_(), prepared_request, resp.raw_())
 
                 # extract redirect url, if any, for the next loop
                 url = self.get_redirect_target(resp)
@@ -3120,7 +3141,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         headers = prepared_request.headers_()
         url = prepared_request.url_()
 
-        if 'Authorization' in headers and self.should_strip_auth(response.request.url_(), url):
+        if 'Authorization' in headers and self.should_strip_auth(response.request_().url_(), url):
             # If we get redirected to a new host, we should strip out any
             # authentication headers.
             del headers['Authorization']
@@ -3193,6 +3214,9 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
         prepared_request.method = method
 
+    def cookies_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'cookies', *args)
+
 
 class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     """A Requests session.
@@ -3228,7 +3252,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         #: Default Authentication tuple or object to attach to
         #: :class:`Request <Request>`.
-        self.auth = None
+        self.auth_(None)
 
         #: Dictionary mapping protocol or protocol and host to the URL of the proxy
         #: (e.g. {'http': 'foo.bar:3128', 'http://host.name': 'foo.bar:4012'}) to
@@ -3274,7 +3298,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: A CookieJar (CookieJar or XCookieJar) containing all currently outstanding cookies set on this
         #: session. By default it is a
         #: :class:`CookieJar` or `XCookieJar`
-        self.cookies = CookieUtils().cookiejar_from_dict({})
+        self.cookies_(CookieUtils().cookiejar_from_dict({}))
 
         # Default connection adapters.
         self.adapters = XOrderedDict()
@@ -3297,7 +3321,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             session's settings.
         :rtype: requests.PreparedRequest
         """
-        cookies = request.cookies or {}
+        cookies = request.cookies_() or {}
 
         # Bootstrap CookieJar.
         if not isinstance(cookies, XCookieJar):
@@ -3305,11 +3329,11 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # Merge with session cookies
         merged_cookies = CookieUtils().merge_cookies(
-            CookieUtils().merge_cookies(CookieJar(), self.cookies), cookies)
+            CookieUtils().merge_cookies(CookieJar(), self.cookies_()), cookies)
 
         # Set environment's basic authentication if not explicitly set.
-        auth = request.auth
-        if self.trust_env and not auth and not self.auth:
+        auth = request.auth_()
+        if self.trust_env and not auth and not self.auth_():
             auth = Utils().get_netrc_auth(request.url_())
 
         p = PreparedRequest()
@@ -3321,7 +3345,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             json=request.json,
             headers=Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict),
             params=Sessions().merge_setting(request.params, self.params),
-            auth=Sessions().merge_setting(auth, self.auth),
+            auth=Sessions().merge_setting(auth, self.auth_()),
             cookies=merged_cookies,
             hooks=Sessions().merge_hooks(request.hooks, self.hooks),
         )
@@ -3520,7 +3544,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # Total elapsed time of the request (approximately)
         elapsed = Sessions().preferred_clock() - start
-        r.elapsed = XDateTime().timedelta(seconds=elapsed)
+        r.elapsed_(XDateTime().timedelta(seconds=elapsed))
 
         # Response manipulation hooks
         r = Hooks().dispatch_hook('response', hooks, r, **kwargs)
@@ -3530,9 +3554,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
             # If the hooks create history then we want those cookies too
             for resp in r.history_():
-                CookieUtils().to_jar(self.cookies, resp.request, resp.raw_())
+                CookieUtils().to_jar(self.cookies_(), resp.request_(), resp.raw_())
 
-        CookieUtils().to_jar(self.cookies, request, r.raw_())
+        CookieUtils().to_jar(self.cookies_(), request, r.raw_())
 
         # Resolve redirects if allowed.
         if allow_redirects:
@@ -3631,6 +3655,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
     def headers_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'headers', *args)
+
+    def  auth_(self, *args):  # ./Models/Response.py
+        return XUtils().get_or_set(self, 'auth', *args)
 
 
 # *************************** classes in Utils section *****************

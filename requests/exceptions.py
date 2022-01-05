@@ -24,7 +24,7 @@ class RequestException(IOError):
         self.request = kwargs.pop('request', None)
         if (response is not None and not self.request and
                 hasattr(response, 'request')):
-            self.request = self.response.request
+            self.request = self.response.request_()
         super(RequestException, self).__init__(*args, **kwargs)
 
 

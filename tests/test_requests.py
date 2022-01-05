@@ -236,7 +236,7 @@ class TestRequests:
     def test_http_301_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '301'))
         assert r.status_code_() == 200
-        assert r.request.method == 'GET'
+        assert r.request_().method == 'GET'
         assert r.history_()[0].status_code_() == 301
         assert r.history_()[0].is_redirect()
 
@@ -244,35 +244,35 @@ class TestRequests:
         r = requests.head(httpbin('status', '301'), allow_redirects=True)
         print(r.content_())
         assert r.status_code_() == 200
-        assert r.request.method == 'HEAD'
+        assert r.request_().method == 'HEAD'
         assert r.history_()[0].status_code_() == 301
         assert r.history_()[0].is_redirect()
 
     def test_http_302_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '302'))
         assert r.status_code_() == 200
-        assert r.request.method == 'GET'
+        assert r.request_().method == 'GET'
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_http_302_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '302'), allow_redirects=True)
         assert r.status_code_() == 200
-        assert r.request.method == 'HEAD'
+        assert r.request_().method == 'HEAD'
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_http_303_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '303'))
         assert r.status_code_() == 200
-        assert r.request.method == 'GET'
+        assert r.request_().method == 'GET'
         assert r.history_()[0].status_code_() == 303
         assert r.history_()[0].is_redirect()
 
     def test_http_303_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '303'), allow_redirects=True)
         assert r.status_code_() == 200
-        assert r.request.method == 'HEAD'
+        assert r.request_().method == 'HEAD'
         assert r.history_()[0].status_code_() == 303
         assert r.history_()[0].is_redirect()
 
@@ -289,9 +289,9 @@ class TestRequests:
 
         # Run request through resolve_redirects
         next_resp = next(ses.resolve_redirects(resp, prep))
-        assert next_resp.request.body is None
+        assert next_resp.request_().body is None
         for header in purged_headers:
-            assert header not in next_resp.request.headers_()
+            assert header not in next_resp.request_().headers_()
 
     def test_transfer_enc_removal_on_redirect(self, httpbin):
         purged_headers = ('Transfer-Encoding', 'Content-Type')
@@ -303,7 +303,7 @@ class TestRequests:
         # Create Response to avoid https://github.com/kevin1024/pytest-httpbin/issues/33
         resp = requests.Response()
         resp.raw_(io.BytesIO(b'the content'))
-        resp.request = prep
+        resp.request_(prep)
         setattr(resp.raw_(), 'release_conn', lambda *args: args)
 
         # Mimic a redirect response
@@ -312,16 +312,16 @@ class TestRequests:
 
         # Run request through resolve_redirect
         next_resp = next(ses.resolve_redirects(resp, prep))
-        assert next_resp.request.body is None
+        assert next_resp.request_().body is None
         for header in purged_headers:
-            assert header not in next_resp.request.headers_()
+            assert header not in next_resp.request_().headers_()
 
     def test_fragment_maintained_on_redirect(self, httpbin):
         fragment = "#view=edit&token=hunter2"
         r = requests.get(httpbin('redirect-to?url=get')+fragment)
 
         assert len(r.history_()) > 0
-        assert r.history_()[0].request.url_() == httpbin('redirect-to?url=get')+fragment
+        assert r.history_()[0].request_().url_() == httpbin('redirect-to?url=get')+fragment
         assert r.url_() == httpbin('get')+fragment
 
     def test_HTTP_200_OK_GET_WITH_PARAMS(self, httpbin):
@@ -342,7 +342,7 @@ class TestRequests:
         s = requests.domain.Session()
         url = httpbin('cookies/set?foo=bar')
         s.get(url)
-        assert s.cookies['foo'] == 'bar'
+        assert s.cookies_()['foo'] == 'bar'
 
     def test_cookie_sent_on_redirect(self, httpbin):
         s = requests.domain.Session()
@@ -353,7 +353,7 @@ class TestRequests:
     def test_cookie_removed_on_expire(self, httpbin):
         s = requests.domain.Session()
         s.get(httpbin('cookies/set?foo=bar'))
-        assert s.cookies['foo'] == 'bar'
+        assert s.cookies_()['foo'] == 'bar'
         s.get(
             httpbin('response-headers'),
             params={
@@ -361,43 +361,43 @@ class TestRequests:
                     'foo=deleted; expires=Thu, 01-Jan-1970 00:00:01 GMT'
             }
         )
-        assert 'foo' not in s.cookies
+        assert 'foo' not in s.cookies_()
 
     def test_cookie_quote_wrapped(self, httpbin):
         s = requests.domain.Session()
         s.get(httpbin('cookies/set?foo="bar:baz"'))
-        assert s.cookies['foo'] == '"bar:baz"'
+        assert s.cookies_()['foo'] == '"bar:baz"'
 
     def test_cookie_persists_via_api(self, httpbin):
         s = requests.domain.Session()
         r = s.get(httpbin('redirect/1'), cookies={'foo': 'bar'})
-        assert 'foo' in r.request.headers_()['Cookie']
-        assert 'foo' in r.history_()[0].request.headers_()['Cookie']
+        assert 'foo' in r.request_().headers_()['Cookie']
+        assert 'foo' in r.history_()[0].request_().headers_()['Cookie']
 
     def test_request_cookie_overrides_session_cookie(self, httpbin):
         s = requests.domain.Session()
-        s.cookies['foo'] = 'bar'
+        s.cookies_()['foo'] = 'bar'
         r = s.get(httpbin('cookies'), cookies={'foo': 'baz'})
         assert r.json()['cookies']['foo'] == 'baz'
         # Session cookie should not be modified
-        assert s.cookies['foo'] == 'bar'
+        assert s.cookies_()['foo'] == 'bar'
 
     def test_request_cookies_not_persisted(self, httpbin):
         s = requests.domain.Session()
         s.get(httpbin('cookies'), cookies={'foo': 'baz'})
         # Sending a request with cookies should not add cookies to the session
-        assert not s.cookies
+        assert not s.cookies_()
 
     def test_generic_cookiejar_works(self, httpbin):
         cj = XCookieJar()
         CookieUtils().cookiejar_from_dict({'foo': 'bar'}, cj)
         s = requests.domain.Session()
-        s.cookies = cj
+        s.cookies_(cj)
         r = s.get(httpbin('cookies'))
         # Make sure the cookie was sent
         assert r.json()['cookies']['foo'] == 'bar'
         # Make sure the session cj is still the custom one
-        assert s.cookies is cj
+        assert s.cookies_() is cj
 
     def test_param_cookiejar_works(self, httpbin):
         cj = XCookieJar()
@@ -415,7 +415,7 @@ class TestRequests:
         """
         cj = CookieUtils().cookiejar_from_dict({'foo': 'bar'}, XCookieJar())
         s = requests.domain.Session()
-        s.cookies = CookieUtils().cookiejar_from_dict({'cookie': 'tasty'})
+        s.cookies_(CookieUtils().cookiejar_from_dict({'cookie': 'tasty'}))
 
         # Prepare request without using Session
         req = requests.Request('GET', httpbin('headers'), cookies=cj)
@@ -430,11 +430,11 @@ class TestRequests:
 
         # Verify XCookieJar isn't being converted to CookieJar
         assert isinstance(prep_req._cookies, XCookieJar)
-        assert isinstance(resp.request._cookies, XCookieJar)
-        assert not isinstance(resp.request._cookies, CookieJar)
+        assert isinstance(resp.request_()._cookies, XCookieJar)
+        assert not isinstance(resp.request_()._cookies, CookieJar)
 
         cookies = {}
-        for c in resp.request._cookies:
+        for c in resp.request_()._cookies:
             cookies[c.name] = c.value
         assert cookies['foo'] == 'bar'
         assert cookies['cookie'] == 'tasty'
@@ -442,7 +442,7 @@ class TestRequests:
     def test_requests_in_history_are_not_overridden(self, httpbin):
         resp = requests.get(httpbin('redirect/3'))
         urls = [r.url_() for r in resp.history_()]
-        req_urls = [r.request.url_() for r in resp.history_()]
+        req_urls = [r.request_().url_() for r in resp.history_()]
         assert urls == req_urls
 
     def test_history_is_always_a_list(self, httpbin):
@@ -508,7 +508,7 @@ class TestRequests:
         assert r.status_code_() == 401
 
         s = requests.domain.Session()
-        s.auth = auth
+        s.auth_(auth)
         r = s.get(url)
         assert r.status_code_() == 200
 
@@ -641,7 +641,7 @@ class TestRequests:
             assert r.status_code_() == 200
 
             # Given auth should override and fail.
-            s.auth = wrong_auth
+            s.auth_(wrong_auth)
             r = s.get(url)
             assert r.status_code_() == 401
         finally:
@@ -661,7 +661,7 @@ class TestRequests:
             print(r.headers_()['WWW-Authenticate'])
 
             s = requests.domain.Session()
-            s.auth = HTTPDigestAuth('user', 'pass')
+            s.auth_(HTTPDigestAuth('user', 'pass'))
             r = s.get(url)
             assert r.status_code_() == 200
 
@@ -671,7 +671,7 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
             auth = HTTPDigestAuth('user', 'pass')
             r = requests.get(url)
-            assert r.cookies['fake'] == 'fake_value'
+            assert r.cookies_()['fake'] == 'fake_value'
 
             r = requests.get(url, auth=auth)
             assert r.status_code_() == 200
@@ -683,7 +683,7 @@ class TestRequests:
             auth = HTTPDigestAuth('user', 'pass')
             s = requests.domain.Session()
             s.get(url, auth=auth)
-            assert s.cookies['fake'] == 'fake_value'
+            assert s.cookies_()['fake'] == 'fake_value'
 
     def test_DIGEST_STREAM(self, httpbin):
 
@@ -710,7 +710,7 @@ class TestRequests:
             assert r.status_code_() == 401
 
             s = requests.domain.Session()
-            s.auth = auth
+            s.auth_(auth)
             r = s.get(url)
             assert r.status_code_() == 401
 
@@ -721,7 +721,7 @@ class TestRequests:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
             r = requests.get(url, auth=auth)
-            assert '"auth"' in r.request.headers_()['Authorization']
+            assert '"auth"' in r.request_().headers_()['Authorization']
 
     def test_POSTBIN_GET_POST_FILES(self, httpbin):
 
@@ -746,8 +746,8 @@ class TestRequests:
         url = httpbin('post')
         post = requests.post(url,
                              files={"random-file-1": None, "random-file-2": 1})
-        assert b'name="random-file-1"' not in post.request.body
-        assert b'name="random-file-2"' in post.request.body
+        assert b'name="random-file-1"' not in post.request_().body
+        assert b'name="random-file-2"' in post.request_().body
 
     def test_POSTBIN_SEEKED_OBJECT_WITH_NO_ITER(self, httpbin):
 
@@ -1004,7 +1004,7 @@ class TestRequests:
                 'file2': ('test_requests', open(__file__, 'rb'),
                     'text/py-content-type')})
         assert r.status_code_() == 200
-        assert b"text/py-content-type" in r.request.body
+        assert b"text/py-content-type" in r.request_().body
 
     def test_hook_receives_request_arguments(self, httpbin):
         def hook(resp, **kwargs):
@@ -1056,10 +1056,10 @@ class TestRequests:
                 return r
 
         req = requests.Request('GET', httpbin('headers'))
-        assert not req.auth
+        assert not req.auth_()
 
         s = requests.domain.Session()
-        s.auth = DummyAuth()
+        s.auth_(DummyAuth())
 
         prep = s.prepare_request(req)
         resp = s.send(prep)
@@ -1081,7 +1081,7 @@ class TestRequests:
             allow_redirects=False,
             headers={'Host': b'httpbin.org'}
         )
-        assert resp.cookies.get('cookie') == 'value'
+        assert resp.cookies_().get('cookie') == 'value'
 
     def test_links(self):
         r = requests.Response()
@@ -1254,7 +1254,7 @@ class TestRequests:
 
     def test_time_elapsed_blank(self, httpbin):
         r = requests.get(httpbin('get'))
-        td = r.elapsed
+        td = r.elapsed_()
         total_seconds = ((td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6)
         assert total_seconds > 0.0
 
@@ -1297,7 +1297,7 @@ class TestRequests:
         # check for unicode HTTP status
         r = requests.Response()
         r.url_(u'unicode URL')
-        r.reason = u'Komponenttia ei löydy'.encode('utf-8')
+        r.reason_(u'Komponenttia ei löydy'.encode('utf-8'))
         r.status_code_(404)
         r.encoding_(None)
         assert not r.ok()  # old behaviour - crashes here
@@ -1307,7 +1307,7 @@ class TestRequests:
         r = requests.Response()
         r.url_('some url')
         reason = u'Komponenttia ei löydy'
-        r.reason = reason.encode('latin-1')
+        r.reason_(reason.encode('latin-1'))
         r.status_code_(500)
         r.encoding_(None)
         with pytest.raises(requests.exceptions.HTTPError) as e:
@@ -1337,13 +1337,13 @@ class TestRequests:
         r = requests.get(httpbin('get'))
 
         # verify we can pickle the original request
-        assert pickle.loads(pickle.dumps(r.request))
+        assert pickle.loads(pickle.dumps(r.request_()))
 
         # verify we can pickle the response and that we have access to
         # the original request.
         pr = pickle.loads(pickle.dumps(r))
-        assert r.request.url_() == pr.request.url_()
-        assert r.request.headers_() == pr.request.headers_()
+        assert r.request_().url_() == pr.request_().url_()
+        assert r.request_().headers_() == pr.request_().headers_()
 
     def test_prepared_request_is_pickleable(self, httpbin):
         p = requests.Request('GET', httpbin('get')).prepare()
@@ -1422,7 +1422,7 @@ class TestRequests:
         s.headers_().update({'ACCEPT': 'BOGUS'})
         s.headers_().update({'accept': 'application/json'})
         r = s.get(httpbin('get'))
-        headers = r.request.headers_()
+        headers = r.request_().headers_()
         assert headers['accept'] == 'application/json'
         assert headers['Accept'] == 'application/json'
         assert headers['ACCEPT'] == 'application/json'
@@ -1515,7 +1515,7 @@ class TestRequests:
         s = requests.domain.Session()
         s.headers_()['foo'] = 'bar'
         r = s.get(httpbin('get'), headers={'FOO': None})
-        assert 'foo' not in r.request.headers_()
+        assert 'foo' not in r.request_().headers_()
 
     def test_params_are_merged_case_sensitive(self, httpbin):
         s = requests.domain.Session()
@@ -1549,7 +1549,7 @@ class TestRequests:
                       'baz': '',
                       'qux': '1'}
         r = requests.get(httpbin('get'), headers=headers_ok)
-        assert r.request.headers_()['foo'] == headers_ok['foo']
+        assert r.request_().headers_()['foo'] == headers_ok['foo']
 
     def test_header_value_not_str(self, httpbin):
         """Ensure the header value is of type string or bytes as
@@ -1646,13 +1646,13 @@ class TestRequests:
             auth=('user', 'pass'),
             verify=httpbin_ca_bundle
         )
-        assert r.history_()[0].request.headers_()['Authorization']
-        assert 'Authorization' not in r.request.headers_()
+        assert r.history_()[0].request_().headers_()['Authorization']
+        assert 'Authorization' not in r.request_().headers_()
 
     def test_auth_is_retained_for_redirect_on_host(self, httpbin):
         r = requests.get(httpbin('redirect/1'), auth=('user', 'pass'))
-        h1 = r.history_()[0].request.headers_()['Authorization']
-        h2 = r.request.headers_()['Authorization']
+        h1 = r.history_()[0].request_().headers_()['Authorization']
+        h2 = r.request_().headers_()['Authorization']
 
         assert h1 == h2
 
@@ -1692,7 +1692,7 @@ class TestRequests:
         s = requests.domain.Session()
         r1 = s.get(httpbin('redirect/2'), allow_redirects=False, stream=True)
         assert r1.is_redirect()
-        rg = s.resolve_redirects(r1, r1.request, stream=True)
+        rg = s.resolve_redirects(r1, r1.request_(), stream=True)
 
         # read only the first eight bytes of the response body,
         # then follow the redirect
@@ -1846,7 +1846,7 @@ class TestRequests:
             json={'life': 42}
         )
         assert r.status_code_() == 200
-        assert 'application/json' in r.request.headers_()['Content-Type']
+        assert 'application/json' in r.request_().headers_()['Content-Type']
         assert {'life': 42} == r.json()['json']
 
     def test_json_param_post_should_not_override_data_param(self, httpbin):
@@ -2290,7 +2290,7 @@ class RedirectSession(SessionRedirectMixin):
         self.redirects = order_of_redirects
         self.calls = []
         self.max_redirects = 30
-        self.cookies = {}
+        self.cookies_({})
         self.trust_env = False
 
     def send(self, *args, **kwargs):
@@ -2308,7 +2308,7 @@ class RedirectSession(SessionRedirectMixin):
 
         r.headers_(CaseInsensitiveDict({'Location': '/'}))
         r.raw_(self._build_raw())
-        r.request = request
+        r.request_(request)
         return r
 
     def _build_raw(self):
@@ -2333,8 +2333,8 @@ def test_requests_are_updated_each_time(httpbin):
     session = RedirectSession([303, 307])
     prep = requests.Request('POST', httpbin('post')).prepare()
     r0 = session.send(prep)
-    assert r0.request.method == 'POST'
-    assert session.calls[-1] == SendCall((r0.request,), {})
+    assert r0.request_().method == 'POST'
+    assert session.calls[-1] == SendCall((r0.request_(),), {})
     redirect_generator = session.resolve_redirects(r0, prep)
     default_keyword_args = {
         'stream': False,
@@ -2345,8 +2345,8 @@ def test_requests_are_updated_each_time(httpbin):
         'proxies': {},
     }
     for response in redirect_generator:
-        assert response.request.method == 'GET'
-        send_call = SendCall((response.request,), default_keyword_args)
+        assert response.request_().method == 'GET'
+        send_call = SendCall((response.request_(),), default_keyword_args)
         assert session.calls[-1] == send_call
 
 
