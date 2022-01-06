@@ -2047,7 +2047,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
     Usage::
 
       >>> import requests
-      >>> req = requests.Request('GET', 'https://httpbin.org/get')
+      >>> req = Request().method_('GET').url_('https://httpbin.org/get')
       >>> req.prepare()
       <PreparedRequest [GET]>
     """
@@ -2097,6 +2097,10 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         )
         return p
 
+    def add_header(self, key, value):  # ./Models/Request.py
+        self.headers_()[key] = value
+        return self
+
     def headers_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'headers', *args)
 
@@ -2142,7 +2146,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
     Usage::
 
       >>> import requests
-      >>> req = requests.Request('GET', 'https://httpbin.org/get')
+      >>> req = Request().method_('GET').url_('https://httpbin.org/get')
       >>> r = req.prepare()
       >>> r
       <PreparedRequest [GET]>
@@ -3293,7 +3297,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: Dictionary mapping protocol or protocol and host to the URL of the proxy
         #: (e.g. {'http': 'foo.bar:3128', 'http://host.name': 'foo.bar:4012'}) to
         #: be used on each :class:`Request <Request>`.
-        self.proxies = {}
+        self.proxies_({})
 
         #: Event-handling hooks.
         self.hooks_(Hooks().default_hooks())
@@ -3556,7 +3560,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         kwargs.setdefault('cert', self.cert_())
         if 'proxies' not in kwargs:
             kwargs['proxies'] = Utils().resolve_proxies(
-                request, self.proxies, self.trust_env_()
+                request, self.proxies_(), self.trust_env_()
             )
 
         # It's possible that users might accidentally send a Request object.
@@ -3643,7 +3647,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
                           XOs().environ().get('CURL_CA_BUNDLE'))
 
         # Merge all the kwargs.
-        proxies = Sessions().merge_setting(proxies, self.proxies)
+        proxies = Sessions().merge_setting(proxies, self.proxies_())
         stream = Sessions().merge_setting(stream, self.stream_())
         verify = Sessions().merge_setting(verify, self.verify_())
         cert = Sessions().merge_setting(cert, self.cert_())
@@ -3712,6 +3716,10 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
     def verify_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'verify', *args)
+
+    def proxies_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'proxies', *args)
+
 
 
 # *************************** classes in Utils section *****************

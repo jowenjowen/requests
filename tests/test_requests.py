@@ -9,9 +9,9 @@ import collections
 import contextlib
 import warnings
 import re
+import requests
 
 import io
-import requests
 import pytest
 from requests.domain import HTTPAdapter
 from requests.domain import HTTPDigestAuth
@@ -23,7 +23,6 @@ from requests.domain import XMorsel
 from requests.domain import XCompat
 
 from requests.domain import CookieUtils
-from requests.domain import Sessions
 from requests.exceptions import ConnectionError
 from requests.exceptions import ConnectTimeout
 from requests.exceptions import InvalidSchema
@@ -45,7 +44,9 @@ from requests.domain import SessionRedirectMixin
 from requests.domain import Hooks, Utils
 from requests.domain import XMutableMapping
 from requests.domain import CookieJar
-
+from requests.domain import Request
+from requests.domain import Session
+from requests.domain import Response
 
 from .compat import CompatStringIO, u
 from .utils import override_environ
@@ -78,9 +79,9 @@ class TestRequests:
 
     def test_entry_points(self):
 
-        requests.domain.Session
-        requests.domain.Session().get
-        requests.domain.Session().head
+        Session
+        Session().get
+        Session().head
         requests.get
         requests.head
         requests.put
@@ -102,39 +103,32 @@ class TestRequests:
             requests.get(url)
 
     def test_basic_building(self):
-        req = requests.Request()
-        req.url_('http://kennethreitz.org/')
-        req.data_({'life': '42'})
-
-        pr = req.prepare()
-        assert pr.url_() == req.url_()
+        pr = Request().url_('http://kennethreitz.org/').data_({'life': '42'}).prepare()
+        assert pr.url_() == 'http://kennethreitz.org/'
         assert pr.body_() == 'life=42'
 
     @pytest.mark.parametrize('method', ('GET', 'HEAD'))
     def test_no_content_length(self, httpbin, method):
-        req = requests.Request(method, httpbin(method.lower())).prepare()
+        req = Request().method_(method).url_(httpbin(method.lower())).prepare()
         assert 'Content-Length' not in req.headers_()
 
     @pytest.mark.parametrize('method', ('POST', 'PUT', 'PATCH', 'OPTIONS'))
     def test_no_body_content_length(self, httpbin, method):
-        req = requests.Request(method, httpbin(method.lower())).prepare()
+        req = Request().method_(method).url_(httpbin(method.lower())).prepare()
         assert req.headers_()['Content-Length'] == '0'
 
     @pytest.mark.parametrize('method', ('POST', 'PUT', 'PATCH', 'OPTIONS'))
     def test_empty_content_length(self, httpbin, method):
-        req = requests.Request(method, httpbin(method.lower()), data='').prepare()
+        req = Request().method_(method).url_(httpbin(method.lower())).data_('').prepare()
         assert req.headers_()['Content-Length'] == '0'
 
     def test_override_content_length(self, httpbin):
-        headers = {
-            'Content-Length': 'not zero'
-        }
-        r = requests.Request('POST', httpbin('post'), headers=headers).prepare()
+        r = Request().method_('POST').url_(httpbin('post')).add_header('Content-Length', 'not zero').prepare()
         assert 'Content-Length' in r.headers_()
         assert r.headers_()['Content-Length'] == 'not zero'
 
     def test_path_is_not_double_encoded(self):
-        request = requests.Request('GET', "http://0.0.0.0/get/test case").prepare()
+        request = Request().method_('GET').url_("http://0.0.0.0/get/test case").prepare()
 
         assert request.path_url == '/get/test%20case'
 
@@ -144,49 +138,41 @@ class TestRequests:
             ('http://example.com/path?key=value#fragment', 'http://example.com/path?key=value&a=b#fragment')
         ))
     def test_params_are_added_before_fragment(self, url, expected):
-        request = requests.Request('GET', url, params={"a": "b"}).prepare()
+        request = Request().method_('GET').url_(url).params_({"a": "b"}).prepare()
         assert request.url_() == expected
 
     def test_params_original_order_is_preserved_by_default(self):
-        param_ordered_dict = collections.OrderedDict((('z', 1), ('a', 1), ('k', 1), ('d', 1)))
-        session = requests.domain.Session()
-        request = requests.Request('GET', 'http://example.com/', params=param_ordered_dict)
+        session = Session()
+        request = Request().method_('GET').url_('http://example.com/').params_(
+            collections.OrderedDict((('z', 1), ('a', 1), ('k', 1), ('d', 1))))
         prep = session.prepare_request(request)
         assert prep.url_() == 'http://example.com/?z=1&a=1&k=1&d=1'
 
     def test_params_bytes_are_encoded(self):
-        request = requests.Request('GET', 'http://example.com',
-                                   params=b'test=foo').prepare()
+        request = Request().method_('GET').url_('http://example.com').params_(b'test=foo').prepare()
         assert request.url_() == 'http://example.com/?test=foo'
 
     def test_binary_put(self):
-        request = requests.Request('PUT', 'http://example.com',
-                                   data=u"ööö".encode("utf-8")).prepare()
+        request = Request().method_('PUT').url_('http://example.com').data_(u"ööö".encode("utf-8")).prepare()
         assert isinstance(request.body_(), bytes)
 
     def test_whitespaces_are_removed_from_url(self):
         # Test for issue #3696
-        request = requests.Request('GET', ' http://example.com').prepare()
+        request = Request().method_('GET').url_(' http://example.com').prepare()
         assert request.url_() == 'http://example.com/'
 
     @pytest.mark.parametrize('scheme', ('http://', 'HTTP://', 'hTTp://', 'HttP://'))
     def test_mixed_case_scheme_acceptable(self, httpbin, scheme):
-        s = requests.domain.Session()
-        s.proxies = XCompat().getproxies()
+        s = Session().proxies_(XCompat().getproxies())
         parts = XCompat().urlparse(httpbin('get'))
         url = scheme + parts.netloc + parts.path
-        r = requests.Request('GET', url)
-        r = s.send(r.prepare())
+        r = s.send(Request().method_('GET').url_(url).prepare())
         assert r.status_code_() == 200, 'failed for scheme {}'.format(scheme)
 
     def test_HTTP_200_OK_GET_ALTERNATIVE(self, httpbin):
-        r = requests.Request('GET', httpbin('get'))
-        s = requests.domain.Session()
-        s.proxies = XCompat().getproxies()
-
-        r = s.send(r.prepare())
-
-        assert r.status_code_() == 200
+        r = Request().method_('GET').url_(httpbin('get'))
+        resp = Session().proxies_(XCompat().getproxies()).send(r.prepare())
+        assert resp.status_code_() == 200
 
     def test_HTTP_302_ALLOW_REDIRECT_GET(self, httpbin):
         r = requests.get(httpbin('redirect', '1'))
@@ -221,7 +207,7 @@ class TestRequests:
             pytest.fail('Expected redirect to raise TooManyRedirects but it did not')
 
     def test_HTTP_302_TOO_MANY_REDIRECTS_WITH_PARAMS(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.max_redirects_(5)
         try:
             s.get(httpbin('relative-redirect', '50'))
@@ -278,8 +264,8 @@ class TestRequests:
 
     def test_header_and_body_removal_on_redirect(self, httpbin):
         purged_headers = ('Content-Length', 'Content-Type')
-        ses = requests.domain.Session()
-        req = requests.Request('POST', httpbin('post'), data={'test': 'data'})
+        ses = Session()
+        req = Request().method_('POST').url_(httpbin('post')).data_({'test': 'data'})
         prep = ses.prepare_request(req)
         resp = ses.send(prep)
 
@@ -295,8 +281,8 @@ class TestRequests:
 
     def test_transfer_enc_removal_on_redirect(self, httpbin):
         purged_headers = ('Transfer-Encoding', 'Content-Type')
-        ses = requests.domain.Session()
-        req = requests.Request('POST', httpbin('post'), data=(b'x' for x in range(1)))
+        ses = Session()
+        req = Request().method_('POST').url_(httpbin('post')).data_((b'x' for x in range(1)))
         prep = ses.prepare_request(req)
         assert 'Transfer-Encoding' in prep.headers_()
 
@@ -339,19 +325,19 @@ class TestRequests:
         assert r.status_code_() == 200
 
     def test_set_cookie_on_301(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         url = httpbin('cookies/set?foo=bar')
         s.get(url)
         assert s.cookies_()['foo'] == 'bar'
 
     def test_cookie_sent_on_redirect(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.get(httpbin('cookies/set?foo=bar'))
         r = s.get(httpbin('redirect/1'))  # redirects to httpbin('get')
         assert 'Cookie' in r.json()['headers']
 
     def test_cookie_removed_on_expire(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.get(httpbin('cookies/set?foo=bar'))
         assert s.cookies_()['foo'] == 'bar'
         s.get(
@@ -364,18 +350,18 @@ class TestRequests:
         assert 'foo' not in s.cookies_()
 
     def test_cookie_quote_wrapped(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.get(httpbin('cookies/set?foo="bar:baz"'))
         assert s.cookies_()['foo'] == '"bar:baz"'
 
     def test_cookie_persists_via_api(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         r = s.get(httpbin('redirect/1'), cookies={'foo': 'bar'})
         assert 'foo' in r.request_().headers_()['Cookie']
         assert 'foo' in r.history_()[0].request_().headers_()['Cookie']
 
     def test_request_cookie_overrides_session_cookie(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.cookies_()['foo'] = 'bar'
         r = s.get(httpbin('cookies'), cookies={'foo': 'baz'})
         assert r.json()['cookies']['foo'] == 'baz'
@@ -383,7 +369,7 @@ class TestRequests:
         assert s.cookies_()['foo'] == 'bar'
 
     def test_request_cookies_not_persisted(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.get(httpbin('cookies'), cookies={'foo': 'baz'})
         # Sending a request with cookies should not add cookies to the session
         assert not s.cookies_()
@@ -391,7 +377,7 @@ class TestRequests:
     def test_generic_cookiejar_works(self, httpbin):
         cj = XCookieJar()
         CookieUtils().cookiejar_from_dict({'foo': 'bar'}, cj)
-        s = requests.domain.Session()
+        s = Session()
         s.cookies_(cj)
         r = s.get(httpbin('cookies'))
         # Make sure the cookie was sent
@@ -402,7 +388,7 @@ class TestRequests:
     def test_param_cookiejar_works(self, httpbin):
         cj = XCookieJar()
         CookieUtils().cookiejar_from_dict({'foo': 'bar'}, cj)
-        s = requests.domain.Session()
+        s = Session()
         r = s.get(httpbin('cookies'), cookies=cj)
         # Make sure the cookie was sent
         assert r.json()['cookies']['foo'] == 'bar'
@@ -414,12 +400,11 @@ class TestRequests:
         See GH #3579
         """
         cj = CookieUtils().cookiejar_from_dict({'foo': 'bar'}, XCookieJar())
-        s = requests.domain.Session()
+        s = Session()
         s.cookies_(CookieUtils().cookiejar_from_dict({'cookie': 'tasty'}))
 
         # Prepare request without using Session
-        req = requests.Request('GET', httpbin('headers'), cookies=cj)
-        prep_req = req.prepare()
+        prep_req = Request().method_('GET').url_(httpbin('headers')).cookies_(cj).prepare()
 
         # Send request and simulate redirect
         resp = s.send(prep_req)
@@ -455,15 +440,15 @@ class TestRequests:
 
     def test_headers_on_session_with_None_are_not_sent(self, httpbin):
         """Do not send headers in Session.headers with None values."""
-        ses = requests.domain.Session()
+        ses = Session()
         ses.headers_()['Accept-Encoding'] = None
-        req = requests.Request('GET', httpbin('get'))
+        req = Request().method_('GET').url_(httpbin('get'))
         prep = ses.prepare_request(req)
         assert 'Accept-Encoding' not in prep.headers_()
 
     def test_headers_preserve_order(self, httpbin):
         """Preserve order when headers provided as OrderedDict."""
-        ses = requests.domain.Session()
+        ses = Session()
         ses.headers_(collections.OrderedDict())
         ses.headers_()['Accept-Encoding'] = 'identity'
         ses.headers_()['First'] = '1'
@@ -471,8 +456,7 @@ class TestRequests:
         headers = collections.OrderedDict([('Third', '3'), ('Fourth', '4')])
         headers['Fifth'] = '5'
         headers['Second'] = '222'
-        req = requests.Request('GET', httpbin('get'), headers=headers)
-        prep = ses.prepare_request(req)
+        prep = ses.prepare_request(Request().method_('GET').url_(httpbin('get')).headers_(headers))
         items = list(prep.headers_().items())
         assert items[0] == ('Accept-Encoding', 'identity')
         assert items[1] == ('First', '1')
@@ -507,7 +491,7 @@ class TestRequests:
         r = requests.get(url)
         assert r.status_code_() == 401
 
-        s = requests.domain.Session()
+        s = Session()
         s.auth_(auth)
         r = s.get(url)
         assert r.status_code_() == 200
@@ -520,22 +504,14 @@ class TestRequests:
             (None, None),
         ))
     def test_set_basicauth(self, httpbin, username, password):
-        auth = (username, password)
-        url = httpbin('get')
-
-        r = requests.Request('GET', url, auth=auth)
-        p = r.prepare()
-
+        p = Request().method_('GET').url_(httpbin('get')).auth_((username, password)).prepare()
         assert p.headers_()['Authorization'] == Auth().basic_auth_str(username, password)
 
     def test_basicauth_encodes_byte_strings(self):
         """Ensure b'test' formats as the byte string "test" rather
         than the unicode string "b'test'" in Python 3.
         """
-        auth = (b'\xc5\xafsername', b'test\xc6\xb6')
-        r = requests.Request('GET', 'http://localhost', auth=auth)
-        p = r.prepare()
-
+        p = Request().method_('GET').url_('http://localhost').auth_((b'\xc5\xafsername', b'test\xc6\xb6')).prepare()
         assert p.headers_()['Authorization'] == 'Basic xa9zZXJuYW1lOnRlc3TGtg=='
 
     @pytest.mark.parametrize(
@@ -572,42 +548,42 @@ class TestRequests:
     def test_respect_proxy_env_on_send_self_prepared_request(self, httpbin):
         with override_environ(http_proxy=INVALID_PROXY):
             with pytest.raises(ProxyError):
-                session = requests.domain.Session()
-                request = requests.Request('GET', httpbin())
+                session = Session()
+                request = Request().method_('GET').url_(httpbin())
                 session.send(request.prepare())
 
     def test_respect_proxy_env_on_send_session_prepared_request(self, httpbin):
         with override_environ(http_proxy=INVALID_PROXY):
             with pytest.raises(ProxyError):
-                session = requests.domain.Session()
-                request = requests.Request('GET', httpbin())
+                session = Session()
+                request = Request().method_('GET').url_(httpbin())
                 prepared = session.prepare_request(request)
                 session.send(prepared)
 
     def test_respect_proxy_env_on_send_with_redirects(self, httpbin):
         with override_environ(http_proxy=INVALID_PROXY):
             with pytest.raises(ProxyError):
-                session = requests.domain.Session()
+                session = Session()
                 url = httpbin('redirect/1')
                 print(url)
-                request = requests.Request('GET', url)
+                request = Request().method_('GET').url_(url)
                 session.send(request.prepare())
 
     def test_respect_proxy_env_on_get(self, httpbin):
         with override_environ(http_proxy=INVALID_PROXY):
             with pytest.raises(ProxyError):
-                session = requests.domain.Session()
+                session = Session()
                 session.get(httpbin())
 
     def test_respect_proxy_env_on_request(self, httpbin):
         with override_environ(http_proxy=INVALID_PROXY):
             with pytest.raises(ProxyError):
-                session = requests.domain.Session()
+                session = Session()
                 session.request(method='GET', url=httpbin())
 
     def test_proxy_authorization_preserved_on_request(self, httpbin):
         proxy_auth_value = "Bearer XXX"
-        session = requests.domain.Session()
+        session = Session()
         session.headers_().update({"Proxy-Authorization": proxy_auth_value})
         resp = session.request(method='GET', url=httpbin('get'))
         sent_headers = resp.json().get('headers', {})
@@ -634,7 +610,7 @@ class TestRequests:
             r = requests.get(url, auth=wrong_auth)
             assert r.status_code_() == 401
 
-            s = requests.domain.Session()
+            s = Session()
 
             # Should use netrc and work.
             r = s.get(url)
@@ -660,7 +636,7 @@ class TestRequests:
             assert r.status_code_() == 401
             print(r.headers_()['WWW-Authenticate'])
 
-            s = requests.domain.Session()
+            s = Session()
             s.auth_(HTTPDigestAuth('user', 'pass'))
             r = s.get(url)
             assert r.status_code_() == 200
@@ -681,7 +657,7 @@ class TestRequests:
         for authtype in self.digest_auth_algo:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
             auth = HTTPDigestAuth('user', 'pass')
-            s = requests.domain.Session()
+            s = Session()
             s.get(url, auth=auth)
             assert s.cookies_()['fake'] == 'fake_value'
 
@@ -709,7 +685,7 @@ class TestRequests:
             r = requests.get(url)
             assert r.status_code_() == 401
 
-            s = requests.domain.Session()
+            s = Session()
             s.auth_(auth)
             r = s.get(url)
             assert r.status_code_() == 401
@@ -935,9 +911,7 @@ class TestRequests:
         assert r.url_() == httpbin('get?test=foo&test=baz')
 
     def test_form_encoded_post_query_multivalued_element(self, httpbin):
-        r = requests.Request(method='POST', url=httpbin('post'),
-                             data=dict(test=['foo', 'baz']))
-        prep = r.prepare()
+        prep = Request().method_('POST').url_(httpbin('post')).data_(dict(test=['foo', 'baz'])).prepare()
         assert prep.body_() == 'test=foo&test=baz'
 
     def test_different_encodings_dont_break_post(self, httpbin):
@@ -962,11 +936,10 @@ class TestRequests:
 
     def test_unicode_multipart_post_fieldnames(self, httpbin):
         filename = XOs().path().splitext(__file__)[0] + '.py'
-        r = requests.Request(
-            method='POST', url=httpbin('post'),
-            data={'stuff'.encode('utf-8'): 'elixr'},
-            files={'file': ('test_requests.py', open(filename, 'rb'))})
-        prep = r.prepare()
+        prep = Request().method_('POST').url_(httpbin('post'))\
+            .data_({'stuff'.encode('utf-8'): 'elixr'})\
+            .files_({'file': ('test_requests.py', open(filename, 'rb'))})\
+            .prepare()
         assert b'name="stuff"' in prep.body_()
         assert b'name="b\'stuff\'"' not in prep.body_()
 
@@ -977,9 +950,8 @@ class TestRequests:
         assert r.status_code_() == 200
 
     def test_unicode_method_name_with_request_object(self, httpbin):
-        files = {'file': open(__file__, 'rb')}
-        s = requests.domain.Session()
-        req = requests.Request(u('POST'), httpbin('post'), files=files)
+        s = Session()
+        req = Request().method_(u('POST')).url_(httpbin('post')).files_({'file': open(__file__, 'rb')})
         prep = s.prepare_request(req)
         assert XCompat().is_builtin_str_instance(prep.method_())
         assert prep.method_() == 'POST'
@@ -988,8 +960,8 @@ class TestRequests:
         assert resp.status_code_() == 200
 
     def test_non_prepared_request_error(self):
-        s = requests.domain.Session()
-        req = requests.Request(u('POST'), '/')
+        s = Session()
+        req = Request().method_(u('POST')).url_('/')
 
         with pytest.raises(ValueError) as e:
             s.send(req)
@@ -1011,16 +983,16 @@ class TestRequests:
             assert resp is not None
             assert kwargs != {}
 
-        s = requests.domain.Session()
-        r = requests.Request('GET', httpbin(), hooks={'response': hook})
+        s = Session()
+        r = Request().method_('GET').url_(httpbin()).hooks_({'response': hook})
         prep = s.prepare_request(r)
         s.send(prep)
 
     def test_session_hooks_are_used_with_no_request_hooks(self, httpbin):
         hook = lambda x, *args, **kwargs: x
-        s = requests.domain.Session()
+        s = Session()
         s.hooks_()['response'].append(hook)
-        r = requests.Request('GET', httpbin())
+        r = Request().method_('GET').url_(httpbin())
         prep = s.prepare_request(r)
         assert prep.hooks_()['response'] != []
         assert prep.hooks_()['response'] == [hook]
@@ -1029,9 +1001,9 @@ class TestRequests:
         hook1 = lambda x, *args, **kwargs: x
         hook2 = lambda x, *args, **kwargs: x
         assert hook1 is not hook2
-        s = requests.domain.Session()
+        s = Session()
         s.hooks_()['response'].append(hook2)
-        r = requests.Request('GET', httpbin(), hooks={'response': [hook1]})
+        r = Request().method_('GET').url_(httpbin()).hooks_({'response': [hook1]})
         prep = s.prepare_request(r)
         assert prep.hooks_()['response'] == [hook1]
 
@@ -1040,11 +1012,11 @@ class TestRequests:
             resp.hook_working = True
             return resp
 
-        req = requests.Request('GET', httpbin(), hooks={'response': hook})
+        req = Request().method_('GET').url_(httpbin()).hooks_({'response': hook})
         prep = req.prepare()
 
-        s = requests.domain.Session()
-        s.proxies = XCompat().getproxies()
+        s = Session()
+        s.proxies_(XCompat().getproxies())
         resp = s.send(prep)
 
         assert hasattr(resp, 'hook_working')
@@ -1055,10 +1027,10 @@ class TestRequests:
                 r.headers_()['Dummy-Auth-Test'] = 'dummy-auth-test-ok'
                 return r
 
-        req = requests.Request('GET', httpbin('headers'))
+        req = Request().method_('GET').url_(httpbin('headers'))
         assert not req.auth_()
 
-        s = requests.domain.Session()
+        s = Session()
         s.auth_(DummyAuth())
 
         prep = s.prepare_request(req)
@@ -1068,13 +1040,13 @@ class TestRequests:
             'Dummy-Auth-Test'] == 'dummy-auth-test-ok'
 
     def test_prepare_request_with_bytestring_url(self):
-        req = requests.Request('GET', b'https://httpbin.org/')
-        s = requests.domain.Session()
+        req = Request().method_('GET').url_(b'https://httpbin.org/')
+        s = Session()
         prep = s.prepare_request(req)
         assert prep.url_() == "https://httpbin.org/"
 
     def test_request_with_bytestring_host(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         resp = s.request(
             'GET',
             httpbin('cookies/set?cookie=value'),
@@ -1346,7 +1318,7 @@ class TestRequests:
         assert r.request_().headers_() == pr.request_().headers_()
 
     def test_prepared_request_is_pickleable(self, httpbin):
-        p = requests.Request('GET', httpbin('get')).prepare()
+        p = Request().method_('GET').url_(httpbin('get')).prepare()
 
         # Verify PreparedRequest can be pickled and unpickled
         r = pickle.loads(pickle.dumps(p))
@@ -1355,13 +1327,13 @@ class TestRequests:
         assert r.body_() == p.body_()
 
         # Verify unpickled PreparedRequest sends properly
-        s = requests.domain.Session()
+        s = Session()
         resp = s.send(r)
         assert resp.status_code_() == 200
 
     def test_prepared_request_with_file_is_pickleable(self, httpbin):
         files = {'file': open(__file__, 'rb')}
-        r = requests.Request('POST', httpbin('post'), files=files)
+        r = Request().method_('POST').url_(httpbin('post')).files_(files)
         p = r.prepare()
 
         # Verify PreparedRequest can be pickled and unpickled
@@ -1371,12 +1343,12 @@ class TestRequests:
         assert r.body_() == p.body_()
 
         # Verify unpickled PreparedRequest sends properly
-        s = requests.domain.Session()
+        s = Session()
         resp = s.send(r)
         assert resp.status_code_() == 200
 
     def test_prepared_request_with_hook_is_pickleable(self, httpbin):
-        r = requests.Request('GET', httpbin('get'), hooks=Hooks().default_hooks())
+        r = Request().method_('GET').url_(httpbin('get')).hooks_(Hooks().default_hooks())
         p = r.prepare()
 
         # Verify PreparedRequest can be pickled
@@ -1387,14 +1359,14 @@ class TestRequests:
         assert r.hooks_() == p.hooks_()
 
         # Verify unpickled PreparedRequest sends properly
-        s = requests.domain.Session()
+        s = Session()
         resp = s.send(r)
         assert resp.status_code_() == 200
 
     def test_cannot_send_unprepared_requests(self, httpbin):
-        r = requests.Request(url=httpbin())
+        r = Request().url_(httpbin())
         with pytest.raises(ValueError):
-            requests.domain.Session().send(r)
+            Session().send(r)
 
     def test_http_error(self):
         error = requests.exceptions.HTTPError()
@@ -1407,18 +1379,18 @@ class TestRequests:
         assert error.response == response
 
     def test_session_pickling(self, httpbin):
-        r = requests.Request('GET', httpbin('get'))
-        s = requests.domain.Session()
+        r = Request().method_('GET').url_(httpbin('get'))
+        s = Session()
 
         s = pickle.loads(pickle.dumps(s))
-        s.proxies = XCompat().getproxies()
+        s.proxies_(XCompat().getproxies())
 
         r = s.send(r.prepare())
         assert r.status_code_() == 200
 
     def test_fixes_1329(self, httpbin):
         """Ensure that header updates are done case-insensitively."""
-        s = requests.domain.Session()
+        s = Session()
         s.headers_().update({'ACCEPT': 'BOGUS'})
         s.headers_().update({'accept': 'application/json'})
         r = s.get(httpbin('get'))
@@ -1435,7 +1407,7 @@ class TestRequests:
         assert r.url_().lower() == url.lower()
 
     def test_transport_adapter_ordering(self):
-        s = requests.domain.Session()
+        s = Session()
         order = ['https://', 'http://']
         assert order == list(s.adapters)
         s.mount('http://git', HTTPAdapter())
@@ -1466,7 +1438,7 @@ class TestRequests:
             'http://',
         ]
         assert order == list(s.adapters)
-        s2 = requests.domain.Session()
+        s2 = Session()
         s2.adapters = {'http://': HTTPAdapter()}
         s2.mount('https://', HTTPAdapter())
         assert 'http://' in s2.adapters
@@ -1480,7 +1452,7 @@ class TestRequests:
         url_matching_more_specific_prefix = more_specific_prefix + '/longer/path'
         url_not_matching_prefix = 'https://another.example.com/'
 
-        s = requests.domain.Session()
+        s = Session()
         prefix_adapter = HTTPAdapter()
         more_specific_prefix_adapter = HTTPAdapter()
         s.mount(prefix, prefix_adapter)
@@ -1494,7 +1466,7 @@ class TestRequests:
         mixed_case_prefix = 'hTtPs://eXamPle.CoM/MixEd_CAse_PREfix'
         url_matching_prefix = mixed_case_prefix + '/full_url'
 
-        s = requests.domain.Session()
+        s = Session()
         my_adapter = HTTPAdapter()
         s.mount(mixed_case_prefix, my_adapter)
 
@@ -1504,7 +1476,7 @@ class TestRequests:
         mixed_case_prefix = 'hTtPs://eXamPle.CoM/MixEd_CAse_PREfix'
         url_matching_prefix_with_different_case = 'HtTpS://exaMPLe.cOm/MiXeD_caSE_preFIX/another_url'
 
-        s = requests.domain.Session()
+        s = Session()
         my_adapter = HTTPAdapter()
         s.mount(mixed_case_prefix, my_adapter)
 
@@ -1512,13 +1484,13 @@ class TestRequests:
 
     def test_header_remove_is_case_insensitive(self, httpbin):
         # From issue #1321
-        s = requests.domain.Session()
+        s = Session()
         s.headers_()['foo'] = 'bar'
         r = s.get(httpbin('get'), headers={'FOO': None})
         assert 'foo' not in r.request_().headers_()
 
     def test_params_are_merged_case_sensitive(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         s.params_()['foo'] = 'bar'
         r = s.get(httpbin('get'), params={'FOO': 'bar'})
         assert r.json()['args'] == {'foo': 'bar', 'FOO': 'bar'}
@@ -1529,13 +1501,12 @@ class TestRequests:
             'EA770032-DA4D-4D84-8CE9-29C6D910BF1E',
             'exactly-------------sixty-----------three------------characters',
         )
-        r = requests.Request('GET', url).prepare()
+        r = Request().method_('GET').url_(url).prepare()
         assert r.url_() == url
 
     def test_header_keys_are_native(self, httpbin):
         headers = {u('unicode'): 'blah', 'byte'.encode('ascii'): 'blah'}
-        r = requests.Request('GET', httpbin('get'), headers=headers)
-        p = r.prepare()
+        p = Request().method_('GET').url_(httpbin('get')).headers_(headers).prepare()
 
         # This is testing that they are builtin strings. A bit weird, but there
         # we go.
@@ -1548,7 +1519,7 @@ class TestRequests:
                       'bar': u'fbbq'.encode('utf8'),
                       'baz': '',
                       'qux': '1'}
-        r = requests.get(httpbin('get'), headers=headers_ok)
+        r = requests.get(httpbin('get'), headers = headers_ok)
         assert r.request_().headers_()['foo'] == headers_ok['foo']
 
     def test_header_value_not_str(self, httpbin):
@@ -1606,24 +1577,21 @@ class TestRequests:
 
     @pytest.mark.parametrize('files', ('foo', b'foo', bytearray(b'foo')))
     def test_can_send_objects_with_files(self, httpbin, files):
-        data = {'a': 'this is a string'}
-        files = {'b': files}
-        r = requests.Request('POST', httpbin('post'), data=data, files=files)
+        r = Request().method_('POST').url_(httpbin('post')).data_({'a': 'this is a string'}).files_({'b': files})
         p = r.prepare()
         assert 'multipart/form-data' in p.headers_()['Content-Type']
 
     def test_can_send_file_object_with_non_string_filename(self, httpbin):
         f = io.BytesIO()
         f.name = 2
-        r = requests.Request('POST', httpbin('post'), files={'f': f})
-        p = r.prepare()
+        p = Request().method_('POST').url_(httpbin('post')).files_({'f': f}).prepare()
 
         assert 'multipart/form-data' in p.headers_()['Content-Type']
 
     def test_autoset_header_values_are_native(self, httpbin):
         data = 'this is a string'
         length = '16'
-        req = requests.Request('POST', httpbin('post'), data=data)
+        req = Request().method_('POST').url_(httpbin('post')).data_(data)
         p = req.prepare()
 
         assert p.headers_()['Content-Length'] == length
@@ -1635,7 +1603,7 @@ class TestRequests:
             'magnet:?xt=urn:btih:be08f00302bc2d1d3cfa3af02024fa647a271431',
         )
         for test_url in test_urls:
-            req = requests.Request('GET', test_url)
+            req = Request().method_('GET').url_(test_url)
             preq = req.prepare()
             assert test_url == preq.url_()
 
@@ -1657,15 +1625,15 @@ class TestRequests:
         assert h1 == h2
 
     def test_should_strip_auth_host_change(self):
-        s = requests.domain.Session()
+        s = Session()
         assert s.should_strip_auth('http://example.com/foo', 'http://another.example.com/')
 
     def test_should_strip_auth_http_downgrade(self):
-        s = requests.domain.Session()
+        s = Session()
         assert s.should_strip_auth('https://example.com/foo', 'http://example.com/bar')
 
     def test_should_strip_auth_https_upgrade(self):
-        s = requests.domain.Session()
+        s = Session()
         assert not s.should_strip_auth('http://example.com/foo', 'https://example.com/bar')
         assert not s.should_strip_auth('http://example.com:80/foo', 'https://example.com/bar')
         assert not s.should_strip_auth('http://example.com/foo', 'https://example.com:443/bar')
@@ -1674,7 +1642,7 @@ class TestRequests:
         assert s.should_strip_auth('http://example.com/foo', 'https://example.com:8443/bar')
 
     def test_should_strip_auth_port_change(self):
-        s = requests.domain.Session()
+        s = Session()
         assert s.should_strip_auth('http://example.com:1234/foo', 'https://example.com:4321/bar')
 
     @pytest.mark.parametrize(
@@ -1685,11 +1653,11 @@ class TestRequests:
             ('http://example.com/foo', 'http://example.com:80/bar')
         ))
     def test_should_strip_auth_default_port(self, old_uri, new_uri):
-        s = requests.domain.Session()
+        s = Session()
         assert not s.should_strip_auth(old_uri, new_uri)
 
     def test_manual_redirect_with_partial_body_read(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         r1 = s.get(httpbin('redirect/2'), allow_redirects=False, stream=True)
         assert r1.is_redirect()
         rg = s.resolve_redirects(r1, r1.request_(), stream=True)
@@ -1708,13 +1676,12 @@ class TestRequests:
         assert not r3.is_redirect()
 
     def test_prepare_body_position_non_stream(self):
-        data = b'the data'
-        prep = requests.Request('GET', 'http://example.com', data=data).prepare()
+        prep = Request().method_('GET').url_('http://example.com').data_(b'the data').prepare()
         assert prep._body_position is None
 
     def test_rewind_body(self):
         data = io.BytesIO(b'the data')
-        prep = requests.Request('GET', 'http://example.com', data=data).prepare()
+        prep = Request().method_('GET').url_('http://example.com').data_(data).prepare()
         assert prep._body_position == 0
         assert prep.body_().read() == b'the data'
 
@@ -1728,7 +1695,7 @@ class TestRequests:
     def test_rewind_partially_read_body(self):
         data = io.BytesIO(b'the data')
         data.read(4)  # read some data
-        prep = requests.Request('GET', 'http://example.com', data=data).prepare()
+        prep = Request().method_('GET').url_('http://example.com').data_(data).prepare()
         assert prep._body_position == 4
         assert prep.body_().read() == b'data'
 
@@ -1751,7 +1718,7 @@ class TestRequests:
                 return
 
         data = BadFileObj('the data')
-        prep = requests.Request('GET', 'http://example.com', data=data).prepare()
+        prep = Request().method_('GET').url_('http://example.com').data_(data).prepare()
         assert prep._body_position == 0
 
         with pytest.raises(UnrewindableBodyError) as e:
@@ -1774,7 +1741,7 @@ class TestRequests:
                 return
 
         data = BadFileObj('the data')
-        prep = requests.Request('GET', 'http://example.com', data=data).prepare()
+        prep = Request().method_('GET').url_('http://example.com').data_(data).prepare()
         assert prep._body_position == 0
 
         with pytest.raises(UnrewindableBodyError) as e:
@@ -1794,7 +1761,7 @@ class TestRequests:
                 return
 
         data = BadFileObj('the data')
-        prep = requests.Request('GET', 'http://example.com', data=data).prepare()
+        prep = Request().method_('GET').url_('http://example.com').data_(data).prepare()
         assert prep._body_position is not None
 
         with pytest.raises(UnrewindableBodyError) as e:
@@ -1817,7 +1784,7 @@ class TestRequests:
         adapter.build_response = build_response
 
     def test_redirect_with_wrong_gzipped_header(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
         url = httpbin('redirect/1')
         self._patch_adapter_gzipped_redirect(s, url)
         s.get(url)
@@ -1850,10 +1817,8 @@ class TestRequests:
         assert {'life': 42} == r.json()['json']
 
     def test_json_param_post_should_not_override_data_param(self, httpbin):
-        r = requests.Request(method='POST', url=httpbin('post'),
-                             data={'stuff': 'elixr'},
-                             json={'music': 'flute'})
-        prep = r.prepare()
+        prep = Request().method_('POST').url_(httpbin('post'))\
+            .data_({'stuff': 'elixr'}).json_({'music': 'flute'}).prepare()
         assert 'stuff=elixr' == prep.body_()
 
     def test_response_iter_lines(self, httpbin):
@@ -1871,7 +1836,7 @@ class TestRequests:
         assert response.raw_().closed
 
     def test_unconsumed_session_response_closes_connection(self, httpbin):
-        s = requests.domain.Session()
+        s = Session()
 
         with contextlib.closing(s.get(httpbin('stream/4'), stream=True)) as response:
             pass
@@ -1893,7 +1858,7 @@ class TestRequests:
           'one': mocker.Mock(),
           'two': mocker.Mock(),
         }
-        session = requests.domain.Session()
+        session = Session()
         mocker.patch.dict(session.adapters['http://'].proxy_manager, proxies)
         session.close()
         proxies['one'].clear.assert_called_once_with()
@@ -1934,36 +1899,28 @@ class TestRequests:
         """Ensure that a byte stream with size 0 will not set both a Content-Length
         and Transfer-Encoding header.
         """
-        auth = ('user', 'pass')
-        url = httpbin('post')
         file_obj = io.BytesIO(b'')
-        r = requests.Request('POST', url, auth=auth, data=file_obj)
-        prepared_request = r.prepare()
-        assert 'Transfer-Encoding' in prepared_request.headers_()
-        assert 'Content-Length' not in prepared_request.headers_()
+        prep = Request().method_('POST').url_(httpbin('post')).auth_(('user', 'pass')).data_(file_obj).prepare()
+        assert 'Transfer-Encoding' in prep.headers_()
+        assert 'Content-Length' not in prep.headers_()
 
     def test_stream_with_auth_does_not_set_transfer_encoding_header(self, httpbin):
         """Ensure that a byte stream with size > 0 will not set both a Content-Length
         and Transfer-Encoding header.
         """
-        auth = ('user', 'pass')
-        url = httpbin('post')
         file_obj = io.BytesIO(b'test data')
-        r = requests.Request('POST', url, auth=auth, data=file_obj)
-        prepared_request = r.prepare()
-        assert 'Transfer-Encoding' not in prepared_request.headers_()
-        assert 'Content-Length' in prepared_request.headers_()
+        prep = Request().method_('POST').url_(httpbin('post')).auth_(('user', 'pass')).data_(file_obj).prepare()
+        assert 'Transfer-Encoding' not in prep.headers_()
+        assert 'Content-Length' in prep.headers_()
 
     def test_chunked_upload_does_not_set_content_length_header(self, httpbin):
         """Ensure that requests with a generator body stream using
         Transfer-Encoding: chunked, not a Content-Length header.
         """
         data = (i for i in [b'a', b'b', b'c'])
-        url = httpbin('post')
-        r = requests.Request('POST', url, data=data)
-        prepared_request = r.prepare()
-        assert 'Transfer-Encoding' in prepared_request.headers_()
-        assert 'Content-Length' not in prepared_request.headers_()
+        prep = Request().method_('POST').url_(httpbin('post')).data_(data).prepare()
+        assert 'Transfer-Encoding' in prep.headers_()
+        assert 'Content-Length' not in prep.headers_()
 
     def test_custom_redirect_mixin(self, httpbin):
         """Tests a custom mixin to overwrite ``get_redirect_target``.
@@ -1987,7 +1944,7 @@ class TestRequests:
                      url_final,
                      ]
 
-        class CustomRedirectSession(requests.domain.Session):
+        class CustomRedirectSession(Session):
             def get_redirect_target(self, resp):
                 # default behavior
                 if resp.is_redirect():
@@ -2331,7 +2288,7 @@ def test_json_encodes_as_bytes():
 
 def test_requests_are_updated_each_time(httpbin):
     session = RedirectSession([303, 307])
-    prep = requests.Request('POST', httpbin('post')).prepare()
+    prep = Request().method_('POST').url_(httpbin('post')).prepare()
     r0 = session.send(prep)
     assert r0.request_().method_() == 'POST'
     assert session.calls[-1] == SendCall((r0.request_(),), {})
@@ -2357,7 +2314,7 @@ def test_requests_are_updated_each_time(httpbin):
     ('all_proxy', 'https://example.com', 'socks5://proxy.com:9876'),
 ])
 def test_proxy_env_vars_override_default(var, url, proxy):
-    session = requests.domain.Session()
+    session = Session()
     prep = PreparedRequest()
     prep.prepare(method='GET', url=url)
 
@@ -2423,7 +2380,7 @@ def test_prepared_copy(kwargs):
 
 def test_urllib3_retries(httpbin):
     from urllib3.util import Retry
-    s = requests.domain.Session()
+    s = Session()
     s.mount('http://', HTTPAdapter(max_retries=Retry(
         total=2, status_forcelist=[500]
     )))
@@ -2433,7 +2390,7 @@ def test_urllib3_retries(httpbin):
 
 
 def test_urllib3_pool_connection_closed(httpbin):
-    s = requests.domain.Session()
+    s = Session()
     s.mount('http://', HTTPAdapter(xpool_connections=0, pool_maxsize=0))
 
     try:
@@ -2492,7 +2449,7 @@ class TestPreparingURLs(object):
                 x = x.replace(c, c.upper())
             return x
         
-        r = requests.Request('GET', url=url)
+        r = Request().method_('GET').url_(url)
         p = r.prepare()
         assert normalize_percent_encode(p.url_()) == expected
 
@@ -2507,7 +2464,7 @@ class TestPreparingURLs(object):
         )
     )
     def test_preparing_bad_url(self, url):
-        r = requests.Request('GET', url=url)
+        r = Request().method_('GET').url_(url)
         with pytest.raises(requests.exceptions.InvalidURL):
             r.prepare()
 
@@ -2553,7 +2510,7 @@ class TestPreparingURLs(object):
         any URL whose scheme doesn't begin with "http" is left alone, and
         those whose scheme *does* begin with "http" are mutated.
         """
-        r = requests.Request('GET', url=input)
+        r = Request().method_('GET').url_(input)
         p = r.prepare()
         assert p.url_() == expected
 
@@ -2587,7 +2544,7 @@ class TestPreparingURLs(object):
         Setting parameters for nonstandard schemes is allowed if those schemes
         begin with "http", and is forbidden otherwise.
         """
-        r = requests.Request('GET', url=input, params=params)
+        r = Request().method_('GET').url_(input).params_(params)
         p = r.prepare()
         assert p.url_() == expected
 
