@@ -104,7 +104,7 @@ class TestRequests:
     def test_basic_building(self):
         req = requests.Request()
         req.url_('http://kennethreitz.org/')
-        req.data = {'life': '42'}
+        req.data_({'life': '42'})
 
         pr = req.prepare()
         assert pr.url_() == req.url_()

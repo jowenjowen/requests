@@ -2070,8 +2070,8 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         self.method_(method)
         self.url_(url)
         self.headers_(headers)
-        self.files = files
-        self.data = data
+        self.files_(files)
+        self.data_(data)
         self.json = json
         self.params_(params)
         self.auth_(auth)
@@ -2087,8 +2087,8 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             method=self.method_(),
             url=self.url_(),
             headers=self.headers_(),
-            files=self.files,
-            data=self.data,
+            files=self.files_(),
+            data=self.data_(),
             json=self.json,
             params=self.params_(),
             auth=self.auth_(),
@@ -2645,10 +2645,10 @@ class Response:  # ./Models/Response.py
     def __init__(self):  # ./Models/Response.py
 
         self.contentClass = Content(self.read_content)
-        self._next = None
+        self.next(None)
 
         #: Integer Code of responded HTTP Status, e.g. 404 or 200.
-        self.status_code = None
+        self.status_code_(None)
 
         #: Case-insensitive Dictionary of Response Headers.
         #: For example, ``headers_()['content-encoding']`` will return the
@@ -2692,7 +2692,7 @@ class Response:  # ./Models/Response.py
         self.auth_(None)
 
     def read_content(self):  # ./Models/Response.py
-        if self.status_code == 0 or self.raw_() is None:
+        if self.status_code_() == 0 or self.raw_() is None:
             return None
         else:
             return b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
@@ -3290,7 +3290,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: Dictionary of querystring data to attach to each
         #: :class:`Request <Request>`. The dictionary values may be lists for
         #: representing multivalued query parameters.
-        self.params = {}
+        self.params_({})
 
         #: Stream response content default.
         self.stream = False
@@ -3364,11 +3364,11 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         p.prepare(
             method=request.method_().upper(),
             url=request.url_(),
-            files=request.files,
-            data=request.data,
+            files=request.files_(),
+            data=request.data_(),
             json=request.json,
             headers=Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict),
-            params=Sessions().merge_setting(request.params, self.params),
+            params=Sessions().merge_setting(request.params_(), self.params_()),
             auth=Sessions().merge_setting(auth, self.auth_()),
             cookies=merged_cookies,
             hooks=Sessions().merge_hooks(request.hooks, self.hooks),
@@ -3682,6 +3682,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
     def  auth_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'auth', *args)
+
+    def params_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'params', *args)
 
 
 # *************************** classes in Utils section *****************
