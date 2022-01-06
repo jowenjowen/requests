@@ -2073,7 +2073,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         self.files = files
         self.data = data
         self.json = json
-        self.params = params
+        self.params_(params)
         self.auth_(auth)
         self.cookies_(cookies)
 
@@ -2090,7 +2090,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             files=self.files,
             data=self.data,
             json=self.json,
-            params=self.params,
+            params=self.params_(),
             auth=self.auth_(),
             cookies=self.cookies_(),
             hooks=self.hooks,
@@ -2111,6 +2111,21 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
 
     def method_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'method', *args)
+
+    def data_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'data', *args)
+
+    def files_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'files', *args)
+
+    def headers_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'headers', *args)
+
+    def params_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'params', *args)
+
+    def hooks_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'hooks', *args)
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py

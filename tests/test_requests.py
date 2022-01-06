@@ -1519,7 +1519,7 @@ class TestRequests:
 
     def test_params_are_merged_case_sensitive(self, httpbin):
         s = requests.domain.Session()
-        s.params['foo'] = 'bar'
+        s.params_()['foo'] = 'bar'
         r = s.get(httpbin('get'), params={'FOO': 'bar'})
         assert r.json()['args'] == {'foo': 'bar', 'FOO': 'bar'}
 
