@@ -108,7 +108,7 @@ class TestRequests:
 
         pr = req.prepare()
         assert pr.url_() == req.url_()
-        assert pr.body == 'life=42'
+        assert pr.body_() == 'life=42'
 
     @pytest.mark.parametrize('method', ('GET', 'HEAD'))
     def test_no_content_length(self, httpbin, method):
@@ -162,7 +162,7 @@ class TestRequests:
     def test_binary_put(self):
         request = requests.Request('PUT', 'http://example.com',
                                    data=u"ööö".encode("utf-8")).prepare()
-        assert isinstance(request.body, bytes)
+        assert isinstance(request.body_(), bytes)
 
     def test_whitespaces_are_removed_from_url(self):
         # Test for issue #3696
@@ -289,7 +289,7 @@ class TestRequests:
 
         # Run request through resolve_redirects
         next_resp = next(ses.resolve_redirects(resp, prep))
-        assert next_resp.request_().body is None
+        assert next_resp.request_().body_() is None
         for header in purged_headers:
             assert header not in next_resp.request_().headers_()
 
@@ -312,7 +312,7 @@ class TestRequests:
 
         # Run request through resolve_redirect
         next_resp = next(ses.resolve_redirects(resp, prep))
-        assert next_resp.request_().body is None
+        assert next_resp.request_().body_() is None
         for header in purged_headers:
             assert header not in next_resp.request_().headers_()
 
@@ -746,8 +746,8 @@ class TestRequests:
         url = httpbin('post')
         post = requests.post(url,
                              files={"random-file-1": None, "random-file-2": 1})
-        assert b'name="random-file-1"' not in post.request_().body
-        assert b'name="random-file-2"' in post.request_().body
+        assert b'name="random-file-1"' not in post.request_().body_()
+        assert b'name="random-file-2"' in post.request_().body_()
 
     def test_POSTBIN_SEEKED_OBJECT_WITH_NO_ITER(self, httpbin):
 
@@ -938,7 +938,7 @@ class TestRequests:
         r = requests.Request(method='POST', url=httpbin('post'),
                              data=dict(test=['foo', 'baz']))
         prep = r.prepare()
-        assert prep.body == 'test=foo&test=baz'
+        assert prep.body_() == 'test=foo&test=baz'
 
     def test_different_encodings_dont_break_post(self, httpbin):
         r = requests.post(httpbin('post'),
@@ -967,8 +967,8 @@ class TestRequests:
             data={'stuff'.encode('utf-8'): 'elixr'},
             files={'file': ('test_requests.py', open(filename, 'rb'))})
         prep = r.prepare()
-        assert b'name="stuff"' in prep.body
-        assert b'name="b\'stuff\'"' not in prep.body
+        assert b'name="stuff"' in prep.body_()
+        assert b'name="b\'stuff\'"' not in prep.body_()
 
     def test_unicode_method_name(self, httpbin):
         files = {'file': open(__file__, 'rb')}
@@ -1004,7 +1004,7 @@ class TestRequests:
                 'file2': ('test_requests', open(__file__, 'rb'),
                     'text/py-content-type')})
         assert r.status_code_() == 200
-        assert b"text/py-content-type" in r.request_().body
+        assert b"text/py-content-type" in r.request_().body_()
 
     def test_hook_receives_request_arguments(self, httpbin):
         def hook(resp, **kwargs):
@@ -1352,7 +1352,7 @@ class TestRequests:
         r = pickle.loads(pickle.dumps(p))
         assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
-        assert r.body == p.body
+        assert r.body_() == p.body_()
 
         # Verify unpickled PreparedRequest sends properly
         s = requests.domain.Session()
@@ -1368,7 +1368,7 @@ class TestRequests:
         r = pickle.loads(pickle.dumps(p))
         assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
-        assert r.body == p.body
+        assert r.body_() == p.body_()
 
         # Verify unpickled PreparedRequest sends properly
         s = requests.domain.Session()
@@ -1383,7 +1383,7 @@ class TestRequests:
         r = pickle.loads(pickle.dumps(p))
         assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
-        assert r.body == p.body
+        assert r.body_() == p.body_()
         assert r.hooks == p.hooks
 
         # Verify unpickled PreparedRequest sends properly
@@ -1716,28 +1716,28 @@ class TestRequests:
         data = io.BytesIO(b'the data')
         prep = requests.Request('GET', 'http://example.com', data=data).prepare()
         assert prep._body_position == 0
-        assert prep.body.read() == b'the data'
+        assert prep.body_().read() == b'the data'
 
         # the data has all been read
-        assert prep.body.read() == b''
+        assert prep.body_().read() == b''
 
         # rewind it back
         Utils().rewind_body(prep)
-        assert prep.body.read() == b'the data'
+        assert prep.body_().read() == b'the data'
 
     def test_rewind_partially_read_body(self):
         data = io.BytesIO(b'the data')
         data.read(4)  # read some data
         prep = requests.Request('GET', 'http://example.com', data=data).prepare()
         assert prep._body_position == 4
-        assert prep.body.read() == b'data'
+        assert prep.body_().read() == b'data'
 
         # the data has all been read
-        assert prep.body.read() == b''
+        assert prep.body_().read() == b''
 
         # rewind it back
         Utils().rewind_body(prep)
-        assert prep.body.read() == b'data'
+        assert prep.body_().read() == b'data'
 
     def test_rewind_body_no_seek(self):
         class BadFileObj:
@@ -1854,7 +1854,7 @@ class TestRequests:
                              data={'stuff': 'elixr'},
                              json={'music': 'flute'})
         prep = r.prepare()
-        assert 'stuff=elixr' == prep.body
+        assert 'stuff=elixr' == prep.body_()
 
     def test_response_iter_lines(self, httpbin):
         r = requests.get(httpbin('stream/4'), stream=True)
@@ -2326,7 +2326,7 @@ def test_json_encodes_as_bytes():
         url='https://www.example.com/',
         json=body
     )
-    assert isinstance(p.body, bytes)
+    assert isinstance(p.body_(), bytes)
 
 
 def test_requests_are_updated_each_time(httpbin):
@@ -2388,7 +2388,7 @@ def test_data_argument_accepts_tuples(data):
         data=data,
         hooks=Hooks().default_hooks()
     )
-    assert p.body == XCompat().urlencode(data)
+    assert p.body_() == XCompat().urlencode(data)
 
 
 @pytest.mark.parametrize(

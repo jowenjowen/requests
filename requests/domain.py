@@ -680,7 +680,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         url = self.request_url(request, proxies)
         self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
-        chunked = not (request.body is None or 'Content-Length' in request.headers_())
+        chunked = not (request.body_() is None or 'Content-Length' in request.headers_())
 
         if isinstance(timeout, tuple):
             try:
@@ -702,7 +702,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 resp = xconn.urlopen(
                     method=request.method,
                     url=url,
-                    body=request.body,
+                    body=request.body_(),
                     headers=request.headers_(),
                     redirect=False,
                     assert_same_host=False,
@@ -731,7 +731,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
                     low_conn.endheaders()
 
-                    for i in request.body:
+                    for i in request.body_():
                         low_conn.send(hex(len(i))[2:].encode('utf-8'))
                         low_conn.send(b'\r\n')
                         low_conn.send(i)
@@ -1214,7 +1214,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         if self._thread_local.last_nonce:
             r.headers_()['Authorization'] = self.build_digest_header(r.method, r.url_())
         try:
-            self._thread_local.pos = r.body.tell()
+            self._thread_local.pos = r.body_().tell()
         except AttributeError:
             # In the case of HTTPDigestAuth being reused and the body of
             # the previous request was a file-like object, pos has the
@@ -2142,7 +2142,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         # after prepare_cookies is called
         self._cookies = None
         #: request body to send to the server.
-        self.body = None
+        self.body_(None)
         #: dictionary of callback hooks, for internal usage.
         self.hooks = Hooks().default_hooks()
         #: integer denoting starting position of a readable file-like body.
@@ -2175,7 +2175,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         p.url_(self.url_())
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
         p._cookies = CookieUtils()._copy_cookie_jar(self._cookies)
-        p.body = self.body
+        p.body_(self.body_())
         p.hooks = self.hooks
         p._body_position = self._body_position
         return p
@@ -2363,7 +2363,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             if content_type and ('content-type' not in self.headers_()):
                 self.headers_()['Content-Type'] = content_type
 
-        self.body = body
+        self.body_(body)
 
     def prepare_content_length(self, body):  # ./Models/PreparedRequest.py
         """Prepare Content-Length header based on request method and body"""
@@ -2398,7 +2398,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             self.__dict__.update(r.__dict__)
 
             # Recompute Content-Length
-            self.prepare_content_length(self.body)
+            self.prepare_content_length(self.body_())
 
     def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP cookie data.
@@ -2434,6 +2434,12 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def url_(self, *args):  # ./Models/PreparedRequest.py
         return XUtils().get_or_set(self, 'url', *args)
+
+    def method_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'method', *args)
+
+    def body_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'body', *args)
 
 
 class Content:
@@ -3081,7 +3087,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
                 purged_headers = ('Content-Length', 'Content-Type', 'Transfer-Encoding')
                 for header in purged_headers:
                     prepared_request.headers_().pop(header, None)
-                prepared_request.body = None
+                prepared_request.body_(None)
 
             headers = prepared_request.headers_()
             headers.pop('Cookie', None)
@@ -4615,7 +4621,7 @@ class Utils:  # ./Utils/utils.py
         """Move file pointer back to its recorded starting position
         so it can be read again on redirect.
         """
-        body_seek = getattr(prepared_request.body, 'seek', None)
+        body_seek = getattr(prepared_request.body_(), 'seek', None)
         if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
             try:
                 body_seek(prepared_request._body_position)
