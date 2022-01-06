@@ -222,7 +222,7 @@ class TestRequests:
 
     def test_HTTP_302_TOO_MANY_REDIRECTS_WITH_PARAMS(self, httpbin):
         s = requests.domain.Session()
-        s.max_redirects = 5
+        s.max_redirects_(5)
         try:
             s.get(httpbin('relative-redirect', '50'))
         except TooManyRedirects as e:

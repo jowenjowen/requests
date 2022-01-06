@@ -3073,8 +3073,8 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             except (ChunkedEncodingError, ContentDecodingError, RuntimeError):
                 resp.raw_().read(decode_content=False)
 
-            if len(resp.history_()) >= self.max_redirects:
-                raise TooManyRedirects('Exceeded {} redirects.'.format(self.max_redirects), response=resp)
+            if len(resp.history_()) >= self.max_redirects_():
+                raise TooManyRedirects('Exceeded {} redirects.'.format(self.max_redirects_()), response=resp)
 
             # Release the xconnection back into the xpool.
             resp.close()
@@ -3177,7 +3177,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             del headers['Authorization']
 
         # .netrc might have more auth for us on our new host.
-        new_auth = Utils().get_netrc_auth(url) if self.trust_env else None
+        new_auth = Utils().get_netrc_auth(url) if self.trust_env_() else None
         if new_auth is not None:
             prepared_request.prepare_auth(new_auth)
 
@@ -3201,7 +3201,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         no_proxy = proxies.get('no_proxy')
 
         bypass_proxy = Utils().should_bypass_proxies(url, no_proxy=no_proxy)
-        if self.trust_env and not bypass_proxy:
+        if self.trust_env_() and not bypass_proxy:
             environ_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
 
             proxy = environ_proxies.get(scheme, environ_proxies.get('all'))
@@ -3246,6 +3246,12 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
     def cookies_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'cookies', *args)
+
+    def trust_env_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'trust_env', *args)
+
+    def max_redirects_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'max_redirects', *args)
 
 
 class Session(SessionRedirectMixin):  # ./Sessions/Session.py
@@ -3299,7 +3305,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         self.params_({})
 
         #: Stream response content default.
-        self.stream = False
+        self.stream_(False)
 
         #: SSL Verification default.
         #: Defaults to `True`, requiring requests to verify the TLS certificate at the
@@ -3309,21 +3315,21 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: expired certificates, which will make your application vulnerable to
         #: man-in-the-middle (MitM) attacks.
         #: Only set this to `False` for testing.
-        self.verify = True
+        self.verify_(True)
 
         #: SSL client certificate default, if String, path to ssl client
         #: cert file (.pem). If Tuple, ('cert', 'key') pair.
-        self.cert = None
+        self.cert_(None)
 
         #: Maximum number of redirects allowed. If the request exceeds this
         #: limit, a :class:`TooManyRedirects` exception is raised.
         #: This defaults to requests.models.DEFAULT_REDIRECT_LIMIT, which is
         #: 30.
-        self.max_redirects = Models().DEFAULT_REDIRECT_LIMIT()
+        self.max_redirects_(Models().DEFAULT_REDIRECT_LIMIT())
 
         #: Trust environment settings for proxy configuration, default
         #: authentication and similar.
-        self.trust_env = True
+        self.trust_env_(True)
 
         #: A CookieJar (CookieJar or XCookieJar) containing all currently outstanding cookies set on this
         #: session. By default it is a
@@ -3331,7 +3337,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         self.cookies_(CookieUtils().cookiejar_from_dict({}))
 
         # Default connection adapters.
-        self.adapters = XOrderedDict()
+        self.adapters_(XOrderedDict())
         self.mount('https://', HTTPAdapter())
         self.mount('http://', HTTPAdapter())
 
@@ -3363,7 +3369,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth_()
-        if self.trust_env and not auth and not self.auth_():
+        if self.trust_env_() and not auth and not self.auth_():
             auth = Utils().get_netrc_auth(request.url_())
 
         p = PreparedRequest()
@@ -3545,12 +3551,12 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         """
         # Set defaults that the hooks can utilize to ensure they always have
         # the correct parameters to reproduce the previous request.
-        kwargs.setdefault('stream', self.stream)
-        kwargs.setdefault('verify', self.verify)
-        kwargs.setdefault('cert', self.cert)
+        kwargs.setdefault('stream', self.stream_())
+        kwargs.setdefault('verify', self.verify_())
+        kwargs.setdefault('cert', self.cert_())
         if 'proxies' not in kwargs:
             kwargs['proxies'] = Utils().resolve_proxies(
-                request, self.proxies, self.trust_env
+                request, self.proxies, self.trust_env_()
             )
 
         # It's possible that users might accidentally send a Request object.
@@ -3623,7 +3629,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         :rtype: dict
         """
         # Gather clues from the surrounding environment.
-        if self.trust_env:
+        if self.trust_env_():
             # Set environment's proxies.
             no_proxy = proxies.get('no_proxy') if proxies is not None else None
             env_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
@@ -3638,9 +3644,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # Merge all the kwargs.
         proxies = Sessions().merge_setting(proxies, self.proxies)
-        stream = Sessions().merge_setting(stream, self.stream)
-        verify = Sessions().merge_setting(verify, self.verify)
-        cert = Sessions().merge_setting(cert, self.cert)
+        stream = Sessions().merge_setting(stream, self.stream_())
+        verify = Sessions().merge_setting(verify, self.verify_())
+        cert = Sessions().merge_setting(cert, self.cert_())
 
         return {'verify': verify, 'proxies': proxies, 'stream': stream,
                 'cert': cert}
@@ -3651,7 +3657,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         :rtype: requests.adapters.BaseAdapter
         """
-        for (prefix, adapter) in self.adapters.items():
+        for (prefix, adapter) in self.adapters_().items():
 
             if url.lower().startswith(prefix.lower()):
                 return adapter
@@ -3661,7 +3667,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
     def close(self):
         """Closes all adapters and as such the session"""
-        for v in self.adapters.values():
+        for v in self.adapters_().values():
             v.close()
 
     def mount(self, prefix, adapter):  # ./Sessions/Session.py
@@ -3669,11 +3675,11 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         Adapters are sorted in descending order by prefix length.
         """
-        self.adapters[prefix] = adapter
-        keys_to_move = [k for k in self.adapters if len(k) < len(prefix)]
+        self.adapters_()[prefix] = adapter
+        keys_to_move = [k for k in self.adapters_() if len(k) < len(prefix)]
 
         for key in keys_to_move:
-            self.adapters[key] = self.adapters.pop(key)
+            self.adapters_()[key] = self.adapters_().pop(key)
 
     def __getstate__(self):
         state = {attr: getattr(self, attr, None) for attr in self.__attrs__}
@@ -3686,14 +3692,26 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     def headers_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'headers', *args)
 
-    def  auth_(self, *args):  # ./Models/Response.py
+    def  auth_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'auth', *args)
 
-    def params_(self, *args):  # ./Models/PreparedRequest.py
+    def params_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'params', *args)
 
-    def hooks_(self, *args):  # ./Models/PreparedRequest.py
+    def stream_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'stream', *args)
+
+    def hooks_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'hooks', *args)
+
+    def adapters_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'adapters', *args)
+
+    def cert_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'cert', *args)
+
+    def verify_(self, *args):  # ./Sessions/Session.py
+        return XUtils().get_or_set(self, 'verify', *args)
 
 
 # *************************** classes in Utils section *****************
