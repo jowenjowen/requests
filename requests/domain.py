@@ -2004,13 +2004,13 @@ class RequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
     def register_hook(self, event, hook):
         """Properly register a hook."""
 
-        if event not in self.hooks:
+        if event not in self.hooks_() :
             raise ValueError('Unsupported event specified, with event name "%s"' % (event))
 
         if XCompat().is_Callable_instance(hook):
-            self.hooks[event].append(hook)
+            self.hooks_()[event].append(hook)
         elif hasattr(hook, '__iter__'):
-            self.hooks[event].extend(h for h in hook if XCompat().is_Callable_instance(h))
+            self.hooks_()[event].extend(h for h in hook if XCompat().is_Callable_instance(h))
 
     def deregister_hook(self, event, hook):
         """Deregister a previously registered hook.
@@ -2018,7 +2018,7 @@ class RequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
         """
 
         try:
-            self.hooks[event].remove(hook)
+            self.hooks_()[event].remove(hook)
             return True
         except ValueError:
             return False
@@ -2063,7 +2063,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         params = {} if params is None else params
         hooks = {} if hooks is None else hooks
 
-        self.hooks = Hooks().default_hooks()
+        self.hooks_(Hooks().default_hooks())
         for (k, v) in list(hooks.items()):
             self.register_hook(event=k, hook=v)
 
@@ -2093,7 +2093,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             params=self.params_(),
             auth=self.auth_(),
             cookies=self.cookies_(),
-            hooks=self.hooks,
+            hooks=self.hooks_() ,
         )
         return p
 
@@ -2162,7 +2162,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         #: request body to send to the server.
         self.body_(None)
         #: dictionary of callback hooks, for internal usage.
-        self.hooks = Hooks().default_hooks()
+        self.hooks_(Hooks().default_hooks())
         #: integer denoting starting position of a readable file-like body.
         self._body_position = None
 
@@ -2194,7 +2194,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
         p._cookies = CookieUtils()._copy_cookie_jar(self._cookies)
         p.body_(self.body_())
-        p.hooks = self.hooks
+        p.hooks_(self.hooks_() )
         p._body_position = self._body_position
         return p
 
@@ -2458,6 +2458,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def body_(self, *args):  # ./Models/PreparedRequest.py
         return XUtils().get_or_set(self, 'body', *args)
+
+    def hooks_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'hooks', *args)
 
 
 class Content:
@@ -3284,7 +3287,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         self.proxies = {}
 
         #: Event-handling hooks.
-        self.hooks = Hooks().default_hooks()
+        self.hooks_(Hooks().default_hooks())
 
 
         #: Dictionary of querystring data to attach to each
@@ -3371,7 +3374,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             params=Sessions().merge_setting(request.params_(), self.params_()),
             auth=Sessions().merge_setting(auth, self.auth_()),
             cookies=merged_cookies,
-            hooks=Sessions().merge_hooks(request.hooks, self.hooks),
+            hooks=Sessions().merge_hooks(request.hooks_() , self.hooks_() ),
         )
         return p
 
@@ -3555,7 +3558,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         # Set up variables needed for resolve_redirects and dispatching of hooks
         allow_redirects = kwargs.pop('allow_redirects', True)
         stream = kwargs.get('stream')
-        hooks = request.hooks
+        hooks = request.hooks_()
 
         # Get the appropriate adapter to use
         adapter = self.get_adapter(url=request.url_())
@@ -3685,6 +3688,9 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
     def params_(self, *args):  # ./Models/PreparedRequest.py
         return XUtils().get_or_set(self, 'params', *args)
+
+    def hooks_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'hooks', *args)
 
 
 # *************************** classes in Utils section *****************

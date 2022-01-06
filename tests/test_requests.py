@@ -1019,21 +1019,21 @@ class TestRequests:
     def test_session_hooks_are_used_with_no_request_hooks(self, httpbin):
         hook = lambda x, *args, **kwargs: x
         s = requests.domain.Session()
-        s.hooks['response'].append(hook)
+        s.hooks_()['response'].append(hook)
         r = requests.Request('GET', httpbin())
         prep = s.prepare_request(r)
-        assert prep.hooks['response'] != []
-        assert prep.hooks['response'] == [hook]
+        assert prep.hooks_()['response'] != []
+        assert prep.hooks_()['response'] == [hook]
 
     def test_session_hooks_are_overridden_by_request_hooks(self, httpbin):
         hook1 = lambda x, *args, **kwargs: x
         hook2 = lambda x, *args, **kwargs: x
         assert hook1 is not hook2
         s = requests.domain.Session()
-        s.hooks['response'].append(hook2)
+        s.hooks_()['response'].append(hook2)
         r = requests.Request('GET', httpbin(), hooks={'response': [hook1]})
         prep = s.prepare_request(r)
-        assert prep.hooks['response'] == [hook1]
+        assert prep.hooks_()['response'] == [hook1]
 
     def test_prepared_request_hook(self, httpbin):
         def hook(resp, **kwargs):
@@ -1384,7 +1384,7 @@ class TestRequests:
         assert r.url_() == p.url_()
         assert r.headers_() == p.headers_()
         assert r.body_() == p.body_()
-        assert r.hooks == p.hooks
+        assert r.hooks_() == p.hooks_()
 
         # Verify unpickled PreparedRequest sends properly
         s = requests.domain.Session()
