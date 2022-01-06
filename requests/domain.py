@@ -2072,7 +2072,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         self.headers_(headers)
         self.files_(files)
         self.data_(data)
-        self.json = json
+        self.json_(json)
         self.params_(params)
         self.auth_(auth)
         self.cookies_(cookies)
@@ -2089,7 +2089,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
             headers=self.headers_(),
             files=self.files_(),
             data=self.data_(),
-            json=self.json,
+            json=self.json_(),
             params=self.params_(),
             auth=self.auth_(),
             cookies=self.cookies_(),
@@ -2112,20 +2112,23 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
     def method_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'method', *args)
 
-    def data_(self, *args):  # ./Models/PreparedRequest.py
+    def data_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'data', *args)
 
-    def files_(self, *args):  # ./Models/PreparedRequest.py
+    def files_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'files', *args)
 
-    def headers_(self, *args):  # ./Models/PreparedRequest.py
+    def headers_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'headers', *args)
 
-    def params_(self, *args):  # ./Models/PreparedRequest.py
+    def params_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'params', *args)
 
-    def hooks_(self, *args):  # ./Models/PreparedRequest.py
+    def hooks_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'hooks', *args)
+
+    def json_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'json', *args)
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
@@ -3369,7 +3372,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             url=request.url_(),
             files=request.files_(),
             data=request.data_(),
-            json=request.json,
+            json=request.json_(),
             headers=Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict),
             params=Sessions().merge_setting(request.params_(), self.params_()),
             auth=Sessions().merge_setting(auth, self.auth_()),
