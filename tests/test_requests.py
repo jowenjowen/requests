@@ -236,7 +236,7 @@ class TestRequests:
     def test_http_301_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '301'))
         assert r.status_code_() == 200
-        assert r.request_().method == 'GET'
+        assert r.request_().method_() == 'GET'
         assert r.history_()[0].status_code_() == 301
         assert r.history_()[0].is_redirect()
 
@@ -244,35 +244,35 @@ class TestRequests:
         r = requests.head(httpbin('status', '301'), allow_redirects=True)
         print(r.content_())
         assert r.status_code_() == 200
-        assert r.request_().method == 'HEAD'
+        assert r.request_().method_() == 'HEAD'
         assert r.history_()[0].status_code_() == 301
         assert r.history_()[0].is_redirect()
 
     def test_http_302_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '302'))
         assert r.status_code_() == 200
-        assert r.request_().method == 'GET'
+        assert r.request_().method_() == 'GET'
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_http_302_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '302'), allow_redirects=True)
         assert r.status_code_() == 200
-        assert r.request_().method == 'HEAD'
+        assert r.request_().method_() == 'HEAD'
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_http_303_changes_post_to_get(self, httpbin):
         r = requests.post(httpbin('status', '303'))
         assert r.status_code_() == 200
-        assert r.request_().method == 'GET'
+        assert r.request_().method_() == 'GET'
         assert r.history_()[0].status_code_() == 303
         assert r.history_()[0].is_redirect()
 
     def test_http_303_doesnt_change_head_to_get(self, httpbin):
         r = requests.head(httpbin('status', '303'), allow_redirects=True)
         assert r.status_code_() == 200
-        assert r.request_().method == 'HEAD'
+        assert r.request_().method_() == 'HEAD'
         assert r.history_()[0].status_code_() == 303
         assert r.history_()[0].is_redirect()
 
@@ -981,8 +981,8 @@ class TestRequests:
         s = requests.domain.Session()
         req = requests.Request(u('POST'), httpbin('post'), files=files)
         prep = s.prepare_request(req)
-        assert XCompat().is_builtin_str_instance(prep.method)
-        assert prep.method == 'POST'
+        assert XCompat().is_builtin_str_instance(prep.method_())
+        assert prep.method_() == 'POST'
 
         resp = s.send(prep)
         assert resp.status_code_() == 200
@@ -2333,7 +2333,7 @@ def test_requests_are_updated_each_time(httpbin):
     session = RedirectSession([303, 307])
     prep = requests.Request('POST', httpbin('post')).prepare()
     r0 = session.send(prep)
-    assert r0.request_().method == 'POST'
+    assert r0.request_().method_() == 'POST'
     assert session.calls[-1] == SendCall((r0.request_(),), {})
     redirect_generator = session.resolve_redirects(r0, prep)
     default_keyword_args = {
@@ -2345,7 +2345,7 @@ def test_requests_are_updated_each_time(httpbin):
         'proxies': {},
     }
     for response in redirect_generator:
-        assert response.request_().method == 'GET'
+        assert response.request_().method_() == 'GET'
         send_call = SendCall((response.request_(),), default_keyword_args)
         assert session.calls[-1] == send_call
 

@@ -700,7 +700,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         try:
             if not chunked:
                 resp = xconn.urlopen(
-                    method=request.method,
+                    method=request.method_(),
                     url=url,
                     body=request.body_(),
                     headers=request.headers_(),
@@ -721,7 +721,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
                 try:
                     skip_host = 'Host' in request.headers_()
-                    low_conn.putrequest(request.method,
+                    low_conn.putrequest(request.method_(),
                                         url,
                                         skip_accept_encoding=True,
                                         skip_host=skip_host)
@@ -1197,7 +1197,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             prep.prepare_cookies(prep._cookies)
 
             prep.headers_()['Authorization'] = self.build_digest_header(
-                prep.method, prep.url_())
+                prep.method_(), prep.url_())
             _r = r.xconnection.send(prep, **kwargs)
             _r.history_().append(r)
             _r.request_(prep)
@@ -1212,7 +1212,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         self.init_per_thread_state()
         # If we have a saved nonce, skip the 401
         if self._thread_local.last_nonce:
-            r.headers_()['Authorization'] = self.build_digest_header(r.method, r.url_())
+            r.headers_()['Authorization'] = self.build_digest_header(r.method_(), r.url_())
         try:
             self._thread_local.pos = r.body_().tell()
         except AttributeError:
@@ -2067,7 +2067,7 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         for (k, v) in list(hooks.items()):
             self.register_hook(event=k, hook=v)
 
-        self.method = method
+        self.method_(method)
         self.url_(url)
         self.headers_(headers)
         self.files = files
@@ -2078,13 +2078,13 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         self.cookies_(cookies)
 
     def __repr__(self):  # ./Models/Request.py
-        return '<Request [%s]>' % (self.method)
+        return '<Request [%s]>' % (self.method_())
 
     def prepare(self):  # ./Models/Request.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for transmission and returns it."""
         p = PreparedRequest()
         p.prepare(
-            method=self.method,
+            method=self.method_(),
             url=self.url_(),
             headers=self.headers_(),
             files=self.files,
@@ -2103,11 +2103,14 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
     def url_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'url', *args)
 
-    def cookies_(self, *args):  # ./Models/Response.py
+    def cookies_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'cookies', *args)
 
-    def  auth_(self, *args):  # ./Models/Response.py
+    def  auth_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'auth', *args)
+
+    def method_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'method', *args)
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
@@ -2133,7 +2136,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def __init__(self):  # ./Models/PreparedRequest.py
         #: HTTP verb to send to the server.
-        self.method = None
+        self.method_(None)
         #: HTTP URL to send the request to.
         self.url_(None)
         #: dictionary of HTTP headers.
@@ -2167,11 +2170,11 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         self.prepare_hooks(hooks)
 
     def __repr__(self):  # ./Models/PreparedRequest.py
-        return '<PreparedRequest [%s]>' % (self.method)
+        return '<PreparedRequest [%s]>' % (self.method_())
 
     def copy(self):  # ./Models/PreparedRequest.py
         p = PreparedRequest()
-        p.method = self.method
+        p.method_(self.method_())
         p.url_(self.url_())
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
         p._cookies = CookieUtils()._copy_cookie_jar(self._cookies)
@@ -2182,9 +2185,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def prepare_method(self, method):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP method."""
-        self.method = method
-        if self.method is not None:
-            self.method = XUtils().to_native_string(self.method.upper())
+        self.method_(method)
+        if self.method_() is not None:
+            self.method_(XUtils().to_native_string(self.method_().upper()))
 
     @staticmethod
     def _get_idna_encoded_host(host):  # ./Models/PreparedRequest.py
@@ -2373,7 +2376,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
                 # If length exists, set it. Otherwise, we fallback
                 # to Transfer-Encoding: chunked.
                 self.headers_()['Content-Length'] = XCompat().builtin_str(length)
-        elif self.method not in ('GET', 'HEAD') and self.headers_().get('Content-Length') is None:
+        elif self.method_() not in ('GET', 'HEAD') and self.headers_().get('Content-Length') is None:
             # Set Content-Length to 0 for methods that can have a body
             # but don't provide one. (i.e. not GET or HEAD)
             self.headers_()['Content-Length'] = '0'
@@ -3202,7 +3205,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         """When being redirected we may want to change the method of the request
         based on certain specs or browser behavior.
         """
-        method = prepared_request.method
+        method = prepared_request.method_()
 
         # https://tools.ietf.org/html/rfc7231#section-6.4.4
         if response.status_code_() == StatusCodes().get('see_other') and method != 'HEAD':
@@ -3218,7 +3221,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         if response.status_code_() == StatusCodes().get('moved') and method == 'POST':
             method = 'GET'
 
-        prepared_request.method = method
+        prepared_request.method_(method)
 
     def cookies_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'cookies', *args)
@@ -3344,7 +3347,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         p = PreparedRequest()
         p.prepare(
-            method=request.method.upper(),
+            method=request.method_().upper(),
             url=request.url_(),
             files=request.files,
             data=request.data,
