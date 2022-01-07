@@ -2,7 +2,9 @@
 
 import pytest
 import threading
-import requests
+from requests import exceptions
+from requests.domain import Requests
+from requests.domain import HTTPDigestAuth
 
 from tests.testserver.server import Server, consume_socket_content
 
@@ -29,7 +31,7 @@ def test_chunked_upload():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        r = requests.post(url, data=data, stream=True)
+        r = Requests().post(url, data=data, stream=True)
         close_server.set()  # release server block
 
     assert r.status_code_() == 200
@@ -53,8 +55,8 @@ def test_chunked_encoding_error():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        with pytest.raises(requests.exceptions.ChunkedEncodingError):
-            r = requests.get(url)
+        with pytest.raises(exceptions.ChunkedEncodingError):
+            r = Requests().get(url)
         close_server.set()  # release server block
 
 
@@ -68,7 +70,7 @@ def test_chunked_upload_uses_only_specified_host_header():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        r = requests.post(url, data=data, headers={'Host': custom_host}, stream=True)
+        r = Requests().post(url, data=data, headers={'Host': custom_host}, stream=True)
         close_server.set()  # release server block
 
     expected_header = b'Host: %s\r\n' % custom_host.encode('utf-8')
@@ -86,7 +88,7 @@ def test_chunked_upload_doesnt_skip_host_header():
     with server as (host, port):
         expected_host = '{}:{}'.format(host, port)
         url = 'http://{}:{}/'.format(host, port)
-        r = requests.post(url, data=data, stream=True)
+        r = Requests().post(url, data=data, stream=True)
         close_server.set()  # release server block
 
     expected_header = b'Host: %s\r\n' % expected_host.encode('utf-8')
@@ -115,8 +117,8 @@ def test_conflicting_content_lengths():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        with pytest.raises(requests.exceptions.InvalidHeader):
-            r = requests.get(url)
+        with pytest.raises(exceptions.InvalidHeader):
+            r = Requests().get(url)
         close_server.set()
 
 
@@ -143,7 +145,7 @@ def test_digestauth_401_count_reset_on_redirect():
                        b'realm="me@kennethreitz.com", '
                        b'nonce="6bf5d6e4da1ce66918800195d6b9130d", uri="/"')
 
-    auth = requests.domain.HTTPDigestAuth('user', 'pass')
+    auth = HTTPDigestAuth('user', 'pass')
 
     def digest_response_handler(sock):
         # Respond to initial GET with a challenge.
@@ -174,7 +176,7 @@ def test_digestauth_401_count_reset_on_redirect():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        r = requests.get(url, auth=auth)
+        r = Requests().get(url, auth=auth)
         # Verify server succeeded in authenticating.
         assert r.status_code_() == 200
         # Verify Authorization was sent in final request.
@@ -199,7 +201,7 @@ def test_digestauth_401_only_sent_once():
                        b'realm="me@kennethreitz.com", '
                        b'nonce="6bf5d6e4da1ce66918800195d6b9130d", uri="/"')
 
-    auth = requests.domain.HTTPDigestAuth('user', 'pass')
+    auth = HTTPDigestAuth('user', 'pass')
 
     def digest_failed_response_handler(sock):
         # Respond to initial GET with a challenge.
@@ -224,7 +226,7 @@ def test_digestauth_401_only_sent_once():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        r = requests.get(url, auth=auth)
+        r = Requests().get(url, auth=auth)
         # Verify server didn't authenticate us.
         assert r.status_code_() == 401
         assert r.history_()[0].status_code_() == 401
@@ -242,7 +244,7 @@ def test_digestauth_only_on_4xx():
                      b', opaque="372825293d1c26955496c80ed6426e9e", '
                      b'realm="me@kennethreitz.com", qop=auth\r\n\r\n')
 
-    auth = requests.domain.HTTPDigestAuth('user', 'pass')
+    auth = HTTPDigestAuth('user', 'pass')
 
     def digest_response_handler(sock):
         # Respond to GET with a 200 containing www-authenticate header.
@@ -261,7 +263,7 @@ def test_digestauth_only_on_4xx():
 
     with server as (host, port):
         url = 'http://{}:{}/'.format(host, port)
-        r = requests.get(url, auth=auth)
+        r = Requests().get(url, auth=auth)
         # Verify server didn't receive auth from us.
         assert r.status_code_() == 200
         assert len(r.history_()) == 0
@@ -291,8 +293,8 @@ def test_use_proxy_from_environment(httpbin, var, scheme):
         kwargs = {var: proxy_url}
         with override_environ(**kwargs):
             # fake proxy's lack of response will cause a ConnectionError
-            with pytest.raises(requests.exceptions.ConnectionError):
-                requests.get(url)
+            with pytest.raises(exceptions.ConnectionError):
+                Requests().get(url)
 
         # the fake proxy received a request
         assert len(fake_proxy.handler_results) == 1
@@ -323,7 +325,7 @@ def test_redirect_rfc1808_to_non_ascii_location():
 
     with server as (host, port):
         url = u'http://{}:{}'.format(host, port)
-        r = requests.get(url=url, allow_redirects=True)
+        r = Requests().get(url=url, allow_redirects=True)
         assert r.status_code_() == 200
         assert len(r.history_()) == 1
         assert r.history_()[0].status_code_() == 301
@@ -347,7 +349,7 @@ def test_fragment_not_sent_with_request():
 
     with server as (host, port):
         url = 'http://{}:{}/path/to/thing/#view=edit&token=hunter2'.format(host, port)
-        r = requests.get(url)
+        r = Requests().get(url)
         raw_request = r.content_()
 
         assert r.status_code_() == 200
@@ -390,7 +392,7 @@ def test_fragment_update_on_redirect():
 
     with server as (host, port):
         url = 'http://{}:{}/path/to/thing/#view=edit&token=hunter2'.format(host, port)
-        r = requests.get(url)
+        r = Requests().get(url)
         raw_request = r.content_()
 
         assert r.status_code_() == 200

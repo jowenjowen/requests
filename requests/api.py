@@ -1,26 +1,26 @@
 # -*- coding: utf-8 -*-
-from .domain import Api
+from .domain import Requests
 
 def request(method, url, **kwargs):
-    return Api().request(method, url, **kwargs)
+    return Requests().request(method, url, **kwargs)
 
 def get(url, params=None, **kwargs):
-    return Api().get(url, params, **kwargs)
+    return Requests().get(url, params, **kwargs)
 
 def options(url, **kwargs):
-    return Api().options(url, **kwargs)
+    return Requests().options(url, **kwargs)
 
 def head(url, **kwargs):
-    return Api().head(url, **kwargs)
+    return Requests().head(url, **kwargs)
 
 def post(url, data=None, json=None, **kwargs):
-    return Api().post(url, data, json, **kwargs)
+    return Requests().post(url, data, json, **kwargs)
 
 def put(url, data=None, **kwargs):
-    return Api().put(url, data, **kwargs)
+    return Requests().put(url, data, **kwargs)
 
 def patch(url, data=None, **kwargs):
-    return Api().patch(url, data, **kwargs)
+    return Requests().patch(url, data, **kwargs)
 
 def delete(url, **kwargs):
-    return Api().delete(url, **kwargs)
+    return Requests().delete(url, **kwargs)

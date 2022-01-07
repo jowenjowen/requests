@@ -801,12 +801,12 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
 
 # *************************** classes in Api section *****************
-class Api:  # ./Api/api.py
+class Requests:  # ./Api/api.py
     """
     requests.api
     ~~~~~~~~~~~~
 
-    This module implements the Requests API.
+    This module implements the Requests API. A Requests object uses a Session for all calls to a Request object.
 
     :copyright: (c) 2012 by Kenneth Reitz.
     :license: Apache2, see LICENSE for more details.

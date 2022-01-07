@@ -5,7 +5,8 @@ import socket
 import time
 
 import pytest
-import requests
+from requests import exceptions
+from requests.domain import Requests
 from tests.testserver.server import Server
 
 
@@ -50,7 +51,7 @@ class TestTestServer:
         )
 
         with server as (host, port):
-            r = requests.get('http://{}:{}'.format(host, port))
+            r = Requests().get('http://{}:{}'.format(host, port))
 
             assert r.status_code_() == 200
             assert r.text == u'roflol'
@@ -59,7 +60,7 @@ class TestTestServer:
     def test_basic_response(self):
         """the basic response server returns an empty http response"""
         with Server.basic_response_server() as (host, port):
-            r = requests.get('http://{}:{}'.format(host, port))
+            r = Requests().get('http://{}:{}'.format(host, port))
             assert r.status_code_() == 200
             assert r.text == u''
             assert r.headers_()['Content-Length'] == '0'
@@ -85,12 +86,12 @@ class TestTestServer:
         with server as (host, port):
             server_url = 'http://{}:{}'.format(host, port)
             for _ in range(requests_to_handle):
-                r = requests.get(server_url)
+                r = Requests().get(server_url)
                 assert r.status_code_() == 200
 
             # the (n+1)th request fails
-            with pytest.raises(requests.exceptions.ConnectionError):
-                r = requests.get(server_url)
+            with pytest.raises(exceptions.ConnectionError):
+                r = Requests().get(server_url)
 
     @pytest.mark.skip(reason="this fails non-deterministically under pytest-xdist")
     def test_request_recovery(self):
