@@ -5,22 +5,22 @@ def request(method, url, **kwargs):
     return Requests().request(method, url, **kwargs)
 
 def get(url, params=None, **kwargs):
-    return Requests().get(url, params, **kwargs)
+    return Requests().url_(url).params_(params).get(**kwargs)
 
 def options(url, **kwargs):
-    return Requests().options(url, **kwargs)
+    return Requests().url_(url).options(**kwargs)
 
 def head(url, **kwargs):
-    return Requests().head(url, **kwargs)
+    return Requests().url_(url).head(**kwargs)
 
 def post(url, data=None, json=None, **kwargs):
-    return Requests().post(url, data, json, **kwargs)
+    return Requests().url_(url).data_(data).json_(json).post(**kwargs)
 
 def put(url, data=None, **kwargs):
-    return Requests().put(url, data, **kwargs)
+    return Requests().url_(url).data_(data).put(**kwargs)
 
 def patch(url, data=None, **kwargs):
-    return Requests().patch(url, data, **kwargs)
+    return Requests().url_(url).data_(data).patch(**kwargs)
 
 def delete(url, **kwargs):
-    return Requests().delete(url, **kwargs)
+    return Requests().url_(url).delete(**kwargs)

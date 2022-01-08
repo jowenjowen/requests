@@ -89,7 +89,7 @@ class TestRequests:
         ))
     def test_invalid_url(self, exception, url):
         with pytest.raises(exception):
-            Requests().get(url)
+            Requests().url_(url).get()
 
     def test_basic_building(self):
         pr = Request().url_('http://kennethreitz.org/').data_({'life': '42'}).prepare()
@@ -164,13 +164,13 @@ class TestRequests:
         assert resp.status_code_() == 200
 
     def test_HTTP_302_ALLOW_REDIRECT_GET(self, httpbin):
-        r = Requests().get(httpbin('redirect', '1'))
+        r = Requests().url_(httpbin('redirect', '1')).get()
         assert r.status_code_() == 200
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_HTTP_307_ALLOW_REDIRECT_POST(self, httpbin):
-        r = Requests().post(httpbin('redirect-to'), data='test', params={'url': 'post', 'status_code': 307})
+        r = Requests().url_(httpbin('redirect-to')).post(data='test', params={'url': 'post', 'status_code': 307})
         assert r.status_code_() == 200
         assert r.history_()[0].status_code_() == 307
         assert r.history_()[0].is_redirect()
@@ -178,7 +178,7 @@ class TestRequests:
 
     def test_HTTP_307_ALLOW_REDIRECT_POST_WITH_SEEKABLE(self, httpbin):
         byte_str = b'test'
-        r = Requests().post(httpbin('redirect-to'), data=io.BytesIO(byte_str), params={'url': 'post', 'status_code': 307})
+        r = Requests().url_(httpbin('redirect-to')).post(data=io.BytesIO(byte_str), params={'url': 'post', 'status_code': 307})
         assert r.status_code_() == 200
         assert r.history_()[0].status_code_() == 307
         assert r.history_()[0].is_redirect()
@@ -186,7 +186,7 @@ class TestRequests:
 
     def test_HTTP_302_TOO_MANY_REDIRECTS(self, httpbin):
         try:
-            Requests().get(httpbin('relative-redirect', '50'))
+            Requests().url_(httpbin('relative-redirect', '50')).get()
         except exceptions.TooManyRedirects as e:
             url = httpbin('relative-redirect', '20')
             assert e.request.url_() == url
@@ -209,14 +209,14 @@ class TestRequests:
             pytest.fail('Expected custom max number of redirects to be respected but was not')
 
     def test_http_301_changes_post_to_get(self, httpbin):
-        r = Requests().post(httpbin('status', '301'))
+        r = Requests().url_(httpbin('status', '301')).post()
         assert r.status_code_() == 200
         assert r.request_().method_() == 'GET'
         assert r.history_()[0].status_code_() == 301
         assert r.history_()[0].is_redirect()
 
     def test_http_301_doesnt_change_head_to_get(self, httpbin):
-        r = Requests().head(httpbin('status', '301'), allow_redirects=True)
+        r = Requests().url_(httpbin('status', '301')).head(allow_redirects=True)
         print(r.content_())
         assert r.status_code_() == 200
         assert r.request_().method_() == 'HEAD'
@@ -224,28 +224,28 @@ class TestRequests:
         assert r.history_()[0].is_redirect()
 
     def test_http_302_changes_post_to_get(self, httpbin):
-        r = Requests().post(httpbin('status', '302'))
+        r = Requests().url_(httpbin('status', '302')).post()
         assert r.status_code_() == 200
         assert r.request_().method_() == 'GET'
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_http_302_doesnt_change_head_to_get(self, httpbin):
-        r = Requests().head(httpbin('status', '302'), allow_redirects=True)
+        r = Requests().url_(httpbin('status', '302')).head(allow_redirects=True)
         assert r.status_code_() == 200
         assert r.request_().method_() == 'HEAD'
         assert r.history_()[0].status_code_() == 302
         assert r.history_()[0].is_redirect()
 
     def test_http_303_changes_post_to_get(self, httpbin):
-        r = Requests().post(httpbin('status', '303'))
+        r = Requests().url_(httpbin('status', '303')).post()
         assert r.status_code_() == 200
         assert r.request_().method_() == 'GET'
         assert r.history_()[0].status_code_() == 303
         assert r.history_()[0].is_redirect()
 
     def test_http_303_doesnt_change_head_to_get(self, httpbin):
-        r = Requests().head(httpbin('status', '303'), allow_redirects=True)
+        r = Requests().url_(httpbin('status', '303')).head(allow_redirects=True)
         assert r.status_code_() == 200
         assert r.request_().method_() == 'HEAD'
         assert r.history_()[0].status_code_() == 303
@@ -293,7 +293,7 @@ class TestRequests:
 
     def test_fragment_maintained_on_redirect(self, httpbin):
         fragment = "#view=edit&token=hunter2"
-        r = Requests().get(httpbin('redirect-to?url=get')+fragment)
+        r = Requests().url_(httpbin('redirect-to?url=get')+fragment).get()
 
         assert len(r.history_()) > 0
         assert r.history_()[0].request_().url_() == httpbin('redirect-to?url=get')+fragment
@@ -302,7 +302,7 @@ class TestRequests:
     def test_HTTP_200_OK_GET_WITH_PARAMS(self, httpbin):
         heads = {'User-agent': 'Mozilla/5.0'}
 
-        r = Requests().get(httpbin('user-agent'), headers=heads)
+        r = Requests().url_(httpbin('user-agent')).get(headers=heads)
 
         assert heads['User-agent'] in r.text
         assert r.status_code_() == 200
@@ -310,7 +310,7 @@ class TestRequests:
     def test_HTTP_200_OK_GET_WITH_MIXED_PARAMS(self, httpbin):
         heads = {'User-agent': 'Mozilla/5.0'}
 
-        r = Requests().get(httpbin('get') + '?test=true', params={'q': 'test'}, headers=heads)
+        r = Requests().url_(httpbin('get') + '?test=true').params_({'q': 'test'}).get(headers=heads)
         assert r.status_code_() == 200
 
     def test_set_cookie_on_301(self, httpbin):
@@ -414,16 +414,16 @@ class TestRequests:
         assert cookies['cookie'] == 'tasty'
 
     def test_requests_in_history_are_not_overridden(self, httpbin):
-        resp = Requests().get(httpbin('redirect/3'))
+        resp = Requests().url_(httpbin('redirect/3')).get()
         urls = [r.url_() for r in resp.history_()]
         req_urls = [r.request_().url_() for r in resp.history_()]
         assert urls == req_urls
 
     def test_history_is_always_a_list(self, httpbin):
         """Show that even with redirects, Response.history_() is always a list."""
-        resp = Requests().get(httpbin('get'))
+        resp = Requests().url_(httpbin('get')).get()
         assert isinstance(resp.history_(), list)
-        resp = Requests().get(httpbin('redirect/1'))
+        resp = Requests().url_(httpbin('redirect/1')).get()
         assert isinstance(resp.history_(), list)
         assert not isinstance(resp.history_(), tuple)
 
@@ -459,25 +459,25 @@ class TestRequests:
 
         heads = {key: 'Mozilla/5.0 (github.com/psf/requests)'}
 
-        r = Requests().get(httpbin('user-agent'), headers=heads)
+        r = Requests().url_(httpbin('user-agent')).get(headers=heads)
         assert heads[key] in r.text
 
     def test_HTTP_200_OK_HEAD(self, httpbin):
-        r = Requests().head(httpbin('get'))
+        r = Requests().url_(httpbin('get')).head()
         assert r.status_code_() == 200
 
     def test_HTTP_200_OK_PUT(self, httpbin):
-        r = Requests().put(httpbin('put'))
+        r = Requests().url_(httpbin('put')).put()
         assert r.status_code_() == 200
 
     def test_BASICAUTH_TUPLE_HTTP_200_OK_GET(self, httpbin):
         auth = ('user', 'pass')
         url = httpbin('basic-auth', 'user', 'pass')
 
-        r = Requests().get(url, auth=auth)
+        r = Requests().url_(url).get( auth=auth)
         assert r.status_code_() == 200
 
-        r = Requests().get(url)
+        r = Requests().url_(url).get()
         assert r.status_code_() == 401
 
         s = Session()
@@ -514,25 +514,25 @@ class TestRequests:
         ))
     def test_errors(self, url, exception):
         with pytest.raises(exception):
-            Requests().get(url, timeout=1)
+            Requests().url_(url).get( timeout=1)
 
     def test_proxy_error(self):
         # any proxy related error (address resolution, no route to host, etc) should result in a exceptions.ProxyError
         with pytest.raises(exceptions.ProxyError):
-            Requests().get('http://localhost:1', proxies={'http': 'non-resolvable-address'})
+            Requests().url_('http://localhost:1').get(proxies={'http': 'non-resolvable-address'})
 
     def test_proxy_error_on_bad_url(self, httpbin, httpbin_secure):
         with pytest.raises(exceptions.InvalidProxyURL):
-            Requests().get(httpbin_secure(), proxies={'https': 'http:/badproxyurl:3128'})
+            Requests().url_(httpbin_secure()).get(proxies={'https': 'http:/badproxyurl:3128'})
 
         with pytest.raises(exceptions.InvalidProxyURL):
-            Requests().get(httpbin(), proxies={'http': 'http://:8080'})
+            Requests().url_(httpbin()).get(proxies={'http': 'http://:8080'})
 
         with pytest.raises(exceptions.InvalidProxyURL):
-            Requests().get(httpbin_secure(), proxies={'https': 'https://'})
+            Requests().url_(httpbin_secure()).get(proxies={'https': 'https://'})
 
         with pytest.raises(exceptions.InvalidProxyURL):
-            Requests().get(httpbin(), proxies={'http': 'http:///example.com:8080'})
+            Requests().url_(httpbin()).get(proxies={'http': 'http:///example.com:8080'})
 
     def test_respect_proxy_env_on_send_self_prepared_request(self, httpbin):
         with override_environ(http_proxy=INVALID_PROXY):
@@ -592,11 +592,11 @@ class TestRequests:
             Utils.get_netrc_auth = get_netrc_auth_mock
 
             # Should use netrc and work.
-            r = Requests().get(url)
+            r = Requests().url_(url).get()
             assert r.status_code_() == 200
 
             # Given auth should override and fail.
-            r = Requests().get(url, auth=wrong_auth)
+            r = Requests().url_(url).get( auth=wrong_auth)
             assert r.status_code_() == 401
 
             s = Session()
@@ -618,10 +618,10 @@ class TestRequests:
             auth = HTTPDigestAuth('user', 'pass')
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype, 'never')
 
-            r = Requests().get(url, auth=auth)
+            r = Requests().url_(url).get( auth=auth)
             assert r.status_code_() == 200
 
-            r = Requests().get(url)
+            r = Requests().url_(url).get()
             assert r.status_code_() == 401
             print(r.headers_()['WWW-Authenticate'])
 
@@ -635,10 +635,10 @@ class TestRequests:
         for authtype in self.digest_auth_algo:
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
             auth = HTTPDigestAuth('user', 'pass')
-            r = Requests().get(url)
+            r = Requests().url_(url).get()
             assert r.cookies_()['fake'] == 'fake_value'
 
-            r = Requests().get(url, auth=auth)
+            r = Requests().url_(url).get( auth=auth)
             assert r.status_code_() == 200
 
     def test_DIGEST_AUTH_SETS_SESSION_COOKIES(self, httpbin):
@@ -656,10 +656,10 @@ class TestRequests:
             auth = HTTPDigestAuth('user', 'pass')
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
-            r = Requests().get(url, auth=auth, stream=True)
+            r = Requests().url_(url).get( auth=auth, stream=True)
             assert r.raw_().read() != b''
 
-            r = Requests().get(url, auth=auth, stream=False)
+            r = Requests().url_(url).get( auth=auth, stream=False)
             assert r.raw_().read() == b''
 
     def test_DIGESTAUTH_WRONG_HTTP_401_GET(self, httpbin):
@@ -668,10 +668,10 @@ class TestRequests:
             auth = HTTPDigestAuth('user', 'wrongpass')
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
-            r = Requests().get(url, auth=auth)
+            r = Requests().url_(url).get( auth=auth)
             assert r.status_code_() == 401
 
-            r = Requests().get(url)
+            r = Requests().url_(url).get()
             assert r.status_code_() == 401
 
             s = Session()
@@ -685,31 +685,31 @@ class TestRequests:
             auth = HTTPDigestAuth('user', 'pass')
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype)
 
-            r = Requests().get(url, auth=auth)
+            r = Requests().url_(url).get( auth=auth)
             assert '"auth"' in r.request_().headers_()['Authorization']
 
     def test_POSTBIN_GET_POST_FILES(self, httpbin):
 
         url = httpbin('post')
-        Requests().post(url).raise_for_status()
+        Requests().url_(url).post().raise_for_status()
 
-        post1 = Requests().post(url, data={'some': 'data'})
+        post1 = Requests().url_(url).post(data={'some': 'data'})
         assert post1.status_code_() == 200
 
         with open('requirements-dev.txt') as f:
-            post2 = Requests().post(url, files={'some': f})
+            post2 = Requests().url_(url).post(files={'some': f})
         assert post2.status_code_() == 200
 
-        post4 = Requests().post(url, data='[{"some": "json"}]')
+        post4 = Requests().url_(url).post(data='[{"some": "json"}]')
         assert post4.status_code_() == 200
 
         with pytest.raises(ValueError):
-            Requests().post(url, files=['bad file data'])
+            Requests().url_(url).post(files=['bad file data'])
 
     def test_invalid_files_input(self, httpbin):
 
         url = httpbin('post')
-        post = Requests().post(url,
+        post = Requests().url_(url).post(
                              files={"random-file-1": None, "random-file-2": 1})
         assert b'name="random-file-1"' not in post.request_().body_()
         assert b'name="random-file-2"' in post.request_().body_()
@@ -746,33 +746,33 @@ class TestRequests:
                     self.index = self.length + offset
 
         test = TestStream('test')
-        post1 = Requests().post(httpbin('post'), data=test)
+        post1 = Requests().url_(httpbin('post')).post(data=test)
         assert post1.status_code_() == 200
         assert post1.json()['data'] == 'test'
 
         test = TestStream('test')
         test.seek(2)
-        post2 = Requests().post(httpbin('post'), data=test)
+        post2 = Requests().url_(httpbin('post')).post(data=test)
         assert post2.status_code_() == 200
         assert post2.json()['data'] == 'st'
 
     def test_POSTBIN_GET_POST_FILES_WITH_DATA(self, httpbin):
 
         url = httpbin('post')
-        Requests().post(url).raise_for_status()
+        Requests().url_(url).post().raise_for_status()
 
-        post1 = Requests().post(url, data={'some': 'data'})
+        post1 = Requests().url_(url).post(data={'some': 'data'})
         assert post1.status_code_() == 200
 
         with open('requirements-dev.txt') as f:
-            post2 = Requests().post(url, data={'some': 'data'}, files={'some': f})
+            post2 = Requests().url_(url).post(data={'some': 'data'}, files={'some': f})
         assert post2.status_code_() == 200
 
-        post4 = Requests().post(url, data='[{"some": "json"}]')
+        post4 = Requests().url_(url).post(data='[{"some": "json"}]')
         assert post4.status_code_() == 200
 
         with pytest.raises(ValueError):
-            Requests().post(url, files=['bad file data'])
+            Requests().url_(url).post(files=['bad file data'])
 
     def test_post_with_custom_mapping(self, httpbin):
         class CustomMapping(XMutableMapping):
@@ -796,31 +796,31 @@ class TestRequests:
 
         data = CustomMapping({'some': 'data'})
         url = httpbin('post')
-        found_json = Requests().post(url, data=data).json().get('form')
+        found_json = Requests().url_(url).post(data=data).json().get('form')
         assert found_json == {'some': 'data'}
 
     def test_conflicting_post_params(self, httpbin):
         url = httpbin('post')
         with open('requirements-dev.txt') as f:
             with pytest.raises(ValueError):
-                Requests().post(url, data='[{"some": "data"}]', files={'some': f})
+                Requests().url_(url).post(data='[{"some": "data"}]', files={'some': f})
             with pytest.raises(ValueError):
-                Requests().post(url, data=u('[{"some": "data"}]'), files={'some': f})
+                Requests().url_(url).post(data=u('[{"some": "data"}]'), files={'some': f})
 
     def test_request_ok_set(self, httpbin):
-        r = Requests().get(httpbin('status', '404'))
+        r = Requests().url_(httpbin('status', '404')).get()
         assert not r.ok()
 
     def test_status_raising(self, httpbin):
-        r = Requests().get(httpbin('status', '404'))
+        r = Requests().url_(httpbin('status', '404')).get()
         with pytest.raises(exceptions.HTTPError):
             r.raise_for_status()
 
-        r = Requests().get(httpbin('status', '500'))
+        r = Requests().url_(httpbin('status', '500')).get()
         assert not r.ok()
 
     def test_decompress_gzip(self, httpbin):
-        r = Requests().get(httpbin('gzip'))
+        r = Requests().url_(httpbin('gzip')).get()
         r.content_().decode('ascii')
 
     @pytest.mark.parametrize(
@@ -832,35 +832,33 @@ class TestRequests:
             ('ø', {'foo': 'foo'}),
         ))
     def test_unicode_get(self, httpbin, url, params):
-        Requests().get(httpbin(url), params=params)
+        Requests().url_(httpbin(url)).params_(params).get()
 
     def test_unicode_header_name(self, httpbin):
-        Requests().put(
-            httpbin('put'),
-            headers={XCompat().str('Content-Type'): 'application/octet-stream'},
-            data='\xff')  # XCompat().str is unicode.
+        Requests().url_(httpbin('put')).data_('\xff').put(
+            headers={XCompat().str('Content-Type'): 'application/octet-stream'})  # XCompat().str is unicode.
 
     def test_pyopenssl_redirect(self, httpbin_secure, httpbin_ca_bundle):
-        Requests().get(httpbin_secure('status', '301'), verify=httpbin_ca_bundle)
+        Requests().url_(httpbin_secure('status', '301')).get(verify=httpbin_ca_bundle)
 
     def test_invalid_ca_certificate_path(self, httpbin_secure):
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
-            Requests().get(httpbin_secure(), verify=INVALID_PATH)
+            Requests().url_(httpbin_secure()).get(verify=INVALID_PATH)
         assert XCompat().str(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {}'.format(INVALID_PATH)
 
     def test_invalid_ssl_certificate_files(self, httpbin_secure):
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
-            Requests().get(httpbin_secure(), cert=INVALID_PATH)
+            Requests().url_(httpbin_secure()).get(cert=INVALID_PATH)
         assert XCompat().str(e.value) == 'Could not find the TLS certificate file, invalid path: {}'.format(INVALID_PATH)
 
         with pytest.raises(IOError) as e:
-            Requests().get(httpbin_secure(), cert=('.', INVALID_PATH))
+            Requests().url_(httpbin_secure()).get(cert=('.', INVALID_PATH))
         assert XCompat().str(e.value) == 'Could not find the TLS key file, invalid path: {}'.format(INVALID_PATH)
 
     def test_http_with_certificate(self, httpbin):
-        r = Requests().get(httpbin(), cert='.')
+        r = Requests().url_(httpbin()).get(cert='.')
         assert r.status_code_() == 200
 
     def test_https_warnings(self, nosan_server):
@@ -875,7 +873,7 @@ class TestRequests:
 
         with pytest.warns(None) as warning_records:
             warnings.simplefilter('always')
-            Requests().get("https://localhost:{}/".format(port), verify=ca_bundle)
+            Requests().url_("https://localhost:{}/".format(port)).get(verify=ca_bundle)
 
         warning_records = [item for item in warning_records
                            if item.category.__name__ != 'ResourceWarning']
@@ -891,11 +889,11 @@ class TestRequests:
         with pytest.raises(exceptions.SSLError):
             # Our local httpbin does not have a trusted CA, so this call will
             # fail if we use our default trust bundle.
-            Requests().get(httpbin_secure('status', '200'))
+            Requests().url_(httpbin_secure('status''200')).get()
 
     def test_urlencoded_get_query_multivalued_param(self, httpbin):
 
-        r = Requests().get(httpbin('get'), params={'test': ['foo', 'baz']})
+        r = Requests().url_(httpbin('get')).params_({'test': ['foo', 'baz']}).get()
         assert r.status_code_() == 200
         assert r.url_() == httpbin('get?test=foo&test=baz')
 
@@ -904,7 +902,7 @@ class TestRequests:
         assert prep.body_() == 'test=foo&test=baz'
 
     def test_different_encodings_dont_break_post(self, httpbin):
-        r = Requests().post(httpbin('post'),
+        r = Requests().url_(httpbin('post')).post(
             data={'stuff': json.dumps({'a': 123})},
             params={'blah': 'asdf1234'},
             files={'file': ('test_requests.py', open(__file__, 'rb'))})
@@ -918,7 +916,7 @@ class TestRequests:
             {'stuff': 'elixr'.encode('utf-8')},
         ))
     def test_unicode_multipart_post(self, httpbin, data):
-        r = Requests().post(httpbin('post'),
+        r = Requests().url_(httpbin('post')).post(
             data=data,
             files={'file': ('test_requests.py', open(__file__, 'rb'))})
         assert r.status_code_() == 200
@@ -957,8 +955,7 @@ class TestRequests:
         assert XCompat().str(e.value) == 'You can only send PreparedRequests.'
 
     def test_custom_content_type(self, httpbin):
-        r = Requests().post(
-            httpbin('post'),
+        r = Requests().url_(httpbin('post')).post(
             data={'stuff': json.dumps({'a': 123})},
             files={
                 'file1': ('test_requests.py', open(__file__, 'rb')),
@@ -1214,7 +1211,7 @@ class TestRequests:
         assert isinstance(jar.copy().get_policy(), MyCookiePolicy)
 
     def test_time_elapsed_blank(self, httpbin):
-        r = Requests().get(httpbin('get'))
+        r = Requests().url_(httpbin('get')).get()
         td = r.elapsed_()
         total_seconds = ((td.microseconds + (td.seconds + td.days * 24 * 3600) * 10**6) / 10**6)
         assert total_seconds > 0.0
@@ -1295,7 +1292,7 @@ class TestRequests:
             chunks = r.iter_content("1024")
 
     def test_request_and_response_are_pickleable(self, httpbin):
-        r = Requests().get(httpbin('get'))
+        r = Requests().url_(httpbin('get')).get()
 
         # verify we can pickle the original request
         assert pickle.loads(pickle.dumps(r.request_()))
@@ -1391,7 +1388,7 @@ class TestRequests:
     def test_uppercase_scheme_redirect(self, httpbin):
         parts = XCompat().urlparse(httpbin('html'))
         url = "HTTP://" + parts.netloc + parts.path
-        r = Requests().get(httpbin('redirect-to'), params={'url': url})
+        r = Requests().url_(httpbin('redirect-to')).params_({'url': url}).get()
         assert r.status_code_() == 200
         assert r.url_().lower() == url.lower()
 
@@ -1508,7 +1505,7 @@ class TestRequests:
                       'bar': u'fbbq'.encode('utf8'),
                       'baz': '',
                       'qux': '1'}
-        r = Requests().get(httpbin('get'), headers = headers_ok)
+        r = Requests().url_(httpbin('get')).get(headers = headers_ok)
         assert r.request_().headers_()['foo'] == headers_ok['foo']
 
     def test_header_value_not_str(self, httpbin):
@@ -1521,15 +1518,15 @@ class TestRequests:
 
         # Test for int
         with pytest.raises(exceptions.InvalidHeader) as excinfo:
-            r = Requests().get(httpbin('get'), headers=headers_int)
+            r = Requests().url_(httpbin('get')).get(headers=headers_int)
         assert 'foo' in XCompat().str(excinfo.value)
         # Test for dict
         with pytest.raises(exceptions.InvalidHeader) as excinfo:
-            r = Requests().get(httpbin('get'), headers=headers_dict)
+            r = Requests().url_(httpbin('get')).get(headers=headers_dict)
         assert 'bar' in XCompat().str(excinfo.value)
         # Test for list
         with pytest.raises(exceptions.InvalidHeader) as excinfo:
-            r = Requests().get(httpbin('get'), headers=headers_list)
+            r = Requests().url_(httpbin('get')).get(headers=headers_list)
         assert 'baz' in XCompat().str(excinfo.value)
 
     def test_header_no_return_chars(self, httpbin):
@@ -1542,13 +1539,13 @@ class TestRequests:
 
         # Test for newline
         with pytest.raises(exceptions.InvalidHeader):
-            r = Requests().get(httpbin('get'), headers=headers_ret)
+            r = Requests().url_(httpbin('get')).get(headers=headers_ret)
         # Test for line feed
         with pytest.raises(exceptions.InvalidHeader):
-            r = Requests().get(httpbin('get'), headers=headers_lf)
+            r = Requests().url_(httpbin('get')).get(headers=headers_lf)
         # Test for carriage return
         with pytest.raises(exceptions.InvalidHeader):
-            r = Requests().get(httpbin('get'), headers=headers_cr)
+            r = Requests().url_(httpbin('get')).get(headers=headers_cr)
 
     def test_header_no_leading_space(self, httpbin):
         """Ensure headers containing leading whitespace raise
@@ -1559,10 +1556,10 @@ class TestRequests:
 
         # Test for whitespace
         with pytest.raises(exceptions.InvalidHeader):
-            r = Requests().get(httpbin('get'), headers=headers_space)
+            r = Requests().url_(httpbin('get')).get(headers=headers_space)
         # Test for tab
         with pytest.raises(exceptions.InvalidHeader):
-            r = Requests().get(httpbin('get'), headers=headers_tab)
+            r = Requests().url_(httpbin('get')).get(headers=headers_tab)
 
     @pytest.mark.parametrize('files', ('foo', b'foo', bytearray(b'foo')))
     def test_can_send_objects_with_files(self, httpbin, files):
@@ -1597,9 +1594,8 @@ class TestRequests:
             assert test_url == preq.url_()
 
     def test_auth_is_stripped_on_http_downgrade(self, httpbin, httpbin_secure, httpbin_ca_bundle):
-        r = Requests().get(
-            httpbin_secure('redirect-to'),
-            params={'url': httpbin('get')},
+        r = Requests().url_(httpbin_secure('redirect-to'))\
+            .params_({'url': httpbin('get')}).get(
             auth=('user', 'pass'),
             verify=httpbin_ca_bundle
         )
@@ -1607,7 +1603,7 @@ class TestRequests:
         assert 'Authorization' not in r.request_().headers_()
 
     def test_auth_is_retained_for_redirect_on_host(self, httpbin):
-        r = Requests().get(httpbin('redirect/1'), auth=('user', 'pass'))
+        r = Requests().url_(httpbin('redirect/1')).get(auth=('user', 'pass'))
         h1 = r.history_()[0].request_().headers_()['Authorization']
         h2 = r.request_().headers_()['Authorization']
 
@@ -1789,7 +1785,7 @@ class TestRequests:
         assert s == auth_str
 
     def test_requests_history_is_saved(self, httpbin):
-        r = Requests().get(httpbin('redirect/5'))
+        r = Requests().url_(httpbin('redirect/5')).get()
         total = r.history_()[-1].history_()
         i = 0
         for item in r.history_():
@@ -1797,10 +1793,7 @@ class TestRequests:
             i += 1
 
     def test_json_param_post_content_type_works(self, httpbin):
-        r = Requests().post(
-            httpbin('post'),
-            json={'life': 42}
-        )
+        r = Requests().url_(httpbin('post')).post(json={'life': 42})
         assert r.status_code_() == 200
         assert 'application/json' in r.request_().headers_()['Content-Type']
         assert {'life': 42} == r.json()['json']
@@ -1811,7 +1804,7 @@ class TestRequests:
         assert 'stuff=elixr' == prep.body_()
 
     def test_response_iter_lines(self, httpbin):
-        r = Requests().get(httpbin('stream/4'), stream=True)
+        r = Requests().url_(httpbin('stream/4')).get(stream=True)
         assert r.status_code_() == 200
 
         it = r.iter_lines()
@@ -1819,7 +1812,7 @@ class TestRequests:
         assert len(list(it)) == 3
 
     def test_response_context_manager(self, httpbin):
-        with Requests().get(httpbin('stream/4'), stream=True) as response:
+        with Requests().url_(httpbin('stream/4')).get(stream=True) as response:
             assert isinstance(response, Response)
 
         assert response.raw_().closed
@@ -1836,7 +1829,7 @@ class TestRequests:
     @pytest.mark.xfail
     def test_response_iter_lines_reentrant(self, httpbin):
         """Response.iter_lines() is not reentrant safe"""
-        r = Requests().get(httpbin('stream/4'), stream=True)
+        r = Requests().url_(httpbin('stream/4')).get(stream=True)
         assert r.status_code_() == 200
 
         next(r.iter_lines())
@@ -1864,7 +1857,7 @@ class TestRequests:
         assert headers == {'Proxy-Authorization': 'Basic dXNlcjo='}
 
     def test_response_json_when_content_is_None(self, httpbin):
-        r = Requests().get(httpbin('/status/204'))
+        r = Requests().url_(httpbin('/status/204')).get()
         # Make sure r.content is None
         r.status_code_(0)
         r.contentClass._content = False
@@ -2154,7 +2147,7 @@ class TestTimeout:
 
     def test_stream_timeout(self, httpbin):
         try:
-            Requests().get(httpbin('delay/10'), timeout=2.0)
+            Requests().url_(httpbin('delay/10')).get(timeout=2.0)
         except exceptions.Timeout as e:
             assert 'Read timed out' in e.args[0].args[0]
 
@@ -2165,7 +2158,7 @@ class TestTimeout:
         ))
     def test_invalid_timeout(self, httpbin, timeout, error_text):
         with pytest.raises(ValueError) as e:
-            Requests().get(httpbin('get'), timeout=timeout)
+            Requests().url_(httpbin('get')).get(timeout=timeout)
         assert error_text in XCompat().str(e)
 
     @pytest.mark.parametrize(
@@ -2182,7 +2175,7 @@ class TestTimeout:
         Instead we verify that setting the timeout to None does not prevent the
         request from succeeding.
         """
-        r = Requests().get(httpbin('get'), timeout=timeout)
+        r = Requests().url_(httpbin('get')).get(timeout=timeout)
         assert r.status_code_() == 200
 
     @pytest.mark.parametrize(
@@ -2192,7 +2185,7 @@ class TestTimeout:
         ))
     def test_read_timeout(self, httpbin, timeout):
         try:
-            Requests().get(httpbin('delay/10'), timeout=timeout)
+            Requests().url_(httpbin('delay/10')).get(timeout=timeout)
             pytest.fail('The recv() request should time out.')
         except exceptions.ReadTimeout:
             pass
@@ -2204,7 +2197,7 @@ class TestTimeout:
         ))
     def test_connect_timeout(self, timeout):
         try:
-            Requests().get(TARPIT, timeout=timeout)
+            Requests().url_(TARPIT).get(timeout=timeout)
             pytest.fail('The connect() request should time out.')
         except exceptions.ConnectTimeout as e:
             assert isinstance(e, exceptions.ConnectionError)
@@ -2217,7 +2210,7 @@ class TestTimeout:
         ))
     def test_total_timeout_connect(self, timeout):
         try:
-            Requests().get(TARPIT, timeout=timeout)
+            Requests().url_(TARPIT).get(timeout=timeout)
             pytest.fail('The connect() request should time out.')
         except exceptions.ConnectTimeout:
             pass
@@ -2465,7 +2458,7 @@ class TestPreparingURLs(object):
     )
     def test_redirecting_to_bad_url(self, httpbin, url, exception):
         with pytest.raises(exception):
-            r = Requests().get(httpbin('redirect-to'), params={'url': url})
+            r = Requests().url_(httpbin('redirect-to')).params_({'url': url}).get()
 
     @pytest.mark.parametrize(
         'input, expected',
@@ -2540,9 +2533,9 @@ class TestPreparingURLs(object):
     def test_post_json_nan(self, httpbin):
         data = {"foo": float("nan")}
         with pytest.raises(exceptions.InvalidJSONError):
-          r = Requests().post(httpbin('post'), json=data)
+          r = Requests().url_(httpbin('post')).post(json=data)
 
     def test_json_decode_compatibility(self, httpbin):
-        r = Requests().get(httpbin('bytes/20'))
+        r = Requests().url_(httpbin('bytes/20')).get()
         with pytest.raises(exceptions.JSONDecodeError):
             r.json()

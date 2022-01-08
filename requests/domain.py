@@ -811,6 +811,10 @@ class Requests:  # ./Api/api.py
     :copyright: (c) 2012 by Kenneth Reitz.
     :license: Apache2, see LICENSE for more details.
     """
+    def __init__(self):
+        self.data_(None)
+        self.json_(None)
+        self.params_(None)
 
     def request(self, method, url, **kwargs):  # ./Api/api.py
         """Constructs and sends a :class:`Request <Request>`.
@@ -859,7 +863,7 @@ class Requests:  # ./Api/api.py
         with Sessions().session() as session:
             return session.request(method=method, url=url, **kwargs)
 
-    def get(self, url, params=None, **kwargs):  # ./Api/api.py
+    def get(self, **kwargs):  # ./Api/api.py
         r"""Sends a GET request.
 
         :param url: URL for the new :class:`Request` object.
@@ -870,9 +874,9 @@ class Requests:  # ./Api/api.py
         :rtype: requests.Response
         """
 
-        return self.request('get', url, params=params, **kwargs)
+        return self.request('get', self.url_(), params=self.params_(), **kwargs)
 
-    def options(self, url, **kwargs):  # ./Api/api.py
+    def options(self, **kwargs):  # ./Api/api.py
         r"""Sends an OPTIONS request.
 
         :param url: URL for the new :class:`Request` object.
@@ -881,9 +885,9 @@ class Requests:  # ./Api/api.py
         :rtype: requests.Response
         """
 
-        return self.request('options', url, **kwargs)
+        return self.request('options', self.url_(), **kwargs)
 
-    def head(self, url, **kwargs):  # ./Api/api.py
+    def head(self, **kwargs):  # ./Api/api.py
         r"""Sends a HEAD request.
 
         :param url: URL for the new :class:`Request` object.
@@ -895,9 +899,9 @@ class Requests:  # ./Api/api.py
         """
 
         kwargs.setdefault('allow_redirects', False)
-        return self.request('head', url, **kwargs)
+        return self.request('head', self.url_(), **kwargs)
 
-    def post(self, url, data=None, json=None, **kwargs):  # ./Api/api.py
+    def post(self, **kwargs):  # ./Api/api.py
         r"""Sends a POST request.
 
         :param url: URL for the new :class:`Request` object.
@@ -909,9 +913,9 @@ class Requests:  # ./Api/api.py
         :rtype: requests.Response
         """
 
-        return self.request('post', url, data=data, json=json, **kwargs)
+        return self.request('post', self.url_(), **kwargs)
 
-    def put(self, url, data=None, **kwargs):  # ./Api/api.py
+    def put(self, **kwargs):  # ./Api/api.py
         r"""Sends a PUT request.
 
         :param url: URL for the new :class:`Request` object.
@@ -923,9 +927,9 @@ class Requests:  # ./Api/api.py
         :rtype: requests.Response
         """
 
-        return self.request('put', url, data=data, **kwargs)
+        return self.request('put', self.url_(), data=self.data_(), **kwargs)
 
-    def patch(self, url, data=None, **kwargs):  # ./Api/api.py
+    def patch(self, **kwargs):  # ./Api/api.py
         r"""Sends a PATCH request.
 
         :param url: URL for the new :class:`Request` object.
@@ -937,9 +941,9 @@ class Requests:  # ./Api/api.py
         :rtype: requests.Response
         """
 
-        return self.request('patch', url, data=data, **kwargs)
+        return self.request('patch', self.url_(), data=self.data_(), **kwargs)
 
-    def delete(self, url, **kwargs):  # ./Api/api.py
+    def delete(self, **kwargs):  # ./Api/api.py
         r"""Sends a DELETE request.
 
         :param url: URL for the new :class:`Request` object.
@@ -948,7 +952,19 @@ class Requests:  # ./Api/api.py
         :rtype: requests.Response
         """
 
-        return self.request('delete', url, **kwargs)
+        return self.request('delete', self.url_(), **kwargs)
+
+    def url_(self, *args):  # ./Requests.py
+        return XUtils().get_or_set(self, 'url', *args)
+
+    def json_(self, *args): # ./Requests.py
+        return XUtils().get_or_set(self, 'json', *args)
+
+    def data_(self, *args):  # ./Requests.py
+        return XUtils().get_or_set(self, 'data', *args)
+
+    def params_(self, *args):  # ./Requests.py
+        return XUtils().get_or_set(self, 'params', *args)
 
 
 # *************************** classes in Auth section *****************
