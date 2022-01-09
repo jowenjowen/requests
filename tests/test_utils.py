@@ -52,7 +52,7 @@ class TestSuperLen:
     @pytest.mark.parametrize('error', [IOError, OSError])
     def test_super_len_handles_files_raising_weird_errors_in_tell(self, error):
         """If tell() raises errors, assume the cursor is at position zero."""
-        class BoomFile(object):
+        class BoomFile:
             def __len__(self):
                 return 5
 
@@ -64,7 +64,7 @@ class TestSuperLen:
     @pytest.mark.parametrize('error', [IOError, OSError])
     def test_super_len_tell_ioerror(self, error):
         """Ensure that if tell gives an IOError super_len doesn't fail"""
-        class NoLenBoomFile(object):
+        class NoLenBoomFile:
             def tell(self):
                 raise error()
 
@@ -106,7 +106,7 @@ class TestSuperLen:
         assert len_foo == 4
 
     def test_super_len_with_no__len__(self):
-        class LenFile(object):
+        class LenFile:
             def __init__(self):
                 self.len = 5
 

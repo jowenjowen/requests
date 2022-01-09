@@ -2,6 +2,7 @@
 
 import pytest
 import threading
+
 from requests import exceptions
 from requests.domain import Requests
 from requests.domain import HTTPDigestAuth

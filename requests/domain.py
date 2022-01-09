@@ -6,6 +6,12 @@
 from requests.x import XPlatform, XJson, XUrllib3, XSys, XCharSetNormalizer, XCharDet, \
     XOpenSSL, XIdna, XCryptography, XSsl, XPyOpenSsl, XMutableMapping, XOrderedDict, XMapping, XUtils
 
+from requests.x import XStr
+from requests.x import XBytes
+from requests.x import XBuiltinStr
+from requests.x import XBaseString
+from requests.x import XUrl
+
 # classes needed for Auth section
 from requests.x import XWarnings, XBase64, XHashLib, XTime, XOs, XRe
 
@@ -147,7 +153,7 @@ class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.
         return CaseInsensitiveDict(self._store.values())
 
     def __repr__(self):
-        return XCompat().str(dict(self.items()))
+        return XStr().new(dict(self.items()))
 
 class LookupDict(dict):  # ./Structures/LookupDict.py
     """Dictionary lookup object."""
@@ -289,7 +295,7 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
         return self._codes_dict.get(name)
 
 # *************************** classes in Adapters section *****************
-class Adapters:  # ./Adapters/Adapters.py
+class Connections:  # ./Adapters/Adapters.py
     """
     requests.adapters
     ~~~~~~~~~~~~~~~~~
@@ -315,11 +321,11 @@ class Adapters:  # ./Adapters/Adapters.py
             raise InvalidSchema("Missing dependencies for SOCKS support.")
         return result
 
-class BaseAdapter(object):  # ./Adapters/BaseAdapter.py
+class BaseConnections(object):  # ./Adapters/BaseAdapter.py
     """The Base Transport Adapter"""
 
     def __init__(self):  # ./Adapters/BaseAdapter.py
-        super(BaseAdapter, self).__init__()
+        super(BaseConnections, self).__init__()
 
     def send(self, request, stream=False, timeout=None, verify=True,
              cert=None, proxies=None):  # ./Adapters/BaseAdapter.py
@@ -344,7 +350,7 @@ class BaseAdapter(object):  # ./Adapters/BaseAdapter.py
         raise NotImplementedError
 
 
-class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
+class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
     """The built-in HTTP Adapter for urllib3.
 
     Provides a general-case interface for Requests sessions to contact HTTP and
@@ -367,23 +373,23 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
 
       >>> import requests
       >>> s = requests.Session()
-      >>> a = requests.adapters.HTTPAdapter(max_retries=3)
+      >>> a = requests.adapters.HTTPconnections(max_retries=3)
       >>> s.mount('http://', a)
     """
     __attrs__ = ['max_retries', 'config', '_xpool_connections', '_xpool_maxsize',
                  '_xpool_block']
 
-    def __init__(self, xpool_connections=Adapters().DEFAULT_XPOOLSIZE(),
-                 pool_maxsize=Adapters().DEFAULT_XPOOLSIZE(), max_retries=Adapters().DEFAULT_RETRIES(),
-                 pool_block=Adapters().DEFAULT_XPOOLBLOCK()):  # ./Adapters/HTTPAdapter.py
-        if max_retries == Adapters().DEFAULT_RETRIES():
+    def __init__(self, xpool_connections=Connections().DEFAULT_XPOOLSIZE(),
+                 pool_maxsize=Connections().DEFAULT_XPOOLSIZE(), max_retries=Connections().DEFAULT_RETRIES(),
+                 pool_block=Connections().DEFAULT_XPOOLBLOCK()):  # ./Adapters/HTTPAdapter.py
+        if max_retries == Connections().DEFAULT_RETRIES():
             self.max_retries = XUrllib3().util().retry.Retry(0, read=False)
         else:
             self.max_retries = XUrllib3().util().retry.Retry.from_int(max_retries)
         self.config = {}
         self.proxy_manager = {}
 
-        super(HTTPAdapter, self).__init__()
+        super(HTTPconnections, self).__init__()
 
         self._xpool_connections = xpool_connections
         self._xpool_maxsize = pool_maxsize
@@ -406,7 +412,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         self.init_xpoolmanager(self._xpool_connections, self._xpool_maxsize,
                               block=self._xpool_block)
 
-    def init_xpoolmanager(self, xconnections, maxsize, block=Adapters().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Adapters/HTTPAdapter.py
+    def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Adapters/HTTPAdapter.py
         """Initializes a urllib3 PoolManager.
 
         This method should not be called from user code, and is only
@@ -502,7 +508,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             xconn.ca_cert_dir = None
 
         if cert:
-            if not XCompat().is_basestring_instance(cert):
+            if not XBaseString().is_instance(cert):
                 xconn.cert_file = cert[0]
                 xconn.key_file = cert[1]
             else:
@@ -573,7 +579,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
             xconn = proxy_manager.connection_from_url(url)
         else:
             # Only scheme should be lower case
-            parsed = XCompat().urlparse(url)
+            parsed = XUrl().parse(url)
             url = parsed.geturl()
             xconn = self.xpoolmanager.connection_from_url(url)
 
@@ -604,12 +610,12 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
         :rtype: str
         """
         proxy = Utils().select_proxy(request.url_(), proxies)
-        scheme = XCompat().urlparse(request.url_()).scheme
+        scheme = XUrl().parse(request.url_()).scheme
 
         is_proxied_http_request = (proxy and scheme != 'https')
         using_socks_proxy = False
         if proxy:
-            proxy_scheme = XCompat().urlparse(proxy).scheme.lower()
+            proxy_scheme = XUrl().parse(proxy).scheme.lower()
             using_socks_proxy = proxy_scheme.startswith('socks')
 
         url = request.path_url
@@ -717,7 +723,7 @@ class HTTPAdapter(BaseAdapter):  # ./Adapters/HTTPAdapter.py
                 if hasattr(xconn, 'proxy_pool'):
                     xconn = xconn.proxy_pool
 
-                low_conn = xconn._get_conn(timeout=Adapters().DEFAULT_XPOOL_TIMEOUT())
+                low_conn = xconn._get_conn(timeout=Connections().DEFAULT_XPOOL_TIMEOUT())
 
                 try:
                     skip_host = 'Host' in request.headers_()
@@ -983,7 +989,7 @@ class Auth:  # ./Auth/auth.py
         #
         # These are here solely to maintain backwards compatibility
         # for things like ints. This will be removed in 3.0.0.
-        if not XCompat().is_basestring_instance(username):
+        if not XBaseString().is_instance(username):
             XWarnings().warn((
                 "Non-string usernames will no longer be supported in Requests "
                 "3.0.0. Please convert the object you've passed in ({!r}) to "
@@ -991,9 +997,9 @@ class Auth:  # ./Auth/auth.py
                 "problems.".format(username)),
                 category=DeprecationWarning,
             )
-            username = XCompat().str(username)
+            username = XStr().new(username)
 
-        if not XCompat().is_basestring_instance(password):
+        if not XBaseString().is_instance(password):
             XWarnings().warn((
                 "Non-string passwords will no longer be supported in Requests "
                 "3.0.0. Please convert the object you've passed in ({!r}) to "
@@ -1001,13 +1007,13 @@ class Auth:  # ./Auth/auth.py
                 "problems.".format(type(password))),
                 category=DeprecationWarning,
             )
-            password = XCompat().str(password)
+            password = XStr().new(password)
         # -- End Removal --
 
-        if XCompat().is_str_instance(username):
+        if XStr().is_instance(username):
             username = username.encode('latin1')
 
-        if XCompat().is_str_instance(password):
+        if XStr().is_instance(password):
             password = password.encode('latin1')
 
         authstr = 'Basic ' + XUtils().to_native_string(
@@ -1017,7 +1023,7 @@ class Auth:  # ./Auth/auth.py
         return authstr
 
 
-class AuthBase(object):  # ./Auth/AuthBase.py
+class AuthBase:  # ./Auth/AuthBase.py
     """Base class that all auth implementations derive from"""
 
     def __call__(self, r):  # ./Auth/AuthBase.py
@@ -1074,7 +1080,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
     def build_digest_header(self, method, url):  # ./Auth/HTTPDigestAuth.py
         """
-        :rtype: XCompat().str_class()
+        :rtype: XStr().clazz()
         """
 
         realm = self._thread_local.chal['realm']
@@ -1091,25 +1097,25 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         # lambdas assume digest modules are imported at the top level
         if _algorithm == 'MD5' or _algorithm == 'MD5-SESS':
             def md5_utf8(x):
-                if XCompat().is_str_instance(x):
+                if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().md5(x).hexdigest()
             hash_utf8 = md5_utf8
         elif _algorithm == 'SHA':
             def sha_utf8(x):
-                if XCompat().is_str_instance(x):
+                if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha1(x).hexdigest()
             hash_utf8 = sha_utf8
         elif _algorithm == 'SHA-256':
             def sha256_utf8(x):
-                if XCompat().is_str_instance(x):
+                if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha256(x).hexdigest()
             hash_utf8 = sha256_utf8
         elif _algorithm == 'SHA-512':
             def sha512_utf8(x):
-                if XCompat().is_str_instance(x):
+                if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha512(x).hexdigest()
             hash_utf8 = sha512_utf8
@@ -1121,7 +1127,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
         # XXX not implemented yet
         entdig = None
-        p_parsed = XCompat().urlparse(url)
+        p_parsed = XUrl().parse(url)
         #: path is request-uri defined in RFC 2616 which should not be empty
         path = p_parsed.path or "/"
         if p_parsed.query:
@@ -1138,7 +1144,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         else:
             self._thread_local.nonce_count = 1
         ncvalue = '%08x' % self._thread_local.nonce_count
-        s = XCompat().str(self._thread_local.nonce_count).encode('utf-8')
+        s = XStr().new(self._thread_local.nonce_count).encode('utf-8')
         s += nonce.encode('utf-8')
         s += XTime().ctime().encode('utf-8')
         s += XOs().urandom(8)
@@ -1909,7 +1915,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
 
         url = []
 
-        p = XCompat().urlsplit(self.url_())
+        p = XUrl().split(self.url_())
 
         path = p.path
         if not path:
@@ -1933,21 +1939,21 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
         if parameters are supplied as a dict.
         """
 
-        if isinstance(data, (XCompat().str_class(), XCompat().bytes_class())):
+        if isinstance(data, (XStr().clazz(), XBytes().clazz())):
             return data
         elif hasattr(data, 'read'):
             return data
         elif hasattr(data, '__iter__'):
             result = []
             for k, vs in Utils().to_key_val_list(data):
-                if XCompat().is_basestring_instance(vs) or not hasattr(vs, '__iter__'):
+                if XBaseString().is_instance(vs) or not hasattr(vs, '__iter__'):
                     vs = [vs]
                 for v in vs:
                     if v is not None:
                         result.append(
-                            (k.encode('utf-8') if XCompat().is_str_instance(k) else k,
-                             v.encode('utf-8') if XCompat().is_str_instance(v) else v))
-            return XCompat().urlencode(result, doseq=True)
+                            (k.encode('utf-8') if XStr().is_instance(k) else k,
+                             v.encode('utf-8') if XStr().is_instance(v) else v))
+            return XUrl().encode(result, doseq=True)
         else:
             return data
 
@@ -1963,7 +1969,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
         """
         if (not files):
             raise ValueError("Files must be provided.")
-        elif XCompat().is_basestring_instance(data):
+        elif XBaseString().is_instance(data):
             raise ValueError("Data must not be a string.")
 
         new_fields = []
@@ -1971,17 +1977,17 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
         files = Utils().to_key_val_list(files or {})
 
         for field, val in fields:
-            if XCompat().is_basestring_instance(val) or not hasattr(val, '__iter__'):
+            if XBaseString().is_instance(val) or not hasattr(val, '__iter__'):
                 val = [val]
             for v in val:
                 if v is not None:
                     # Don't call str() on bytestrings: in Py3 it all goes wrong.
-                    if not XCompat().is_bytes_instance(v):
-                        v = XCompat().str(v)
+                    if not XBytes().is_instance(v):
+                        v = XStr().new(v)
 
                     new_fields.append(
-                        (field.decode('utf-8') if XCompat().is_bytes_instance(field) else field,
-                         v.encode('utf-8') if XCompat().is_str_instance(v) else v))
+                        (field.decode('utf-8') if XBytes().is_instance(field) else field,
+                         v.encode('utf-8') if XStr().is_instance(v) else v))
 
         for (k, v) in files:
             # support for explicit filename
@@ -1998,7 +2004,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
                 fn = Utils().guess_filename(v) or k
                 fp = v
 
-            if isinstance(fp, (XCompat().str_class(), XCompat().bytes_class(), bytearray)):
+            if isinstance(fp, (XStr().clazz(), XBytes().clazz(), bytearray)):
                 fdata = fp
             elif hasattr(fp, 'read'):
                 fdata = fp.read()
@@ -2016,7 +2022,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
         return body, content_type
 
 
-class RequestHooksMixin(object):  # ./Models/RequestHooksMixin.py
+class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
     def register_hook(self, event, hook):
         """Properly register a hook."""
 
@@ -2242,10 +2248,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         #: as this will include the bytestring indicator (b'')
         #: on python 3.x.
         #: https://github.com/psf/requests/pull/2238
-        if XCompat().is_bytes_instance(url):
+        if XBytes().is_instance(url):
             url = url.decode('utf8')
         else:
-            url = unicode(url) if XCompat().is_py2() else XCompat().str(url)
+            url = unicode(url) if XCompat().is_py2() else XStr().new(url)
 
         # Remove leading whitespaces from url
         url = url.lstrip()
@@ -2290,25 +2296,25 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             netloc += '@'
         netloc += host
         if port:
-            netloc += ':' + XCompat().str(port)
+            netloc += ':' + XStr().new(port)
 
         # Bare domains aren't valid URLs.
         if not path:
             path = '/'
 
         if XCompat().is_py2():
-            if XCompat().is_str_instance(scheme):
+            if XStr().is_instance(scheme):
                 scheme = scheme.encode('utf-8')
-            if XCompat().is_str_instance(netloc):
+            if XStr().is_instance(netloc):
                 netloc = netloc.encode('utf-8')
-            if XCompat().is_str_instance(path):
+            if XStr().is_instance(path):
                 path = path.encode('utf-8')
-            if XCompat().is_str_instance(query):
+            if XStr().is_instance(query):
                 query = query.encode('utf-8')
-            if XCompat().is_str_instance(fragment):
+            if XStr().is_instance(fragment):
                 fragment = fragment.encode('utf-8')
 
-        if isinstance(params, (XCompat().str_class(), XCompat().bytes_class())):
+        if isinstance(params, (XStr().clazz(), XBytes().clazz())):
             params = XUtils().to_native_string(params)
 
         enc_params = self._encode_params(params)
@@ -2318,7 +2324,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             else:
                 query = enc_params
 
-        url = Utils().requote_uri(XCompat().urlunparse([scheme, netloc, path, None, query, fragment]))
+        url = Utils().requote_uri(XUrl().unparse([scheme, netloc, path, None, query, fragment]))
         self.url_(url)
 
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
@@ -2352,12 +2358,12 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             except ValueError as ve:
                 raise InvalidJSONError(ve, request=self)
 
-            if not XCompat().is_bytes_instance(body):
+            if not XBytes().is_instance(body):
                 body = body.encode('utf-8')
 
         is_stream = all([
             hasattr(data, '__iter__'),
-            not isinstance(data, (XCompat().basestring_class(), list, tuple, XMapping))
+            not isinstance(data, (XBaseString().clazz(), list, tuple, XMapping))
         ])
 
         if is_stream:
@@ -2383,7 +2389,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
                 raise NotImplementedError('Streamed bodies and files are mutually exclusive.')
 
             if length:
-                self.headers_()['Content-Length'] = XCompat().builtin_str(length)
+                self.headers_()['Content-Length'] = XBuiltinStr().new(length)
             else:
                 self.headers_()['Transfer-Encoding'] = 'chunked'
         else:
@@ -2393,7 +2399,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             else:
                 if data:
                     body = self._encode_params(data)
-                    if XCompat().is_basestring_instance(data) or hasattr(data, 'read'):
+                    if XBaseString().is_instance(data) or hasattr(data, 'read'):
                         content_type = None
                     else:
                         content_type = 'application/x-www-form-urlencoded'
@@ -2413,7 +2419,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             if length:
                 # If length exists, set it. Otherwise, we fallback
                 # to Transfer-Encoding: chunked.
-                self.headers_()['Content-Length'] = XCompat().builtin_str(length)
+                self.headers_()['Content-Length'] = XBuiltinStr().new(length)
         elif self.method_() not in ('GET', 'HEAD') and self.headers_().get('Content-Length') is None:
             # Set Content-Length to 0 for methods that can have a body
             # but don't provide one. (i.e. not GET or HEAD)
@@ -2577,7 +2583,7 @@ class Content:
 
     def apparent_encoding(self):
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
-        return XCompat().chardet().detect(self.content())['encoding']
+        return XCharDet().detect(self.content())['encoding']
 
     def text(self, encoding):
         """Content of the response, in unicode.
@@ -2595,7 +2601,7 @@ class Content:
         content = None
 
         if not self.content():
-            return XCompat().str('')
+            return XStr().new('')
 
         # Fallback to auto-detected encoding.
         if encoding is None:
@@ -2603,7 +2609,7 @@ class Content:
 
         # Decode unicode from given encoding.
         try:
-            content = XCompat().str(self.content(), encoding, errors='replace')
+            content = XStr().new(self.content(), encoding, errors='replace')
         except (LookupError, TypeError):
             # A LookupError is raised if the encoding was not found which could
             # indicate a misspelling or similar mistake.
@@ -2611,7 +2617,7 @@ class Content:
             # A TypeError can be raised if encoding is None
             #
             # So we try blindly encoding.
-            content = XCompat().str(self.content(), errors='replace')
+            content = XStr().new(self.content(), errors='replace')
 
         return content
 
@@ -2871,7 +2877,7 @@ class Response:  # ./Models/Response.py
         """Raises :class:`HTTPError`, if one occurred."""
 
         http_error_msg = ''
-        if XCompat().is_bytes_instance(self.reason_()):
+        if XBytes().is_instance(self.reason_()):
             # We attempt to decode utf-8 first because some servers
             # choose to localize their reason strings. If the string
             # isn't utf-8, we fall back to iso-8859-1 for all other
@@ -3023,7 +3029,7 @@ class Sessions:  # ./Sessions/Sessions.py
         """
         return Session()
 
-class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
+class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
     def get_redirect_target(self, resp):
         """Receives a Response. Returns a redirect URI or ``None``"""
@@ -3048,8 +3054,8 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
     def should_strip_auth(self, old_url, new_url):  # ./Sessions/SessionRedirectMixin.py
         """Decide whether Authorization header should be removed when redirecting"""
-        old_parsed = XCompat().urlparse(old_url)
-        new_parsed = XCompat().urlparse(new_url)
+        old_parsed = XUrl().parse(old_url)
+        new_parsed = XUrl().parse(new_url)
         if old_parsed.hostname != new_parsed.hostname:
             return True
         # Special case: allow http -> https redirect when using the standard
@@ -3079,7 +3085,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         hist = []  # keep track of history
 
         url = self.get_redirect_target(resp)
-        previous_fragment = XCompat().urlparse(req.url_()).fragment
+        previous_fragment = XUrl().parse(req.url_()).fragment
         while url:
             prepared_request = req.copy()
 
@@ -3101,11 +3107,11 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
 
             # Handle redirection without scheme (see: RFC 1808 Section 4)
             if url.startswith('//'):
-                parsed_rurl = XCompat().urlparse(resp.url_())
+                parsed_rurl = XUrl().parse(resp.url_())
                 url = ':'.join([XUtils().to_native_string(parsed_rurl.scheme), url])
 
             # Normalize url case and attach previous fragment if needed (RFC 7231 7.1.2)
-            parsed = XCompat().urlparse(url)
+            parsed = XUrl().parse(url)
             if parsed.fragment == '' and previous_fragment:
                 parsed = parsed._replace(fragment=previous_fragment)
             elif parsed.fragment:
@@ -3116,7 +3122,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
             # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
             # Compliant with RFC3986, we percent encode the url.
             if not parsed.netloc:
-                url = XCompat().urljoin(resp.url_(), Utils().requote_uri(url))
+                url = XUrl().join(resp.url_(), Utils().requote_uri(url))
             else:
                 url = Utils().requote_uri(url)
 
@@ -3216,7 +3222,7 @@ class SessionRedirectMixin(object):  # ./Sessions/SessionRedirectMixin.py
         proxies = proxies if proxies is not None else {}
         headers = prepared_request.headers_()
         url = prepared_request.url_()
-        scheme = XCompat().urlparse(url).scheme
+        scheme = XUrl().parse(url).scheme
         new_proxies = proxies.copy()
         no_proxy = proxies.get('no_proxy')
 
@@ -3358,8 +3364,8 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         # Default connection adapters.
         self.adapters_(XOrderedDict())
-        self.mount('https://', HTTPAdapter())
-        self.mount('http://', HTTPAdapter())
+        self.mount('https://', HTTPconnections())
+        self.mount('http://', HTTPconnections())
 
     def __enter__(self):   # ./Sessions/Session.py
         return self
@@ -3835,7 +3841,7 @@ class Utils:  # ./Utils/utils.py
         if XSys().platform() == 'win32':
             return self._proxy_bypass_win32(host)
         else:
-            return XCompat().proxy_bypass(host)
+            return XUrl().request().proxy_bypass(host)
 
     def dict_to_sequence(self, d):  # ./Utils/utils.py
         """Returns an internal sequence dictionary update."""
@@ -3939,12 +3945,12 @@ class Utils:  # ./Utils/utils.py
             if netrc_path is None:
                 return
 
-            ri = XCompat().urlparse(url)
+            ri = XUrl().parse(url)
 
             # Strip port numbers from netloc. This weird `if...encode`` dance is
             # used for Python 3.2, which doesn't support unicode literals.
             splitstr = b':'
-            if XCompat().is_str_instance(url):
+            if XStr().is_instance(url):
                 splitstr = splitstr.decode('ascii')
             host = ri.netloc.split(splitstr)[0]
 
@@ -3967,7 +3973,7 @@ class Utils:  # ./Utils/utils.py
     def guess_filename(self, obj):  # ./Utils/utils.py
         """Tries to guess the filename of the given object."""
         name = getattr(obj, 'name', None)
-        if (name and XCompat().is_basestring_instance(name) and name[0] != '<' and
+        if (name and XBaseString().is_instance(name) and name[0] != '<' and
                 name[-1] != '>'):
             return XOs().path().basename(name)
 
@@ -4065,7 +4071,7 @@ class Utils:  # ./Utils/utils.py
         """
         if value is None:
             return None
-        if isinstance(value, (XCompat().str_class(), XCompat().bytes_class(), bool, int)):
+        if isinstance(value, (XStr().clazz(), XBytes().clazz(), bool, int)):
             raise ValueError('cannot encode objects that are not 2-tuples')
 
         if isinstance(value, XMapping):
@@ -4327,12 +4333,12 @@ class Utils:  # ./Utils/utils.py
             # Unquote only the unreserved characters
             # Then quote only illegal characters (do not quote reserved,
             # unreserved, or '%')
-            return XCompat().quote(Utils().unquote_unreserved(uri), safe=safe_with_percent)
+            return XUrl().quote(Utils().unquote_unreserved(uri), safe=safe_with_percent)
         except InvalidURL:
             # We couldn't unquote the given URI, so let's try quoting it, but
             # there may be unquoted '%'s in the URI. We need to make sure they're
             # properly quoted so they do not cause issues elsewhere.
-            return XCompat().quote(uri, safe=safe_without_percent)
+            return XUrl().quote(uri, safe=safe_without_percent)
 
     def address_in_network(self, ip, net):  # ./Utils/utils.py
         """This function allows you to check if an IP belongs to a network subnet
@@ -4427,7 +4433,7 @@ class Utils:  # ./Utils/utils.py
         no_proxy_arg = no_proxy
         if no_proxy is None:
             no_proxy = get_proxy('no_proxy')
-        parsed = XCompat().urlparse(url)
+        parsed = XUrl().parse(url)
 
         if parsed.hostname is None:
             # URLs don't always have hostnames, e.g. file:/// urls.
@@ -4481,7 +4487,7 @@ class Utils:  # ./Utils/utils.py
         if self.should_bypass_proxies(url, no_proxy=no_proxy):
             return {}
         else:
-            return XCompat().getproxies()
+            return XUrl().request().getproxies()
 
     def select_proxy(self, url, proxies):  # ./Utils/utils.py
         """Select a proxy for the url, if applicable.
@@ -4490,7 +4496,7 @@ class Utils:  # ./Utils/utils.py
         :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
         """
         proxies = proxies or {}
-        urlparts = XCompat().urlparse(url)
+        urlparts = XUrl().parse(url)
         if urlparts.hostname is None:
             return proxies.get(urlparts.scheme, proxies.get('all'))
 
@@ -4521,7 +4527,7 @@ class Utils:  # ./Utils/utils.py
         """
         proxies = proxies if proxies is not None else {}
         url = request.url_()
-        scheme = XCompat().urlparse(url).scheme
+        scheme = XUrl().parse(url).scheme
         no_proxy = proxies.get('no_proxy')
         new_proxies = proxies.copy()
 
@@ -4593,7 +4599,7 @@ class Utils:  # ./Utils/utils.py
 
     def guess_json_utf(self, data):  # ./Utils/utils.py
         """
-        :rtype: XCompat().str_class()
+        :rtype: XStr().clazz()
         """
         # JSON always starts with two ASCII characters, so detection is as
         # easy as counting the nulls and from their location and count
@@ -4626,9 +4632,9 @@ class Utils:  # ./Utils/utils.py
         """Given a URL that may or may not have a scheme, prepend the given scheme.
         Does not replace a present scheme with the one provided as an argument.
 
-        :rtype: XCompat().str_class()
+        :rtype: XStr().clazz()
         """
-        scheme, netloc, path, params, query, fragment = XCompat().urlparse(url, new_scheme)
+        scheme, netloc, path, params, query, fragment = XUrl().parse(url, new_scheme)
 
         # urlparse is a finicky beast, and sometimes decides that there isn't a
         # netloc present. Assume that it's being over-cautious, and switch netloc
@@ -4636,7 +4642,7 @@ class Utils:  # ./Utils/utils.py
         if not netloc:
             netloc, path = path, netloc
 
-        return XCompat().urlunparse((scheme, netloc, path, params, query, fragment))
+        return XUrl().unparse((scheme, netloc, path, params, query, fragment))
 
     def get_auth_from_url(self, url):  # ./Utils/utils.py
         """Given a url with authentication components, extract them into a tuple of
@@ -4644,10 +4650,10 @@ class Utils:  # ./Utils/utils.py
 
         :rtype: (str,str)
         """
-        parsed = XCompat().urlparse(url)
+        parsed = XUrl().parse(url)
 
         try:
-            auth = (XCompat().unquote(parsed.username), XCompat().unquote(parsed.password))
+            auth = (XUrl().unquote(parsed.username), XUrl().unquote(parsed.password))
         except (AttributeError, TypeError):
             auth = ('', '')
 
@@ -4662,7 +4668,7 @@ class Utils:  # ./Utils/utils.py
         """
         name, value = header
 
-        if XCompat().is_bytes_instance(value):
+        if XBytes().is_instance(value):
             pat = self._CLEAN_HEADER_REGEX_BYTE
         else:
             pat = self._CLEAN_HEADER_REGEX_STR
@@ -4679,7 +4685,7 @@ class Utils:  # ./Utils/utils.py
 
         :rtype: str
         """
-        scheme, netloc, path, params, query, fragment = XCompat().urlparse(url)
+        scheme, netloc, path, params, query, fragment = XUrl().parse(url)
 
         # see func:`prepend_scheme_if_needed`
         if not netloc:
@@ -4687,7 +4693,7 @@ class Utils:  # ./Utils/utils.py
 
         netloc = netloc.rsplit('@', 1)[-1]
 
-        return XCompat().urlunparse((scheme, netloc, path, params, query, ''))
+        return XUrl().unparse((scheme, netloc, path, params, query, ''))
 
     def rewind_body(self, prepared_request):  # ./Utils/utils.py
         """Move file pointer back to its recorded starting position

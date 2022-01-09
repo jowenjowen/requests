@@ -13,14 +13,17 @@ import requests
 
 import io
 import pytest
-from requests.domain import HTTPAdapter
+from requests.x import XStr
+
+from requests.domain import HTTPconnections
 from requests.domain import HTTPDigestAuth
 from requests.domain import Auth
 from requests.x import XCookieJar
 from requests.x import XDefaultCookiePolicy
 from requests.x import XOs
+from requests.x import XUrl
+from requests.x import XBuiltinStr
 from requests.domain import XMorsel
-from requests.domain import XCompat
 
 from requests.domain import CookieUtils
 from requests import exceptions
@@ -152,15 +155,15 @@ class TestRequests:
 
     @pytest.mark.parametrize('scheme', ('http://', 'HTTP://', 'hTTp://', 'HttP://'))
     def test_mixed_case_scheme_acceptable(self, httpbin, scheme):
-        s = Session().proxies_(XCompat().getproxies())
-        parts = XCompat().urlparse(httpbin('get'))
+        s = Session().proxies_(XUrl().request().getproxies())
+        parts = XUrl().parse(httpbin('get'))
         url = scheme + parts.netloc + parts.path
         r = s.send(Request().method_('GET').url_(url).prepare())
         assert r.status_code_() == 200, 'failed for scheme {}'.format(scheme)
 
     def test_HTTP_200_OK_GET_ALTERNATIVE(self, httpbin):
         r = Request().method_('GET').url_(httpbin('get'))
-        resp = Session().proxies_(XCompat().getproxies()).send(r.prepare())
+        resp = Session().proxies_(XUrl().request().getproxies()).send(r.prepare())
         assert resp.status_code_() == 200
 
     def test_HTTP_302_ALLOW_REDIRECT_GET(self, httpbin):
@@ -716,7 +719,7 @@ class TestRequests:
 
     def test_POSTBIN_SEEKED_OBJECT_WITH_NO_ITER(self, httpbin):
 
-        class TestStream(object):
+        class TestStream:
             def __init__(self, data):
                 self.data = data.encode()
                 self.length = len(self.data)
@@ -836,7 +839,7 @@ class TestRequests:
 
     def test_unicode_header_name(self, httpbin):
         Requests().url_(httpbin('put')).data_('\xff').put(
-            headers={XCompat().str('Content-Type'): 'application/octet-stream'})  # XCompat().str is unicode.
+            headers={XStr().new('Content-Type'): 'application/octet-stream'})  # XStr().new( is unicode.
 
     def test_pyopenssl_redirect(self, httpbin_secure, httpbin_ca_bundle):
         Requests().url_(httpbin_secure('status', '301')).get(verify=httpbin_ca_bundle)
@@ -845,17 +848,17 @@ class TestRequests:
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
             Requests().url_(httpbin_secure()).get(verify=INVALID_PATH)
-        assert XCompat().str(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {}'.format(INVALID_PATH)
+        assert XStr().new(e.value) == 'Could not find a suitable TLS CA certificate bundle, invalid path: {}'.format(INVALID_PATH)
 
     def test_invalid_ssl_certificate_files(self, httpbin_secure):
         INVALID_PATH = '/garbage'
         with pytest.raises(IOError) as e:
             Requests().url_(httpbin_secure()).get(cert=INVALID_PATH)
-        assert XCompat().str(e.value) == 'Could not find the TLS certificate file, invalid path: {}'.format(INVALID_PATH)
+        assert XStr().new(e.value) == 'Could not find the TLS certificate file, invalid path: {}'.format(INVALID_PATH)
 
         with pytest.raises(IOError) as e:
             Requests().url_(httpbin_secure()).get(cert=('.', INVALID_PATH))
-        assert XCompat().str(e.value) == 'Could not find the TLS key file, invalid path: {}'.format(INVALID_PATH)
+        assert XStr().new(e.value) == 'Could not find the TLS key file, invalid path: {}'.format(INVALID_PATH)
 
     def test_http_with_certificate(self, httpbin):
         r = Requests().url_(httpbin()).get(cert='.')
@@ -940,7 +943,7 @@ class TestRequests:
         s = Session()
         req = Request().method_(u('POST')).url_(httpbin('post')).files_({'file': open(__file__, 'rb')})
         prep = s.prepare_request(req)
-        assert XCompat().is_builtin_str_instance(prep.method_())
+        assert XBuiltinStr().is_instance(prep.method_())
         assert prep.method_() == 'POST'
 
         resp = s.send(prep)
@@ -952,7 +955,7 @@ class TestRequests:
 
         with pytest.raises(ValueError) as e:
             s.send(req)
-        assert XCompat().str(e.value) == 'You can only send PreparedRequests.'
+        assert XStr().new(e.value) == 'You can only send PreparedRequests.'
 
     def test_custom_content_type(self, httpbin):
         r = Requests().url_(httpbin('post')).post(
@@ -1002,7 +1005,7 @@ class TestRequests:
         prep = req.prepare()
 
         s = Session()
-        s.proxies_(XCompat().getproxies())
+        s.proxies_(XUrl().request().getproxies())
         resp = s.send(prep)
 
         assert hasattr(resp, 'hook_working')
@@ -1242,14 +1245,14 @@ class TestRequests:
         r.encoding_('ascii')
 
         chunks = r.iter_content(decode_unicode=True)
-        assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
+        assert all(XStr().is_instance(chunk) for chunk in chunks)
 
         # also for streaming
         r = Response()
         r.raw_(io.BytesIO(b'the content'))
         r.encoding_('ascii')
         chunks = r.iter_content(decode_unicode=True)
-        assert all(XCompat().is_str_instance(chunk) for chunk in chunks)
+        assert all(XStr().is_instance(chunk) for chunk in chunks)
 
     def test_response_reason_unicode(self):
         # check for unicode HTTP status
@@ -1361,7 +1364,7 @@ class TestRequests:
         error = exceptions.HTTPError(response=response)
         assert error.response == response
         error = exceptions.HTTPError('message', response=response)
-        assert XCompat().str(error) == 'message'
+        assert XStr().new(error) == 'message'
         assert error.response == response
 
     def test_session_pickling(self, httpbin):
@@ -1369,7 +1372,7 @@ class TestRequests:
         s = Session()
 
         s = pickle.loads(pickle.dumps(s))
-        s.proxies_(XCompat().getproxies())
+        s.proxies_(XUrl().request().getproxies())
 
         r = s.send(r.prepare())
         assert r.status_code_() == 200
@@ -1386,7 +1389,7 @@ class TestRequests:
         assert headers['ACCEPT'] == 'application/json'
 
     def test_uppercase_scheme_redirect(self, httpbin):
-        parts = XCompat().urlparse(httpbin('html'))
+        parts = XUrl().parse(httpbin('html'))
         url = "HTTP://" + parts.netloc + parts.path
         r = Requests().url_(httpbin('redirect-to')).params_({'url': url}).get()
         assert r.status_code_() == 200
@@ -1396,10 +1399,10 @@ class TestRequests:
         s = Session()
         order = ['https://', 'http://']
         assert order == list(s.adapters)
-        s.mount('http://git', HTTPAdapter())
-        s.mount('http://github', HTTPAdapter())
-        s.mount('http://github.com', HTTPAdapter())
-        s.mount('http://github.com/about/', HTTPAdapter())
+        s.mount('http://git', HTTPconnections())
+        s.mount('http://github', HTTPconnections())
+        s.mount('http://github.com', HTTPconnections())
+        s.mount('http://github.com/about/', HTTPconnections())
         order = [
             'http://github.com/about/',
             'http://github.com',
@@ -1409,9 +1412,9 @@ class TestRequests:
             'http://',
         ]
         assert order == list(s.adapters)
-        s.mount('http://gittip', HTTPAdapter())
-        s.mount('http://gittip.com', HTTPAdapter())
-        s.mount('http://gittip.com/about/', HTTPAdapter())
+        s.mount('http://gittip', HTTPconnections())
+        s.mount('http://gittip.com', HTTPconnections())
+        s.mount('http://gittip.com/about/', HTTPconnections())
         order = [
             'http://github.com/about/',
             'http://gittip.com/about/',
@@ -1425,8 +1428,8 @@ class TestRequests:
         ]
         assert order == list(s.adapters)
         s2 = Session()
-        s2.adapters = {'http://': HTTPAdapter()}
-        s2.mount('https://', HTTPAdapter())
+        s2.adapters = {'http://': HTTPconnections()}
+        s2.mount('https://', HTTPconnections())
         assert 'http://' in s2.adapters
         assert 'https://' in s2.adapters
 
@@ -1439,8 +1442,8 @@ class TestRequests:
         url_not_matching_prefix = 'https://another.example.com/'
 
         s = Session()
-        prefix_adapter = HTTPAdapter()
-        more_specific_prefix_adapter = HTTPAdapter()
+        prefix_adapter = HTTPconnections()
+        more_specific_prefix_adapter = HTTPconnections()
         s.mount(prefix, prefix_adapter)
         s.mount(more_specific_prefix, more_specific_prefix_adapter)
 
@@ -1453,7 +1456,7 @@ class TestRequests:
         url_matching_prefix = mixed_case_prefix + '/full_url'
 
         s = Session()
-        my_adapter = HTTPAdapter()
+        my_adapter = HTTPconnections()
         s.mount(mixed_case_prefix, my_adapter)
 
         assert s.get_adapter(url_matching_prefix) is my_adapter
@@ -1463,7 +1466,7 @@ class TestRequests:
         url_matching_prefix_with_different_case = 'HtTpS://exaMPLe.cOm/MiXeD_caSE_preFIX/another_url'
 
         s = Session()
-        my_adapter = HTTPAdapter()
+        my_adapter = HTTPconnections()
         s.mount(mixed_case_prefix, my_adapter)
 
         assert s.get_adapter(url_matching_prefix_with_different_case) is my_adapter
@@ -1519,15 +1522,15 @@ class TestRequests:
         # Test for int
         with pytest.raises(exceptions.InvalidHeader) as excinfo:
             r = Requests().url_(httpbin('get')).get(headers=headers_int)
-        assert 'foo' in XCompat().str(excinfo.value)
+        assert 'foo' in XStr().new(excinfo.value)
         # Test for dict
         with pytest.raises(exceptions.InvalidHeader) as excinfo:
             r = Requests().url_(httpbin('get')).get(headers=headers_dict)
-        assert 'bar' in XCompat().str(excinfo.value)
+        assert 'bar' in XStr().new(excinfo.value)
         # Test for list
         with pytest.raises(exceptions.InvalidHeader) as excinfo:
             r = Requests().url_(httpbin('get')).get(headers=headers_list)
-        assert 'baz' in XCompat().str(excinfo.value)
+        assert 'baz' in XStr().new(excinfo.value)
 
     def test_header_no_return_chars(self, httpbin):
         """Ensure that a header containing return character sequences raise an
@@ -1709,7 +1712,7 @@ class TestRequests:
         with pytest.raises(exceptions.UnrewindableBodyError) as e:
             Utils().rewind_body(prep)
 
-        assert 'Unable to rewind request body' in XCompat().str(e)
+        assert 'Unable to rewind request body' in XStr().new(e)
 
     def test_rewind_body_failed_seek(self):
         class BadFileObj:
@@ -1732,7 +1735,7 @@ class TestRequests:
         with pytest.raises(exceptions.UnrewindableBodyError) as e:
             Utils().rewind_body(prep)
 
-        assert 'error occurred when rewinding request body' in XCompat().str(e)
+        assert 'error occurred when rewinding request body' in XStr().new(e)
 
     def test_rewind_body_failed_tell(self):
         class BadFileObj:
@@ -1752,7 +1755,7 @@ class TestRequests:
         with pytest.raises(exceptions.UnrewindableBodyError) as e:
             Utils().rewind_body(prep)
 
-        assert 'Unable to rewind request body' in XCompat().str(e)
+        assert 'Unable to rewind request body' in XStr().new(e)
 
     def _patch_adapter_gzipped_redirect(self, session, url):
         adapter = session.get_adapter(url=url)
@@ -1781,7 +1784,7 @@ class TestRequests:
         ))
     def test_basic_auth_str_is_always_native(self, username, password, auth_str):
         s = Auth().basic_auth_str(username, password)
-        assert XCompat().is_builtin_str_instance(s)
+        assert XBuiltinStr().is_instance(s)
         assert s == auth_str
 
     def test_requests_history_is_saved(self, httpbin):
@@ -1847,12 +1850,12 @@ class TestRequests:
         proxies['two'].clear.assert_called_once_with()
 
     def test_proxy_auth(self):
-        adapter = HTTPAdapter()
+        adapter = HTTPconnections()
         headers = adapter.proxy_headers("http://user:pass@httpbin.org")
         assert headers == {'Proxy-Authorization': 'Basic dXNlcjpwYXNz'}
 
     def test_proxy_auth_empty_pass(self):
-        adapter = HTTPAdapter()
+        adapter = HTTPconnections()
         headers = adapter.proxy_headers("http://user:@httpbin.org")
         assert headers == {'Proxy-Authorization': 'Basic dXNlcjo='}
 
@@ -1917,9 +1920,9 @@ class TestRequests:
         3. the custom session catches the edge case and follows the redirect
         """
         url_final = httpbin('html')
-        querystring_malformed = XCompat().urlencode({'location': url_final})
+        querystring_malformed = XUrl().encode({'location': url_final})
         url_redirect_malformed = httpbin('response-headers?%s' % querystring_malformed)
-        querystring_redirect = XCompat().urlencode({'url': url_redirect_malformed})
+        querystring_redirect = XUrl().encode({'url': url_redirect_malformed})
         url_redirect = httpbin('redirect-to?%s' % querystring_redirect)
         urls_test = [url_redirect,
                      url_redirect_malformed,
@@ -2159,7 +2162,7 @@ class TestTimeout:
     def test_invalid_timeout(self, httpbin, timeout, error_text):
         with pytest.raises(ValueError) as e:
             Requests().url_(httpbin('get')).get(timeout=timeout)
-        assert error_text in XCompat().str(e)
+        assert error_text in XStr().new(e)
 
     @pytest.mark.parametrize(
         'timeout', (
@@ -2303,7 +2306,7 @@ def test_proxy_env_vars_override_default(var, url, proxy):
     kwargs = {
         var: proxy
     }
-    scheme = XCompat().urlparse(url).scheme
+    scheme = XUrl().parse(url).scheme
     with override_environ(**kwargs):
         proxies = session.rebuild_proxies(prep, {})
         assert scheme in proxies
@@ -2327,7 +2330,7 @@ def test_data_argument_accepts_tuples(data):
         data=data,
         hooks=Hooks().default_hooks()
     )
-    assert p.body_() == XCompat().urlencode(data)
+    assert p.body_() == XUrl().encode(data)
 
 
 @pytest.mark.parametrize(
@@ -2363,7 +2366,7 @@ def test_prepared_copy(kwargs):
 def test_urllib3_retries(httpbin):
     from urllib3.util import Retry
     s = Session()
-    s.mount('http://', HTTPAdapter(max_retries=Retry(
+    s.mount('http://', HTTPconnections(max_retries=Retry(
         total=2, status_forcelist=[500]
     )))
 
@@ -2373,15 +2376,15 @@ def test_urllib3_retries(httpbin):
 
 def test_urllib3_pool_connection_closed(httpbin):
     s = Session()
-    s.mount('http://', HTTPAdapter(xpool_connections=0, pool_maxsize=0))
+    s.mount('http://', HTTPconnections(xpool_connections=0, pool_maxsize=0))
 
     try:
         s.get(httpbin('status/200'))
     except exceptions.ConnectionError as e:
-        assert u"Pool is closed." in XCompat().str(e)
+        assert u"Pool is closed." in XStr().new(e)
 
 
-class TestPreparingURLs(object):
+class TestPreparingURLs:
     @pytest.mark.parametrize(
         'url,expected',
         (

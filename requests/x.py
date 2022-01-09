@@ -259,30 +259,66 @@ class XThreading:
     def RLock(self, verbose=None):
         return threading.RLock(verbose)
 
-class XCompat:
-    def is_py2(self):
-        return is_py2
+class XStr:
+    def clazz(self):
+        return compat_str
 
-    def is_builtin_str_instance(self,string):
+    def new(self, *args, **kwargs):
+        return compat_str(*args, **kwargs)
+
+    def is_instance(self, string):
+        return isinstance(string, compat_str)
+
+
+class XBytes:
+    def clazz(self):
+        return compat_bytes
+
+    def is_instance(self, string):
+        return isinstance(string, compat_bytes)
+
+
+class XBuiltinStr:
+    def new(self, x):
+        return compat_builtin_str(x)
+
+    def is_instance(self, string):
         return isinstance(string, compat_builtin_str)
 
-    def urlparse(self, url, scheme='', allow_fragments=True):
+
+class XBaseString:
+    def clazz(self):
+        return conpat_basestring
+
+    def is_instance(self,string):
+        return isinstance(string, conpat_basestring)
+
+
+class XUrl:
+    class XRequest:
+        def proxy_bypass(self, a):
+            return compat_proxy_bypass(a)
+
+        def getproxies(self):
+            return compat_getproxies()
+
+    def request(self):
+        return self.XRequest()
+
+    def parse(self, url, scheme='', allow_fragments=True):
         return compat_urlparse(url, scheme, allow_fragments)
 
-    def urlsplit(self, url, scheme='', allow_fragments=True):
+    def split(self, url, scheme='', allow_fragments=True):
         return compat_urlsplit(url, scheme, allow_fragments)
 
-    def urljoin(self, base, url, allow_fragments=True):
+    def join(self, base, url, allow_fragments=True):
         return compat_urljoin(base, url, allow_fragments)
 
-    def urlencode(self, query, doseq=0):
+    def encode(self, query, doseq=0):
         return compat_urlencode(query, doseq)
 
-    def urlunparse(self, a):
+    def unparse(self, a):
         return compat_urlunparse(a)
-
-    def is_py3(self):
-        return is_py3
 
     def quote(self, s, safe='/'):
         return compat_quote(s, safe)
@@ -290,44 +326,19 @@ class XCompat:
     def unquote(self, s):
         return compat_unquote(s)
 
+
+class XCompat:
+    def is_py2(self):
+        return is_py2
+
+    def is_py3(self):
+        return is_py3
+
     def integer_types(self):
         return integer_types
 
     def is_Callable_instance(self, value):
         return isinstance(value, XCallable)
-
-    def str_class(self):
-        return compat_str
-
-    def is_str_instance(self,string):
-        return isinstance(string, compat_str)
-
-    def bytes_class(self):
-        return compat_bytes
-
-    def is_bytes_instance(self,string):
-        return isinstance(string, compat_bytes)
-
-    def builtin_str_class(self):
-        return compat_builtin_str
-
-    def builtin_str(self, x):
-        return compat_builtin_str(x)
-
-    def basestring_class(self):
-        return conpat_basestring
-
-    def is_basestring_instance(self, string):
-        return isinstance(string, conpat_basestring)
-
-    def str(self, *args, **kwargs):
-        return compat_str(*args, **kwargs)
-
-    def proxy_bypass(self, a):
-        return compat_proxy_bypass(a)
-
-    def getproxies(self):
-        return compat_getproxies()
 
     def chardet(self):
         return compat_chardet
@@ -358,7 +369,7 @@ class PyPyVersionInfo:
 
 
 class XCharDet:
-    def __init__(self, original_source_file_name):
+    def __init__(self, original_source_file_name='compat.py'):
         if original_source_file_name == 'help.py':
             self.chardet = chardet_help
         elif original_source_file_name == 'compat.py':
@@ -514,13 +525,13 @@ class XCookieJarRequest:
     def __init__(self, request):
         self._r = request
         self._new_headers = {}
-        self.type = XCompat().urlparse(self._r.url_()).scheme
+        self.type = XUrl().parse(self._r.url_()).scheme
 
     def get_host(self):  # not called but needed py py2
-        return XCompat().urlparse(self._r.url_()).netloc
+        return XUrl().parse(self._r.url_()).netloc
 
     def get_origin_req_host(self):  # needed by cookielib.py (python2.7)
-        return XCompat().urlparse(self._r.url_()).netloc
+        return XUrl().parse(self._r.url_()).netloc
         # return self.get_host()
 
     def get_full_url(self):  # needed by http.cookiejar.py
@@ -530,9 +541,9 @@ class XCookieJarRequest:
             return self._r.url_()
         # If they did set it, retrieve it and reconstruct the expected domain
         host = XUtils().to_native_string(self._r.headers_()['Host'], encoding='utf-8')
-        parsed = XCompat().urlparse(self._r.url_())
+        parsed = XUrl().parse(self._r.url_())
         # Reconstruct the URL as we expect it
-        return XCompat().urlunparse([
+        return XUrl().unparse([
             parsed.scheme, host, parsed.path, parsed.params, parsed.query,
             parsed.fragment
         ])
@@ -597,7 +608,7 @@ class XUtils:  # ./InternalUtils/internal_utils.py
         that string in the native string type, encoding and decoding where
         necessary. This assumes ASCII unless told otherwise.
         """
-        if XCompat().is_builtin_str_instance(string):
+        if XBuiltinStr().is_instance(string):
             out = string
         else:
             if XCompat().is_py2():
@@ -614,7 +625,7 @@ class XUtils:  # ./InternalUtils/internal_utils.py
             and not Python 2 `str`.
         :rtype: bool
         """
-        assert XCompat().is_str_instance(u_string)
+        assert XStr().is_instance(u_string)
         try:
             u_string.encode('ascii')
             return True
