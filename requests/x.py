@@ -337,11 +337,11 @@ class XCompat:
     def integer_types(self):
         return integer_types
 
-    def is_Callable_instance(self, value):
-        return isinstance(value, XCallable)
-
-    def chardet(self):
-        return compat_chardet
+    def append_callable_instance(self, target, item):
+        if isinstance(item, XCallable):
+            target.append(item)
+        elif hasattr(item, '__iter__'):
+            target.extend(i for i in item if isinstance(i, XCallable))
 
 
 class XBase64:

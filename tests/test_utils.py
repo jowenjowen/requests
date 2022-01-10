@@ -24,7 +24,7 @@ from requests.utils import (
     unquote_header_value, unquote_unreserved,
     urldefragauth, add_dict_to_cookiejar, set_environ)
 
-from requests.domain import Utils
+from requests.domain import HeaderUtils
 
 from .compat import CompatStringIO, Compat_cStringIO
 
@@ -538,7 +538,7 @@ def test_parse_dict_header(value, expected):
         )
     ))
 def test__parse_content_type_header(value, expected):
-    assert Utils()._parse_content_type_header(value) == expected
+    assert HeaderUtils()._parse_content_type_header(value) == expected
 
 # cut_down 3  455 + (539-455)/2 =497 it's between 455 and 539
 
@@ -678,7 +678,7 @@ def test_should_bypass_proxies_pass_only_hostname(url, expected, mocker):
     """The proxy_bypass function should be called with a hostname or IP without
     a port number or auth credentials.
     """
-    proxy_bypass = mocker.patch('requests.domain.Utils.proxy_bypass')
+    proxy_bypass = mocker.patch('requests.domain.ProxyUtils.proxy_bypass')
     should_bypass_proxies(url, no_proxy=None)
     proxy_bypass.assert_called_once_with(expected)
 

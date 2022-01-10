@@ -16,6 +16,7 @@ import pytest
 from requests.x import XStr
 
 from requests.domain import HTTPconnections
+from requests.domain import HeaderUtils
 from requests.domain import HTTPDigestAuth
 from requests.domain import Auth
 from requests.x import XCookieJar
@@ -31,7 +32,8 @@ from requests.domain import CookieConflictError
 from requests.domain import PreparedRequest
 from requests.domain import CaseInsensitiveDict
 from requests.domain import SessionRedirectMixin
-from requests.domain import Hooks, Utils
+from requests.domain import Hooks
+from requests.domain import FileUtils
 from requests.domain import XMutableMapping
 from requests.domain import CookieJar
 from requests.domain import Request
@@ -39,6 +41,7 @@ from requests.domain import Session
 from requests.domain import Requests
 from requests.domain import Response
 from requests.domain import AuthBase
+from requests.domain import UrlUtils
 
 from .compat import CompatStringIO, u
 from .utils import override_environ
@@ -587,12 +590,12 @@ class TestRequests:
         wrong_auth = ('wronguser', 'wrongpass')
         url = httpbin('basic-auth', 'user', 'pass')
 
-        old_auth = Utils().get_netrc_auth
+        old_auth = UrlUtils().get_netrc_auth
 
         try:
             def get_netrc_auth_mock(self, url):
                 return auth
-            Utils.get_netrc_auth = get_netrc_auth_mock
+            UrlUtils.get_netrc_auth = get_netrc_auth_mock
 
             # Should use netrc and work.
             r = Requests().url_(url).get()
@@ -613,7 +616,7 @@ class TestRequests:
             r = s.get(url)
             assert r.status_code_() == 401
         finally:
-            Utils.get_netrc_auth = old_auth
+            UrlUtils.get_netrc_auth = old_auth
 
     def test_DIGEST_HTTP_200_OK_GET(self, httpbin):
 
@@ -1677,7 +1680,7 @@ class TestRequests:
         assert prep.body_().read() == b''
 
         # rewind it back
-        Utils().rewind_body(prep)
+        FileUtils().rewind_body(prep)
         assert prep.body_().read() == b'the data'
 
     def test_rewind_partially_read_body(self):
@@ -1691,7 +1694,7 @@ class TestRequests:
         assert prep.body_().read() == b''
 
         # rewind it back
-        Utils().rewind_body(prep)
+        FileUtils().rewind_body(prep)
         assert prep.body_().read() == b'data'
 
     def test_rewind_body_no_seek(self):
@@ -1710,7 +1713,7 @@ class TestRequests:
         assert prep._body_position == 0
 
         with pytest.raises(exceptions.UnrewindableBodyError) as e:
-            Utils().rewind_body(prep)
+            FileUtils().rewind_body(prep)
 
         assert 'Unable to rewind request body' in XStr().new(e)
 
@@ -1733,7 +1736,7 @@ class TestRequests:
         assert prep._body_position == 0
 
         with pytest.raises(exceptions.UnrewindableBodyError) as e:
-            Utils().rewind_body(prep)
+            FileUtils().rewind_body(prep)
 
         assert 'error occurred when rewinding request body' in XStr().new(e)
 
@@ -1753,7 +1756,7 @@ class TestRequests:
         assert prep._body_position is not None
 
         with pytest.raises(exceptions.UnrewindableBodyError) as e:
-            Utils().rewind_body(prep)
+            FileUtils().rewind_body(prep)
 
         assert 'Unable to rewind request body' in XStr().new(e)
 

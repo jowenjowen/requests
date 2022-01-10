@@ -13,7 +13,12 @@ from requests.x import XBaseString
 from requests.x import XUrl
 
 # classes needed for Auth section
-from requests.x import XWarnings, XBase64, XHashLib, XTime, XOs, XRe
+from requests.x import XWarnings
+from requests.x import XBase64
+from requests.x import XHashLib
+from requests.x import XTime
+from requests.x import XOs
+from requests.x import XRe
 
 # classes needed for InternalUtilitites
 from requests.x import XCompat, XThreading
@@ -294,8 +299,8 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
     def get(self, name):
         return self._codes_dict.get(name)
 
-# *************************** classes in Adapters section *****************
-class Connections:  # ./Adapters/Adapters.py
+# *************************** classes in Connections section *****************
+class Connections:  # ./Connections/connections.py
     """
     requests.adapters
     ~~~~~~~~~~~~~~~~~
@@ -321,14 +326,14 @@ class Connections:  # ./Adapters/Adapters.py
             raise InvalidSchema("Missing dependencies for SOCKS support.")
         return result
 
-class BaseConnections(object):  # ./Adapters/BaseAdapter.py
-    """The Base Transport Adapter"""
+class BaseConnections(object):  # ./Connections/BaseConnections.py
+    """The Base Transport Connection"""
 
-    def __init__(self):  # ./Adapters/BaseAdapter.py
+    def __init__(self):  # ./Connections/BaseConnections.py
         super(BaseConnections, self).__init__()
 
     def send(self, request, stream=False, timeout=None, verify=True,
-             cert=None, proxies=None):  # ./Adapters/BaseAdapter.py
+             cert=None, proxies=None):  # ./Connections/BaseConnections.py
         """Sends PreparedRequest object. Returns Response object.
 
         :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
@@ -345,16 +350,16 @@ class BaseConnections(object):  # ./Adapters/BaseAdapter.py
         """
         raise NotImplementedError
 
-    def close(self):  # ./Adapters/BaseAdapter.py
+    def close(self):  # ./Connections/BaseConnections.py
         """Cleans up adapter specific items."""
         raise NotImplementedError
 
 
-class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
-    """The built-in HTTP Adapter for urllib3.
+class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
+    """The built-in HTTP Connection for urllib3.
 
     Provides a general-case interface for Requests sessions to contact HTTP and
-    HTTPS urls by implementing the Transport Adapter interface. This class will
+    HTTPS urls by implementing the Transport Connection interface. This class will
     usually be created by the :class:`Session <Session>` class under the
     covers.
 
@@ -381,7 +386,7 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
     def __init__(self, xpool_connections=Connections().DEFAULT_XPOOLSIZE(),
                  pool_maxsize=Connections().DEFAULT_XPOOLSIZE(), max_retries=Connections().DEFAULT_RETRIES(),
-                 pool_block=Connections().DEFAULT_XPOOLBLOCK()):  # ./Adapters/HTTPAdapter.py
+                 pool_block=Connections().DEFAULT_XPOOLBLOCK()):  # ./Connections/HTTPconnections.py
         if max_retries == Connections().DEFAULT_RETRIES():
             self.max_retries = XUrllib3().util().retry.Retry(0, read=False)
         else:
@@ -397,10 +402,10 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         self.init_xpoolmanager(xpool_connections, pool_maxsize, block=pool_block)
 
-    def __getstate__(self):  # ./Adapters/HTTPAdapter.py
+    def __getstate__(self):  # ./Connections/HTTPconnections.py
         return {attr: getattr(self, attr, None) for attr in self.__attrs__}
 
-    def __setstate__(self, state):  # ./Adapters/HTTPAdapter.py
+    def __setstate__(self, state):  # ./Connections/HTTPconnections.py
         # Can't handle by adding 'proxy_manager' to self.__attrs__ because
         # self.xpoolmanager uses a lambda function, which isn't picklable.
         self.proxy_manager = {}
@@ -412,12 +417,12 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
         self.init_xpoolmanager(self._xpool_connections, self._xpool_maxsize,
                               block=self._xpool_block)
 
-    def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Adapters/HTTPAdapter.py
+    def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Connections/HTTPconnections.py
         """Initializes a urllib3 PoolManager.
 
         This method should not be called from user code, and is only
         exposed for use when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param xconnections: The number of xconnection xpools to cache.
         :param maxsize: The maximum number of xconnections to save in the xpool.
@@ -432,12 +437,12 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
         self.xpoolmanager = XUrllib3().xpoolmanager().PoolManager(num_pools=xconnections, maxsize=maxsize,
                                        block=block, strict=True, **pool_kwargs)
 
-    def proxy_manager_for(self, proxy, **proxy_kwargs):  # ./Adapters/HTTPAdapter.py
+    def proxy_manager_for(self, proxy, **proxy_kwargs):  # ./Connections/HTTPconnections.py
         """Return urllib3 ProxyManager for the given proxy.
 
         This method should not be called from user code, and is only
         exposed for use when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param proxy: The proxy to return a urllib3 ProxyManager for.
         :param proxy_kwargs: Extra keyword arguments used to configure the Proxy Manager.
@@ -447,7 +452,7 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
         if proxy in self.proxy_manager:
             manager = self.proxy_manager[proxy]
         elif proxy.lower().startswith('socks'):
-            username, password = Utils().get_auth_from_url(proxy)
+            username, password = UrlUtils().get_auth_from_url(proxy)
             manager = self.proxy_manager[proxy] = XUrllib3().SOCKSProxyManager(
                 proxy,
                 username=username,
@@ -469,10 +474,10 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         return manager
 
-    def cert_verify(self, xconn, url, verify, cert):  # ./Adapters/HTTPAdapter.py
+    def cert_verify(self, xconn, url, verify, cert):  # ./Connections/HTTPconnections.py
         """Verify a SSL certificate. This method should not be called from user
         code, and is only exposed for use when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param xconn: The urllib3 xconnection object associated with the cert.
         :param url: The requested URL.
@@ -521,11 +526,11 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
                 raise IOError("Could not find the TLS key file, "
                               "invalid path: {}".format(xconn.key_file))
 
-    def build_response(self, req, resp):  # ./Adapters/HTTPAdapter.py
+    def build_response(self, req, resp):  # ./Connections/HTTPconnections.py
         """Builds a :class:`Response <requests.Response>` object from a urllib3
         response. This should not be called from user code, and is only exposed
         for use when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`
 
         :param req: The :class:`PreparedRequest <PreparedRequest>` used to generate the response.
         :param resp: The urllib3 response object.
@@ -540,7 +545,7 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
         response.headers_(CaseInsensitiveDict(getattr(resp, 'headers', {})))
 
         # Set encoding.
-        response.encoding_(Utils().get_encoding_from_headers(response.headers_()))
+        response.encoding_(HeaderUtils().get_encoding_from_headers(response.headers_()))
         response.raw_(resp)
         response.reason_(response.raw_().reason)
 
@@ -558,19 +563,19 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         return response
 
-    def get_connection(self, url, proxies=None):  # ./Adapters/HTTPAdapter.py
+    def get_connection(self, url, proxies=None):  # ./Connections/HTTPconnections.py
         """Returns a urllib3 xconnection for the given URL. This should not be
         called from user code, and is only exposed for use when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param url: The URL to connect to.
         :param proxies: (optional) A Requests-style dictionary of proxies used on this request.
         :rtype: urllib3.ConnectionPool
         """
-        proxy = Utils().select_proxy(url, proxies)
+        proxy = ProxyUtils().select_proxy(url, proxies)
 
         if proxy:
-            proxy = Utils().prepend_scheme_if_needed(proxy, 'http')
+            proxy = UrlUtils().prepend_scheme_if_needed(proxy, 'http')
             proxy_url = XUrllib3().util().parse_url(proxy)
             if not proxy_url.host:
                 raise InvalidProxyURL("Please check proxy URL. It is malformed"
@@ -585,7 +590,7 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         return xconn
 
-    def close(self):  # ./Adapters/HTTPAdapter.py
+    def close(self):  # ./Connections/HTTPconnections.py
         """Disposes of any internal state.
 
         Currently, this closes the PoolManager and any active ProxyManager,
@@ -595,7 +600,7 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
         for proxy in self.proxy_manager.values():
             proxy.clear()
 
-    def request_url(self, request, proxies):  # ./Adapters/HTTPAdapter.py
+    def request_url(self, request, proxies):  # ./Connections/HTTPconnections.py
         """Obtain the url to use when making the final request.
 
         If the message is being sent through a HTTP proxy, the full URL has to
@@ -603,13 +608,13 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         This should not be called from user code, and is only exposed for use
         when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
         :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs.
         :rtype: str
         """
-        proxy = Utils().select_proxy(request.url_(), proxies)
+        proxy = ProxyUtils().select_proxy(request.url_(), proxies)
         scheme = XUrl().parse(request.url_()).scheme
 
         is_proxied_http_request = (proxy and scheme != 'https')
@@ -620,25 +625,25 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         url = request.path_url
         if is_proxied_http_request and not using_socks_proxy:
-            url = Utils().urldefragauth(request.url_())
+            url = UrlUtils().urldefragauth(request.url_())
 
         return url
 
-    def add_headers(self, request, **kwargs):  # ./Adapters/HTTPAdapter.py
+    def add_headers(self, request, **kwargs):  # ./Connections/HTTPconnections.py
         """Add any headers needed by the xconnection. As of v2.0 this does
         nothing by default, but is left for overriding by users that subclass
-        the :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        the :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         This should not be called from user code, and is only exposed for use
         when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param request: The :class:`PreparedRequest <PreparedRequest>` to add headers to.
         :param kwargs: The keyword arguments from the call to send().
         """
         pass
 
-    def proxy_headers(self, proxy):  # ./Adapters/HTTPAdapter.py
+    def proxy_headers(self, proxy):  # ./Connections/HTTPconnections.py
         """Returns a dictionary of the headers to add to any request sent
         through a proxy. This works with urllib3 magic to ensure that they are
         correctly sent to the proxy, rather than in a tunnelled request if
@@ -646,13 +651,13 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         This should not be called from user code, and is only exposed for use
         when subclassing the
-        :class:`HTTPAdapter <requests.adapters.HTTPAdapter>`.
+        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
 
         :param proxy: The url of the proxy being used for this request.
         :rtype: dict
         """
         headers = {}
-        username, password = Utils().get_auth_from_url(proxy)
+        username, password = UrlUtils().get_auth_from_url(proxy)
 
         if username:
             headers['Proxy-Authorization'] = Auth().basic_auth_str(username,
@@ -660,7 +665,7 @@ class HTTPconnections(BaseConnections):  # ./Adapters/HTTPAdapter.py
 
         return headers
 
-    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):  # ./Adapters/HTTPAdapter.py
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):  # ./Connections/HTTPconnections.py
         """Sends PreparedRequest object. Returns Response object.
 
         :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
@@ -1208,7 +1213,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
             self._thread_local.num_401_calls += 1
             pat = XRe().compile(r'digest ', flags=XRe().IGNORECASE())
-            self._thread_local.chal = Utils().parse_dict_header(pat.sub('', s_auth, count=1))
+            self._thread_local.chal = WSGIutils().parse_dict_header(pat.sub('', s_auth, count=1))
 
             # Consume content and release the original xconnection
             # to allow our new request to reuse the same one.
@@ -1945,7 +1950,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
             return data
         elif hasattr(data, '__iter__'):
             result = []
-            for k, vs in Utils().to_key_val_list(data):
+            for k, vs in CollectionsUtils().to_key_val_list(data):
                 if XBaseString().is_instance(vs) or not hasattr(vs, '__iter__'):
                     vs = [vs]
                 for v in vs:
@@ -1973,8 +1978,8 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
             raise ValueError("Data must not be a string.")
 
         new_fields = []
-        fields = Utils().to_key_val_list(data or {})
-        files = Utils().to_key_val_list(files or {})
+        fields = CollectionsUtils().to_key_val_list(data or {})
+        files = CollectionsUtils().to_key_val_list(files or {})
 
         for field, val in fields:
             if XBaseString().is_instance(val) or not hasattr(val, '__iter__'):
@@ -2001,7 +2006,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
                 else:
                     fn, fp, ft, fh = v
             else:
-                fn = Utils().guess_filename(v) or k
+                fn = FileUtils().guess_filename(v) or k
                 fp = v
 
             if isinstance(fp, (XStr().clazz(), XBytes().clazz(), bytearray)):
@@ -2029,10 +2034,7 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
         if event not in self.hooks_() :
             raise ValueError('Unsupported event specified, with event name "%s"' % (event))
 
-        if XCompat().is_Callable_instance(hook):
-            self.hooks_()[event].append(hook)
-        elif hasattr(hook, '__iter__'):
-            self.hooks_()[event].extend(h for h in hook if XCompat().is_Callable_instance(h))
+        XCompat().append_callable_instance(self.hooks_()[event], hook)
 
     def deregister_hook(self, event, hook):
         """Deregister a previously registered hook.
@@ -2324,7 +2326,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             else:
                 query = enc_params
 
-        url = Utils().requote_uri(XUrl().unparse([scheme, netloc, path, None, query, fragment]))
+        url = UrlUtils().requote_uri(XUrl().unparse([scheme, netloc, path, None, query, fragment]))
         self.url_(url)
 
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
@@ -2334,7 +2336,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         if headers:
             for header in headers.items():
                 # Raise exception on invalid header value.
-                Utils().check_header_validity(header)
+                HeaderUtils().check_header_validity(header)
                 name, value = header
                 self.headers_()[XUtils().to_native_string(name)] = value
 
@@ -2430,7 +2432,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         # If no Auth is explicitly provided, extract it from the URL first.
         if auth is None:
-            url_auth = Utils().get_auth_from_url(self.url_())
+            url_auth = UrlUtils().get_auth_from_url(self.url_())
             auth = url_auth if any(url_auth) else None
 
         if auth:
@@ -2492,19 +2494,19 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         return XUtils().get_or_set(self, 'hooks', *args)
 
 
-class Content:
-    def __init__(self, read_func):
+class Content:  # ./Models/Content.py
+    def __init__(self, read_func):  # ./Models/Content.py
         self._content = False
         self._content_consumed = False
         self._read = read_func
 
-    def check_for_consistency(self, chunk_size):
+    def check_for_consistency(self, chunk_size):  # ./Models/Content.py
         if self._content_consumed and isinstance(self._content, bool):
             raise StreamConsumedError()
         elif chunk_size is not None and not isinstance(chunk_size, int):
             raise TypeError("chunk_size must be an int, it is instead a %s." % type(chunk_size))
 
-    def iterate(self, chunk_size, decode_unicode, raw, encoding):  # ./Models/Response.py
+    def iterate(self, chunk_size, decode_unicode, raw, encoding):  # ./Models/Content.py
         """Iterates over the response data.  When stream=True is set on the
         request, this avoids reading the content at once into memory for
         large responses.  The chunk size is the number of bytes it should
@@ -2521,7 +2523,7 @@ class Content:
         available encoding based on the response.
         """
 
-        def generate():
+        def generate():  # ./Models/Content.py
             # Special case for urllib3.
             if hasattr(raw, 'stream'):
                 try:
@@ -2556,11 +2558,11 @@ class Content:
 
         return chunks
 
-    def close(self, raw):
+    def close(self, raw):  # ./Models/Content.py
         if not self._content_consumed:
             raw.close()
 
-    def content(self):  # ./Models/Response.py
+    def content(self):  # ./Models/Content.py
         if self._content is False:
             # Read the contents.
             if self._content_consumed:
@@ -2574,18 +2576,18 @@ class Content:
         # since we exhausted the data.
         return self._content
 
-    def consume_everything(self):
+    def consume_everything(self):  # ./Models/Content.py
         # Consume everything; accessing the content attribute makes
         # sure the content has been fully read.
         if not self._content_consumed:
             self.content()
 
 
-    def apparent_encoding(self):
+    def apparent_encoding(self):  # ./Models/Content.py
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
         return XCharDet().detect(self.content())['encoding']
 
-    def text(self, encoding):
+    def text(self, encoding):  # ./Models/Content.py
         """Content of the response, in unicode.
 
         If Response.encoding_() is None, encoding will be guessed using
@@ -2621,7 +2623,7 @@ class Content:
 
         return content
 
-    def json(self, encoding, **kwargs):
+    def json(self, encoding, **kwargs):  # ./Models/Content.py
         r"""Returns the json-encoded content of a response, if any.
 
         :param \*\*kwargs: Optional arguments that ``json.loads`` takes.
@@ -2657,10 +2659,10 @@ class Content:
             else:
                 raise JSONDecodeError(e.msg, e.doc, e.pos)
 
-    def reset_content_consumed(self):
+    def reset_content_consumed(self):  # ./Models/Content.py
         self._content_consumed = True
 
-    def internal_content(self, *args):
+    def internal_content(self, *args):  # ./Models/Content.py
         XUtils().get_or_set(self, '_content', *args)
 
 
@@ -2865,7 +2867,7 @@ class Response:  # ./Models/Response.py
         l = {}
 
         if header:
-            links = Utils().parse_header_links(header)
+            links = HeaderUtils().parse_header_links(header)
 
             for link in links:
                 key = link.get('rel') or link.get('url')
@@ -2946,6 +2948,41 @@ class Response:  # ./Models/Response.py
     def  auth_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'auth', *args)
 
+    def get_unicode(self):  # ./Models/Response.py
+        """Returns the requested content back in unicode.
+
+        :param r: Response object to get unicode content from.
+
+        Tried:
+
+        1. charset from content-type
+        2. fall back and replace all unicode characters
+
+        :rtype: str
+        """
+        XWarnings().warn((
+            'In requests 3.0, get_unicode will be removed. For '
+            'more information, please see the discussion on issue #2266. (This'
+            ' warning should only appear once.)'),
+            DeprecationWarning)
+
+        tried_encodings = []
+
+        # Try charset from content-type
+        encoding = self.get_encoding_from_headers(self.headers_())
+
+        if encoding:
+            try:
+                return str(self.content_(), encoding)
+            except UnicodeError:
+                tried_encodings.append(encoding)
+
+        # Fall back:
+        try:
+            return str(self.content_(), encoding, errors='replace')
+        except TypeError:
+            return self.content_()
+
 
 # *************************** classes in Packages section *****************
 class Packages:  # ./Packages/Packages.py
@@ -2990,8 +3027,8 @@ class Sessions:  # ./Sessions/Sessions.py
         ):
             return request_setting
 
-        merged_setting = dict_class(Utils().to_key_val_list(session_setting))
-        merged_setting.update(Utils().to_key_val_list(request_setting))
+        merged_setting = dict_class(CollectionsUtils().to_key_val_list(session_setting))
+        merged_setting.update(CollectionsUtils().to_key_val_list(request_setting))
 
         # Remove keys that are set to None. Extract keys first to avoid altering
         # the dictionary during iteration.
@@ -3029,7 +3066,10 @@ class Sessions:  # ./Sessions/Sessions.py
         """
         return Session()
 
+
 class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
+    def DEFAULT_PORTS(self):  # ./Sessions/SessionRedirectMixin.py
+        return {'http': 80, 'https': 443}
 
     def get_redirect_target(self, resp):
         """Receives a Response. Returns a redirect URI or ``None``"""
@@ -3069,7 +3109,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         # Handle default port usage corresponding to scheme.
         changed_port = old_parsed.port != new_parsed.port
         changed_scheme = old_parsed.scheme != new_parsed.scheme
-        default_port = (Utils().DEFAULT_PORTS().get(old_parsed.scheme, None), None)
+        default_port = (self.DEFAULT_PORTS().get(old_parsed.scheme, None), None)
         if (not changed_scheme and old_parsed.port in default_port
                 and new_parsed.port in default_port):
             return False
@@ -3122,9 +3162,9 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
             # Compliant with RFC3986, we percent encode the url.
             if not parsed.netloc:
-                url = XUrl().join(resp.url_(), Utils().requote_uri(url))
+                url = XUrl().join(resp.url_(), UrlUtils().requote_uri(url))
             else:
-                url = Utils().requote_uri(url)
+                url = UrlUtils().requote_uri(url)
 
             prepared_request.url_(XUtils().to_native_string(url))
 
@@ -3163,7 +3203,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
             # Attempt to rewind consumed file-like object.
             if rewindable:
-                Utils().rewind_body(prepared_request)
+                FileUtils().rewind_body(prepared_request)
 
             # Override the original request.
             req = prepared_request
@@ -3203,7 +3243,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             del headers['Authorization']
 
         # .netrc might have more auth for us on our new host.
-        new_auth = Utils().get_netrc_auth(url) if self.trust_env_() else None
+        new_auth = UrlUtils().get_netrc_auth(url) if self.trust_env_() else None
         if new_auth is not None:
             prepared_request.prepare_auth(new_auth)
 
@@ -3226,9 +3266,9 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         new_proxies = proxies.copy()
         no_proxy = proxies.get('no_proxy')
 
-        bypass_proxy = Utils().should_bypass_proxies(url, no_proxy=no_proxy)
+        bypass_proxy = ProxyUtils().should_bypass_proxies(url, no_proxy=no_proxy)
         if self.trust_env_() and not bypass_proxy:
-            environ_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
+            environ_proxies = ProxyUtils().get_environ_proxies(url, no_proxy=no_proxy)
 
             proxy = environ_proxies.get(scheme, environ_proxies.get('all'))
 
@@ -3239,7 +3279,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             del headers_()['Proxy-Authorization']
 
         try:
-            username, password = Utils().get_auth_from_url(new_proxies[scheme])
+            username, password = UrlUtils().get_auth_from_url(new_proxies[scheme])
         except KeyError:
             username, password = None, None
 
@@ -3310,7 +3350,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         #: A case-insensitive dictionary of headers to be sent on each
         #: :class:`Request <Request>` sent from this
         #: :class:`Session <Session>`.
-        self.headers_(Utils().default_headers())
+        self.headers_(HeaderUtils().default_headers())
 
         #: Default Authentication tuple or object to attach to
         #: :class:`Request <Request>`.
@@ -3396,7 +3436,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth_()
         if self.trust_env_() and not auth and not self.auth_():
-            auth = Utils().get_netrc_auth(request.url_())
+            auth = UrlUtils().get_netrc_auth(request.url_())
 
         p = PreparedRequest()
         p.prepare(
@@ -3581,7 +3621,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         kwargs.setdefault('verify', self.verify_())
         kwargs.setdefault('cert', self.cert_())
         if 'proxies' not in kwargs:
-            kwargs['proxies'] = Utils().resolve_proxies(
+            kwargs['proxies'] = ProxyUtils().resolve_proxies(
                 request, self.proxies_(), self.trust_env_()
             )
 
@@ -3658,7 +3698,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         if self.trust_env_():
             # Set environment's proxies.
             no_proxy = proxies.get('no_proxy') if proxies is not None else None
-            env_proxies = Utils().get_environ_proxies(url, no_proxy=no_proxy)
+            env_proxies = ProxyUtils().get_environ_proxies(url, no_proxy=no_proxy)
             for (k, v) in env_proxies.items():
                 proxies.setdefault(k, v)
 
@@ -3681,7 +3721,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         """
         Returns the appropriate connection adapter for the given URL.
 
-        :rtype: requests.adapters.BaseAdapter
+        :rtype: requests.adapters.BaseConnections
         """
         for (prefix, adapter) in self.adapters_().items():
 
@@ -3699,7 +3739,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
     def mount(self, prefix, adapter):  # ./Sessions/Session.py
         """Registers a connection adapter to a prefix.
 
-        Adapters are sorted in descending order by prefix length.
+        Connections are sorted in descending order by prefix length.
         """
         self.adapters_()[prefix] = adapter
         keys_to_move = [k for k in self.adapters_() if len(k) < len(prefix)]
@@ -3745,50 +3785,12 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
 
 # *************************** classes in Utils section *****************
-class Utils:  # ./Utils/utils.py
-    """
-    requests.utils
-    ~~~~~~~~~~~~~~
-
-    This class provides utility functions that are used within Requests
-    that are also useful for external consumption.
-    """
-    _NETRC_FILES = ('.netrc', '_netrc')
-
-    _DEFAULT_CA_BUNDLE_PATH = Certs().where()
-
-    _DEFAULT_PORTS = {'http': 80, 'https': 443}
-
-    # Ensure that ', ' is used to preserve previous delimiter behavior.
-    _DEFAULT_ACCEPT_ENCODING = ", ".join(
-        XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
-    )
-
-
-    _UNRESERVED_SET = frozenset(
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
-
-    # Null bytes; no need to recreate these on each call to guess_json_utf
-    _null = '\x00'.encode('ascii')  # encoding to ASCII for Python 3
-    _null2 = _null * 2
-    _null3 = _null * 3
-
-    # Moved outside of function to avoid recompile every call
-    _CLEAN_HEADER_REGEX_BYTE = XRe().compile(b'^\\S[^\\r\\n]*$|^$')
-    _CLEAN_HEADER_REGEX_STR = XRe().compile(r'^\S[^\r\n]*$|^$')
-
-    def DEFAULT_PORTS(self):  # ./Utils/utils.py
-        return {'http': 80, 'https': 443}
-
-    # The unreserved URI characters (RFC 3986)
-    def UNRESERVED_SET(self):  # ./Utils/utils.py
-        return self._UNRESERVED_SET
-
-    def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/utils.py
-        return self._DEFAULT_ACCEPT_ENCODING
-
-    def DEFAULT_CA_BUNDLE_PATH(self):  # ./Utils/utils.py
-        return self._DEFAULT_CA_BUNDLE_PATH
+class ProxyUtils:  # ./Utils/proxy_utils.py
+    def proxy_bypass(self, host):  # noqa  # ./Utils/proxy_utils.py
+        if XSys().platform() == 'win32':
+            return self._proxy_bypass_win32(host)
+        else:
+            return XUrl().request().proxy_bypass(host)
 
     if XSys().platform() == 'win32':
         # provide a proxy_bypass version on Windows without DNS lookups
@@ -3837,19 +3839,628 @@ class Utils:  # ./Utils/utils.py
             else:
                 return XCompat().proxy_bypass_registry(host)
 
-    def proxy_bypass(self, host):  # noqa  # ./Utils/utils.py
-        if XSys().platform() == 'win32':
-            return self._proxy_bypass_win32(host)
+    def should_bypass_proxies(self, url, no_proxy):  # ./Utils/proxy_utils.py
+        """
+        Returns whether we should bypass proxies or not.
+
+        :rtype: bool
+        """
+        # Prioritize lowercase environment variables over uppercase
+        # to keep a consistent behaviour with other http projects (curl, wget).
+        get_proxy = lambda k: XOs().environ().get(k) or XOs().environ().get(k.upper())
+
+        # First check whether no_proxy is defined. If it is, check that the URL
+        # we're getting isn't in the no_proxy list.
+        no_proxy_arg = no_proxy
+        if no_proxy is None:
+            no_proxy = get_proxy('no_proxy')
+        parsed = XUrl().parse(url)
+
+        if parsed.hostname is None:
+            # URLs don't always have hostnames, e.g. file:/// urls.
+            return True
+
+        if no_proxy:
+            # We need to check whether we match here. We need to see if we match
+            # the end of the hostname, both with and without the port.
+            no_proxy = (
+                host for host in no_proxy.replace(' ', '').split(',') if host
+            )
+
+            if IpUtils().is_ipv4_address(parsed.hostname):
+                for proxy_ip in no_proxy:
+                    if self.is_valid_cidr(proxy_ip):
+                        if self.address_in_network(parsed.hostname, proxy_ip):
+                            return True
+                    elif parsed.hostname == proxy_ip:
+                        # If no_proxy ip was defined in plain IP notation instead of cidr notation &
+                        # matches the IP of the index
+                        return True
+            else:
+                host_with_port = parsed.hostname
+                if parsed.port:
+                    host_with_port += ':{}'.format(parsed.port)
+
+                for host in no_proxy:
+                    if parsed.hostname.endswith(host) or host_with_port.endswith(host):
+                        # The URL does match something in no_proxy, so we don't want
+                        # to apply the proxies on this URL.
+                        return True
+
+        with Utils().set_environ('no_proxy', no_proxy_arg):
+            # parsed.hostname can be `None` in cases such as a file URI.
+            try:
+                bypass = ProxyUtils().proxy_bypass(parsed.hostname)
+            except (TypeError, XSocket().gaierror()):
+                bypass = False
+
+        if bypass:
+            return True
+
+        return False
+
+    def address_in_network(self, ip, net):  # ./Utils/proxy_utils.py
+        """This function allows you to check if an IP belongs to a network subnet
+
+        Example: returns True if ip = 192.168.1.1 and net = 192.168.1.0/24
+                 returns False if ip = 192.168.1.1 and net = 192.168.100.0/24
+
+        :rtype: bool
+        """
+        ipaddr = XStruct().unpack('=L', XSocket().inet_aton(ip))[0]
+        netaddr, bits = net.split('/')
+        netmask = XStruct().unpack('=L', XSocket().inet_aton(self.dotted_netmask(int(bits))))[0]
+        network = XStruct().unpack('=L', XSocket().inet_aton(netaddr))[0] & netmask
+        return (ipaddr & netmask) == (network & netmask)
+
+    def dotted_netmask(self, mask):  # ./Utils/proxy_utils.py
+        """Converts mask from /xx format to xxx.xxx.xxx.xxx
+
+        Example: if mask is 24 function returns 255.255.255.0
+
+        :rtype: str
+        """
+        bits = 0xffffffff ^ (1 << 32 - mask) - 1
+        return XSocket().inet_ntoa(XStruct().pack('>I', bits))
+
+    def is_valid_cidr(self, string_network):  # ./Utils/proxy_utils.py
+        """
+        Very simple check of the cidr format in no_proxy variable.
+
+        :rtype: bool
+        """
+        if string_network.count('/') == 1:
+            try:
+                mask = int(string_network.split('/')[1])
+            except ValueError:
+                return False
+
+            if mask < 1 or mask > 32:
+                return False
+
+            try:
+                XSocket().inet_aton(string_network.split('/')[0])
+            except XSocket().error():
+                return False
         else:
-            return XUrl().request().proxy_bypass(host)
+            return False
+        return True
 
-    def dict_to_sequence(self, d):  # ./Utils/utils.py
-        """Returns an internal sequence dictionary update."""
+    def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/proxy_utils.py
+        """
+        Return a dict of environment proxies.
 
-        if hasattr(d, 'items'):
-            d = d.items()
+        :rtype: dict
+        """
+        if self.should_bypass_proxies(url, no_proxy=no_proxy):
+            return {}
+        else:
+            return XUrl().request().getproxies()
 
-        return d
+    def select_proxy(self, url, proxies):  # ./Utils/proxy_utils.py
+        """Select a proxy for the url, if applicable.
+
+        :param url: The url being for the request
+        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
+        """
+        proxies = proxies or {}
+        urlparts = XUrl().parse(url)
+        if urlparts.hostname is None:
+            return proxies.get(urlparts.scheme, proxies.get('all'))
+
+        proxy_keys = [
+            urlparts.scheme + '://' + urlparts.hostname,
+            urlparts.scheme,
+            'all://' + urlparts.hostname,
+            'all',
+        ]
+        proxy = None
+        for proxy_key in proxy_keys:
+            if proxy_key in proxies:
+                proxy = proxies[proxy_key]
+                break
+
+        return proxy
+
+    def resolve_proxies(self, request, proxies, trust_env=True):  # ./Utils/proxy_utils.py
+        """This method takes proxy information from a request and configuration
+        input to resolve a mapping of target proxies. This will consider settings
+        such a NO_PROXY to strip proxy configurations.
+
+        :param request: Request or PreparedRequest
+        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
+        :param trust_env: Boolean declaring whether to trust environment configs
+
+        :rtype: dict
+        """
+        proxies = proxies if proxies is not None else {}
+        url = request.url_()
+        scheme = XUrl().parse(url).scheme
+        no_proxy = proxies.get('no_proxy')
+        new_proxies = proxies.copy()
+
+        bypass_proxy = self.should_bypass_proxies(url, no_proxy=no_proxy)
+        if trust_env and not bypass_proxy:
+            environ_proxies = self.get_environ_proxies(url, no_proxy=no_proxy)
+
+            proxy = environ_proxies.get(scheme, environ_proxies.get('all'))
+
+            if proxy:
+                new_proxies.setdefault(scheme, proxy)
+        return new_proxies
+
+class CollectionsUtils:  # ./Utils/collections_utils.py
+    def to_key_val_list(self, value):  # ./Utils/collections_utils.py
+        """Take an object and test to see if it can be represented as a
+        dictionary. If it can be, return a list of tuples, e.g.,
+
+        ::
+
+            >>> to_key_val_list([('key', 'val')])
+            [('key', 'val')]
+            >>> to_key_val_list({'key': 'val'})
+            [('key', 'val')]
+            >>> to_key_val_list('string')
+            Traceback (most recent call last):
+            ...
+            ValueError: cannot encode objects that are not 2-tuples
+
+        :rtype: list
+        """
+        if value is None:
+            return None
+        if isinstance(value, (XStr().clazz(), XBytes().clazz(), bool, int)):
+            raise ValueError('cannot encode objects that are not 2-tuples')
+
+        if isinstance(value, XMapping):
+            value = value.items()
+
+        return list(value)
+
+
+class WSGIutils:  # ./Utils/wsgi_utils.py
+    # From mitsuhiko/werkzeug (used with permission).
+    def parse_dict_header(self, value):  # ./Utils/wsgi_utils.py
+        """Parse lists of key, value pairs as described by RFC 2068 Section 2 and
+        convert them into a python dict:
+
+        >>> d = parse_dict_header('foo="is a fish", bar="as well"')
+        >>> type(d) is dict
+        True
+        >>> sorted(d.items())
+        [('bar', 'as well'), ('foo', 'is a fish')]
+
+        If there is no value for a key it will be `None`:
+
+        >>> parse_dict_header('key_without_value')
+        {'key_without_value': None}
+
+        To create a header from the :class:`dict` again, use the
+        :func:`dump_header` function.
+
+        :param value: a string with a dict header.
+        :return: :class:`dict`
+        :rtype: dict
+        """
+        result = {}
+        for item in _parse_list_header(value):
+            if '=' not in item:
+                result[item] = None
+                continue
+            name, value = item.split('=', 1)
+            if value[:1] == value[-1:] == '"':
+                value = WSGIutils().unquote_header_value(value[1:-1])
+            result[name] = value
+        return result
+
+    # From mitsuhiko/werkzeug (used with permission).
+    def unquote_header_value(self, value, is_filename=False):  # ./Utils/wsgi_utils.py
+        r"""Unquotes a header value.  (Reversal of :func:`quote_header_value`).
+        This does not use the real unquoting but what browsers are actually
+        using for quoting.
+
+        :param value: the header value to unquote.
+        :rtype: str
+        """
+        if value and value[0] == value[-1] == '"':
+            # this is not the real unquoting, but fixing this so that the
+            # RFC is met will result in bugs with internet explorer and
+            # probably some other browsers as well.  IE for example is
+            # uploading files with "C:\foo\bar.txt" as filename
+            value = value[1:-1]
+
+            # if this is a filename and the starting characters look like
+            # a UNC path, then just return the value without quotes.  Using the
+            # replace sequence below on a UNC path has the effect of turning
+            # the leading double slash into a single slash and then
+            # _fix_ie_filename() doesn't work correctly.  See #458.
+            if not is_filename or value[:2] != '\\\\':
+                return value.replace('\\\\', '\\').replace('\\"', '"')
+        return value
+
+
+class FileUtils:  # ./Utils/file_utils.py
+    def guess_filename(self, obj):  # ./Utils/file_utils.py
+        """Tries to guess the filename of the given object."""
+        name = getattr(obj, 'name', None)
+        if (name and XBaseString().is_instance(name) and name[0] != '<' and
+                name[-1] != '>'):
+            return XOs().path().basename(name)
+
+    @contextlib.contextmanager
+    def atomic_open(self, filename):  # ./Utils/file_utils.py
+        """Write a file to the disk in an atomic fashion"""
+        replacer = XOs().rename if XSys().version_info()[0] == 2 else XOs().replace
+        tmp_descriptor, tmp_name = XTempFile().mkstemp(dir=XOs().path().dirname(filename))
+        try:
+            with XOs().fdopen(tmp_descriptor, 'wb') as tmp_handler:
+                yield tmp_handler
+            replacer(tmp_name, filename)
+        except BaseException:
+            XOs().remove(tmp_name)
+            raise
+
+    def rewind_body(self, prepared_request):  # ./Utils/file_utils.py
+        """Move file pointer back to its recorded starting position
+        so it can be read again on redirect.
+        """
+        body_seek = getattr(prepared_request.body_(), 'seek', None)
+        if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
+            try:
+                body_seek(prepared_request._body_position)
+            except (IOError, OSError):
+                raise UnrewindableBodyError("An error occurred when rewinding request "
+                                            "body for redirect.")
+        else:
+            raise UnrewindableBodyError("Unable to rewind request body for redirect.")
+
+
+class HeaderUtils:  # ./Utils/header_utils.py
+    # Ensure that ', ' is used to preserve previous delimiter behavior.
+    _DEFAULT_ACCEPT_ENCODING = ", ".join(
+        XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
+    )
+
+    # Moved outside of function to avoid recompile every call
+    _CLEAN_HEADER_REGEX_BYTE = XRe().compile(b'^\\S[^\\r\\n]*$|^$')
+    _CLEAN_HEADER_REGEX_STR = XRe().compile(r'^\S[^\r\n]*$|^$')
+
+    def _parse_content_type_header(self, header):  # ./Utils/header_utils.py
+        """Returns content type and parameters from given header
+
+        :param header: string
+        :return: tuple containing content type and dictionary of
+             parameters
+        """
+        tokens = header.split(';')
+        content_type, params = tokens[0].strip(), tokens[1:]
+        params_dict = {}
+        items_to_strip = "\"' "
+
+        for param in params:
+            param = param.strip()
+            if param:
+                key, value = param, True
+                index_of_equals = param.find("=")
+                if index_of_equals != -1:
+                    key = param[:index_of_equals].strip(items_to_strip)
+                    value = param[index_of_equals + 1:].strip(items_to_strip)
+                params_dict[key.lower()] = value
+        return content_type, params_dict
+
+    def get_encoding_from_headers(self, headers):  # ./Utils/header_utils.py
+        """Returns encodings from given HTTP Header Dict.
+
+        :param headers: dictionary to extract encoding from.
+        :rtype: str
+        """
+
+        content_type = headers.get('content-type')
+
+        if not content_type:
+            return None
+
+        content_type, params = self._parse_content_type_header(content_type)
+
+        if 'charset' in params:
+            return params['charset'].strip("'\"")
+
+        if 'text' in content_type:
+            return 'ISO-8859-1'
+
+        if 'application/json' in content_type:
+            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
+            return 'utf-8'
+
+    def default_headers(self):  # ./Utils/header_utils.py
+        """
+        :rtype: requests.domain.CaseInsensitiveDict
+        """
+        return CaseInsensitiveDict({
+            'User-Agent': self.default_user_agent(),
+            'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
+            'Accept': '*/*',
+            'Connection': 'keep-alive',
+        })
+
+    def parse_header_links(self, value):  # ./Utils/header_utils.py
+        """Return a list of parsed link headers proxies.
+
+        i.e. Link: <http:/.../front.jpeg>; rel=front; type="image/jpeg",<http://.../back.jpeg>; rel=back;type="image/jpeg"
+
+        :rtype: list
+        """
+
+        links = []
+
+        replace_chars = ' \'"'
+
+        value = value.strip(replace_chars)
+        if not value:
+            return links
+
+        for val in XRe().split(', *<', value):
+            try:
+                url, params = val.split(';', 1)
+            except ValueError:
+                url, params = val, ''
+
+            link = {'url': url.strip('<> \'"')}
+
+            for param in params.split(';'):
+                try:
+                    key, value = param.split('=')
+                except ValueError:
+                    break
+
+                link[key.strip(replace_chars)] = value.strip(replace_chars)
+
+            links.append(link)
+
+        return links
+
+    def check_header_validity(self, header):  # ./Utils/header_utils.py
+        """Verifies that header value is a string which doesn't contain
+        leading whitespace or return characters. This prevents unintended
+        header injection.
+
+        :param header: tuple, in the format (name, value).
+        """
+        name, value = header
+
+        if XBytes().is_instance(value):
+            pat = self._CLEAN_HEADER_REGEX_BYTE
+        else:
+            pat = self._CLEAN_HEADER_REGEX_STR
+        try:
+            if not pat.match(value):
+                raise InvalidHeader("Invalid return character or leading space in header: %s" % name)
+        except TypeError:
+            raise InvalidHeader("Value for header {%s: %s} must be of type str or "
+                                "bytes, not %s" % (name, value, type(value)))
+
+    def default_user_agent(self, name="python-requests"):  # ./Utils/header_utils.py
+        """
+        Return a string representing the default user agent.
+
+        :rtype: str
+        """
+        global requests_version
+        return '%s/%s' % (name, requests_version)
+
+    def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/header_utils.py
+        return self._DEFAULT_ACCEPT_ENCODING
+
+
+
+class UrlUtils:  # ./Utils/url_utils.py
+    _NETRC_FILES = ('.netrc', '_netrc')
+    _UNRESERVED_SET = frozenset(
+            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
+
+    # The unreserved URI characters (RFC 3986)
+    def UNRESERVED_SET(self):  # ./Utils/url_utils.py
+        return self._UNRESERVED_SET
+
+    def get_netrc_auth(self, url, raise_errors=False):  # ./Utils/url_utils.py
+        """Returns the Requests tuple auth for a given url from netrc."""
+
+        netrc_file = XOs().environ().get('NETRC')
+        if netrc_file is not None:
+            netrc_locations = (netrc_file,)
+        else:
+            netrc_locations = ('~/{}'.format(f) for f in self._NETRC_FILES)
+
+        try:
+            from netrc import netrc, NetrcParseError
+
+            netrc_path = None
+
+            for f in netrc_locations:
+                try:
+                    loc = XOs().path().expanduser(f)
+                except KeyError:
+                    # os.path.expanduser can fail when $HOME is undefined and
+                    # getpwuid fails. See https://bugs.python.org/issue20164 &
+                    # https://github.com/psf/requests/issues/1846
+                    return
+
+                if XOs().path().exists(loc):
+                    netrc_path = loc
+                    break
+
+            # Abort early if there isn't one.
+            if netrc_path is None:
+                return
+
+            ri = XUrl().parse(url)
+
+            # Strip port numbers from netloc. This weird `if...encode`` dance is
+            # used for Python 3.2, which doesn't support unicode literals.
+            splitstr = b':'
+            if XStr().is_instance(url):
+                splitstr = splitstr.decode('ascii')
+            host = ri.netloc.split(splitstr)[0]
+
+            try:
+                _netrc = netrc(netrc_path).authenticators(host)
+                if _netrc:
+                    # Return with login / password
+                    login_i = (0 if _netrc[0] else 1)
+                    return (_netrc[login_i], _netrc[2])
+            except (NetrcParseError, IOError):
+                # If there was a parsing error or a permissions issue reading the file,
+                # we'll just skip netrc auth unless explicitly asked to raise errors.
+                if raise_errors:
+                    raise
+
+        # App Engine hackiness.
+        except (ImportError, AttributeError):
+            pass
+
+    def unquote_unreserved(self, uri):  # ./Utils/url_utils.py
+        """Un-escape any percent-escape sequences in a URI that are unreserved
+        characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
+
+        :rtype: str
+        """
+        parts = uri.split('%')
+        for i in range(1, len(parts)):
+            h = parts[i][0:2]
+            if len(h) == 2 and h.isalnum():
+                try:
+                    c = chr(int(h, 16))
+                except ValueError:
+                    raise InvalidURL("Invalid percent-escape sequence: '%s'" % h)
+
+                if c in self.UNRESERVED_SET():
+                    parts[i] = c + parts[i][2:]
+                else:
+                    parts[i] = '%' + parts[i]
+            else:
+                parts[i] = '%' + parts[i]
+        return ''.join(parts)
+
+    def requote_uri(self, uri):  # ./Utils/url_utils.py
+        """Re-quote the given URI.
+
+        This function passes the given URI through an unquote/quote cycle to
+        ensure that it is fully and consistently quoted.
+
+        :rtype: str
+        """
+        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
+        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
+        try:
+            # Unquote only the unreserved characters
+            # Then quote only illegal characters (do not quote reserved,
+            # unreserved, or '%')
+            return XUrl().quote(UrlUtils().unquote_unreserved(uri), safe=safe_with_percent)
+        except InvalidURL:
+            # We couldn't unquote the given URI, so let's try quoting it, but
+            # there may be unquoted '%'s in the URI. We need to make sure they're
+            # properly quoted so they do not cause issues elsewhere.
+            return XUrl().quote(uri, safe=safe_without_percent)
+
+    def prepend_scheme_if_needed(self, url, new_scheme):  # ./Utils/url_utils.py
+        """Given a URL that may or may not have a scheme, prepend the given scheme.
+        Does not replace a present scheme with the one provided as an argument.
+
+        :rtype: XStr().clazz()
+        """
+        scheme, netloc, path, params, query, fragment = XUrl().parse(url, new_scheme)
+
+        # urlparse is a finicky beast, and sometimes decides that there isn't a
+        # netloc present. Assume that it's being over-cautious, and switch netloc
+        # and path if urlparse decided there was no netloc.
+        if not netloc:
+            netloc, path = path, netloc
+
+        return XUrl().unparse((scheme, netloc, path, params, query, fragment))
+
+    def get_auth_from_url(self, url):  # ./Utils/url_utils.py
+        """Given a url with authentication components, extract them into a tuple of
+        username,password.
+
+        :rtype: (str,str)
+        """
+        parsed = XUrl().parse(url)
+
+        try:
+            auth = (XUrl().unquote(parsed.username), XUrl().unquote(parsed.password))
+        except (AttributeError, TypeError):
+            auth = ('', '')
+
+        return auth
+
+    def urldefragauth(self, url):  # ./Utils/url_utils.py
+        """
+        Given a url remove the fragment and the authentication part.
+
+        :rtype: str
+        """
+        scheme, netloc, path, params, query, fragment = XUrl().parse(url)
+
+        # see func:`prepend_scheme_if_needed`
+        if not netloc:
+            netloc, path = path, netloc
+
+        netloc = netloc.rsplit('@', 1)[-1]
+
+        return XUrl().unparse((scheme, netloc, path, params, query, ''))
+
+
+class IpUtils:  # ./Utils/ip_utils.py
+    def is_ipv4_address(self, string_ip):  # ./Utils/ip_utils.py
+        """
+        :rtype: bool
+        """
+        try:
+            XSocket().inet_aton(string_ip)
+        except XSocket().error():
+            return False
+        return True
+
+
+class Utils:  # ./Utils/utils.py
+    """
+    requests.utils
+    ~~~~~~~~~~~~~~
+
+    This class provides utility functions that are used within Requests
+    that are also useful for external consumption.
+    """
+    _DEFAULT_CA_BUNDLE_PATH = Certs().where()
+
+    _DEFAULT_PORTS = {'http': 80, 'https': 443}
+
+    # Null bytes; no need to recreate these on each call to guess_json_utf
+    _null = '\x00'.encode('ascii')  # encoding to ASCII for Python 3
+    _null2 = _null * 2
+    _null3 = _null * 3
+
+    def DEFAULT_CA_BUNDLE_PATH(self):  # ./Utils/utils.py
+        return self._DEFAULT_CA_BUNDLE_PATH
 
     def super_len(self, o):  # ./Utils/utils.py
         total_length = None
@@ -3914,74 +4525,13 @@ class Utils:  # ./Utils/utils.py
 
         return max(0, total_length - current_position)
 
-    def get_netrc_auth(self, url, raise_errors=False):  # ./Utils/utils.py
-        """Returns the Requests tuple auth for a given url from netrc."""
-
-        netrc_file = XOs().environ().get('NETRC')
-        if netrc_file is not None:
-            netrc_locations = (netrc_file,)
-        else:
-            netrc_locations = ('~/{}'.format(f) for f in self._NETRC_FILES)
-
-        try:
-            from netrc import netrc, NetrcParseError
-
-            netrc_path = None
-
-            for f in netrc_locations:
-                try:
-                    loc = XOs().path().expanduser(f)
-                except KeyError:
-                    # os.path.expanduser can fail when $HOME is undefined and
-                    # getpwuid fails. See https://bugs.python.org/issue20164 &
-                    # https://github.com/psf/requests/issues/1846
-                    return
-
-                if XOs().path().exists(loc):
-                    netrc_path = loc
-                    break
-
-            # Abort early if there isn't one.
-            if netrc_path is None:
-                return
-
-            ri = XUrl().parse(url)
-
-            # Strip port numbers from netloc. This weird `if...encode`` dance is
-            # used for Python 3.2, which doesn't support unicode literals.
-            splitstr = b':'
-            if XStr().is_instance(url):
-                splitstr = splitstr.decode('ascii')
-            host = ri.netloc.split(splitstr)[0]
-
-            try:
-                _netrc = netrc(netrc_path).authenticators(host)
-                if _netrc:
-                    # Return with login / password
-                    login_i = (0 if _netrc[0] else 1)
-                    return (_netrc[login_i], _netrc[2])
-            except (NetrcParseError, IOError):
-                # If there was a parsing error or a permissions issue reading the file,
-                # we'll just skip netrc auth unless explicitly asked to raise errors.
-                if raise_errors:
-                    raise
-
-        # App Engine hackiness.
-        except (ImportError, AttributeError):
-            pass
-
-    def guess_filename(self, obj):  # ./Utils/utils.py
-        """Tries to guess the filename of the given object."""
-        name = getattr(obj, 'name', None)
-        if (name and XBaseString().is_instance(name) and name[0] != '<' and
-                name[-1] != '>'):
-            return XOs().path().basename(name)
-
     def extract_zipped_paths(self, path):  # ./Utils/utils.py
         """Replace nonexistent paths that look like they refer to a member of a zip
         archive with the location of an extracted copy of the target, or else
         just return the provided path unchanged.
         """
+        # Called by HTTPconnections.cert_verify and requests.utils.
+        # This should be moved to HTTPconnections, except we support it in requests.utils
         if XOs().path().exists(path):
             # this is already a valid path, no need to do anything further
             return path
@@ -4009,234 +4559,14 @@ class Utils:  # ./Utils/utils.py
         extracted_path = XOs().path().join(tmp, member.split('/')[-1])
         if not XOs().path().exists(extracted_path):
             # use read + write to avoid the creating nested folders, we only want the file, avoids mkdir racing condition
-            with Utils().atomic_open(extracted_path) as file_handler:
+            with FileUtils().atomic_open(extracted_path) as file_handler:
                 file_handler.write(zip_file.read(member))
         return extracted_path
 
-    @contextlib.contextmanager
-    def atomic_open(self, filename):  # ./Utils/utils.py
-        """Write a file to the disk in an atomic fashion"""
-        replacer = XOs().rename if XSys().version_info()[0] == 2 else XOs().replace
-        tmp_descriptor, tmp_name = XTempFile().mkstemp(dir=XOs().path().dirname(filename))
-        try:
-            with XOs().fdopen(tmp_descriptor, 'wb') as tmp_handler:
-                yield tmp_handler
-            replacer(tmp_name, filename)
-        except BaseException:
-            XOs().remove(tmp_name)
-            raise
-
-    def from_key_val_list(self, value):  # ./Utils/utils.py
-        """Take an object and test to see if it can be represented as a
-        dictionary. Unless it can not be represented as such, return an
-        OrderedDict, e.g.,
-
-        ::
-
-            >>> from_key_val_list([('key', 'val')])
-            OrderedDict([('key', 'val')])
-            >>> from_key_val_list('string')
-            Traceback (most recent call last):
-            ...
-            ValueError: cannot encode objects that are not 2-tuples
-            >>> from_key_val_list({'key': 'val'})
-            OrderedDict([('key', 'val')])
-
-        :rtype: OrderedDict
-        """
-        if value is None:
-            return None
-
-        if isinstance(value, (str, bytes, bool, int)):
-            raise ValueError('cannot encode objects that are not 2-tuples')
-
-        return XOrderedDict(value)
-
-    def to_key_val_list(self, value):  # ./Utils/utils.py
-        """Take an object and test to see if it can be represented as a
-        dictionary. If it can be, return a list of tuples, e.g.,
-
-        ::
-
-            >>> to_key_val_list([('key', 'val')])
-            [('key', 'val')]
-            >>> to_key_val_list({'key': 'val'})
-            [('key', 'val')]
-            >>> to_key_val_list('string')
-            Traceback (most recent call last):
-            ...
-            ValueError: cannot encode objects that are not 2-tuples
-
-        :rtype: list
-        """
-        if value is None:
-            return None
-        if isinstance(value, (XStr().clazz(), XBytes().clazz(), bool, int)):
-            raise ValueError('cannot encode objects that are not 2-tuples')
-
-        if isinstance(value, XMapping):
-            value = value.items()
-
-        return list(value)
-
-    # From mitsuhiko/werkzeug (used with permission).
-    def parse_list_header(self, value):  # ./Utils/utils.py
-        """Parse lists as described by RFC 2068 Section 2.
-
-        In particular, parse comma-separated lists where the elements of
-        the list may include quoted-strings.  A quoted-string could
-        contain a comma.  A non-quoted string could have quotes in the
-        middle.  Quotes are removed automatically after parsing.
-
-        It basically works like :func:`parse_set_header` just that items
-        may appear multiple times and case sensitivity is preserved.
-
-        The return value is a standard :class:`list`:
-
-        >>> parse_list_header('token, "quoted value"')
-        ['token', 'quoted value']
-
-        To create a header from the :class:`list` again, use the
-        :func:`dump_header` function.
-
-        :param value: a string with a list header.
-        :return: :class:`list`
-        :rtype: list
-        """
-        result = []
-        for item in _parse_list_header(value):
-            if item[:1] == item[-1:] == '"':
-                item = self.unquote_header_value(item[1:-1])
-            result.append(item)
-        return result
-
-    # From mitsuhiko/werkzeug (used with permission).
-    def parse_dict_header(self, value):  # ./Utils/utils.py
-        """Parse lists of key, value pairs as described by RFC 2068 Section 2 and
-        convert them into a python dict:
-
-        >>> d = parse_dict_header('foo="is a fish", bar="as well"')
-        >>> type(d) is dict
-        True
-        >>> sorted(d.items())
-        [('bar', 'as well'), ('foo', 'is a fish')]
-
-        If there is no value for a key it will be `None`:
-
-        >>> parse_dict_header('key_without_value')
-        {'key_without_value': None}
-
-        To create a header from the :class:`dict` again, use the
-        :func:`dump_header` function.
-
-        :param value: a string with a dict header.
-        :return: :class:`dict`
-        :rtype: dict
-        """
-        result = {}
-        for item in _parse_list_header(value):
-            if '=' not in item:
-                result[item] = None
-                continue
-            name, value = item.split('=', 1)
-            if value[:1] == value[-1:] == '"':
-                value = self.unquote_header_value(value[1:-1])
-            result[name] = value
-        return result
-
-    # From mitsuhiko/werkzeug (used with permission).
-    def unquote_header_value(self, value, is_filename=False):  # ./Utils/utils.py
-        r"""Unquotes a header value.  (Reversal of :func:`quote_header_value`).
-        This does not use the real unquoting but what browsers are actually
-        using for quoting.
-
-        :param value: the header value to unquote.
-        :rtype: str
-        """
-        if value and value[0] == value[-1] == '"':
-            # this is not the real unquoting, but fixing this so that the
-            # RFC is met will result in bugs with internet explorer and
-            # probably some other browsers as well.  IE for example is
-            # uploading files with "C:\foo\bar.txt" as filename
-            value = value[1:-1]
-
-            # if this is a filename and the starting characters look like
-            # a UNC path, then just return the value without quotes.  Using the
-            # replace sequence below on a UNC path has the effect of turning
-            # the leading double slash into a single slash and then
-            # _fix_ie_filename() doesn't work correctly.  See #458.
-            if not is_filename or value[:2] != '\\\\':
-                return value.replace('\\\\', '\\').replace('\\"', '"')
-        return value
-
-    def get_encodings_from_content(self, content):  # ./Utils/utils.py
-        """Returns encodings from given content string.
-
-        :param content: bytestring to extract encodings from.
-        """
-        XWarnings().warn((
-            'In requests 3.0, get_encodings_from_content will be removed. For '
-            'more information, please see the discussion on issue #2266. (This'
-            ' warning should only appear once.)'),
-            DeprecationWarning)
-
-        charset_re = XRe().compile(r'<meta.*?charset=["\']*(.+?)["\'>]', flags=XRe().I())
-        pragma_re = XRe().compile(r'<meta.*?content=["\']*;?charset=(.+?)["\'>]', flags=XRe().I())
-        xml_re = XRe().compile(r'^<\?xml.*?encoding=["\']*(.+?)["\'>]')
-
-        return (charset_re.findall(content) +
-                pragma_re.findall(content) +
-                xml_re.findall(content))
-
-    def _parse_content_type_header(self, header):  # ./Utils/utils.py
-        """Returns content type and parameters from given header
-
-        :param header: string
-        :return: tuple containing content type and dictionary of
-             parameters
-        """
-        tokens = header.split(';')
-        content_type, params = tokens[0].strip(), tokens[1:]
-        params_dict = {}
-        items_to_strip = "\"' "
-
-        for param in params:
-            param = param.strip()
-            if param:
-                key, value = param, True
-                index_of_equals = param.find("=")
-                if index_of_equals != -1:
-                    key = param[:index_of_equals].strip(items_to_strip)
-                    value = param[index_of_equals + 1:].strip(items_to_strip)
-                params_dict[key.lower()] = value
-        return content_type, params_dict
-
-    def get_encoding_from_headers(self, headers):  # ./Utils/utils.py
-        """Returns encodings from given HTTP Header Dict.
-
-        :param headers: dictionary to extract encoding from.
-        :rtype: str
-        """
-
-        content_type = headers.get('content-type')
-
-        if not content_type:
-            return None
-
-        content_type, params = self._parse_content_type_header(content_type)
-
-        if 'charset' in params:
-            return params['charset'].strip("'\"")
-
-        if 'text' in content_type:
-            return 'ISO-8859-1'
-
-        if 'application/json' in content_type:
-            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
-            return 'utf-8'
-
     def stream_decode_response_unicode(self, iterator, encoding):  # ./Utils/utils.py
         """Stream decodes a iterator."""
+        # Called by Content.iterate and requests.utils.
+        # This should be moved to Content, except we support it in requests.utils
 
         if encoding is None:
             for item in iterator:
@@ -4254,148 +4584,14 @@ class Utils:  # ./Utils/utils.py
 
     def iter_slices(self, string, slice_length):  # ./Utils/utils.py
         """Iterate over slices of a string."""
+        # Called by Content.generate and requests.utils.
+        # This should be moved to Content, except we support it in requests.utils
         pos = 0
         if slice_length is None or slice_length <= 0:
             slice_length = len(string)
         while pos < len(string):
             yield string[pos:pos + slice_length]
             pos += slice_length
-
-    def get_unicode_from_response(self, r):  # ./Utils/utils.py
-        """Returns the requested content back in unicode.
-
-        :param r: Response object to get unicode content from.
-
-        Tried:
-
-        1. charset from content-type
-        2. fall back and replace all unicode characters
-
-        :rtype: str
-        """
-        XWarnings().warn((
-            'In requests 3.0, get_unicode_from_response will be removed. For '
-            'more information, please see the discussion on issue #2266. (This'
-            ' warning should only appear once.)'),
-            DeprecationWarning)
-
-        tried_encodings = []
-
-        # Try charset from content-type
-        encoding = self.get_encoding_from_headers(r.headers_())
-
-        if encoding:
-            try:
-                return str(r.content_(), encoding)
-            except UnicodeError:
-                tried_encodings.append(encoding)
-
-        # Fall back:
-        try:
-            return str(r.content_(), encoding, errors='replace')
-        except TypeError:
-            return r.content_()
-
-    def unquote_unreserved(self, uri):  # ./Utils/utils.py
-        """Un-escape any percent-escape sequences in a URI that are unreserved
-        characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
-
-        :rtype: str
-        """
-        parts = uri.split('%')
-        for i in range(1, len(parts)):
-            h = parts[i][0:2]
-            if len(h) == 2 and h.isalnum():
-                try:
-                    c = chr(int(h, 16))
-                except ValueError:
-                    raise InvalidURL("Invalid percent-escape sequence: '%s'" % h)
-
-                if c in self.UNRESERVED_SET():
-                    parts[i] = c + parts[i][2:]
-                else:
-                    parts[i] = '%' + parts[i]
-            else:
-                parts[i] = '%' + parts[i]
-        return ''.join(parts)
-
-    def requote_uri(self, uri):  # ./Utils/utils.py
-        """Re-quote the given URI.
-
-        This function passes the given URI through an unquote/quote cycle to
-        ensure that it is fully and consistently quoted.
-
-        :rtype: str
-        """
-        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
-        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
-        try:
-            # Unquote only the unreserved characters
-            # Then quote only illegal characters (do not quote reserved,
-            # unreserved, or '%')
-            return XUrl().quote(Utils().unquote_unreserved(uri), safe=safe_with_percent)
-        except InvalidURL:
-            # We couldn't unquote the given URI, so let's try quoting it, but
-            # there may be unquoted '%'s in the URI. We need to make sure they're
-            # properly quoted so they do not cause issues elsewhere.
-            return XUrl().quote(uri, safe=safe_without_percent)
-
-    def address_in_network(self, ip, net):  # ./Utils/utils.py
-        """This function allows you to check if an IP belongs to a network subnet
-
-        Example: returns True if ip = 192.168.1.1 and net = 192.168.1.0/24
-                 returns False if ip = 192.168.1.1 and net = 192.168.100.0/24
-
-        :rtype: bool
-        """
-        ipaddr = XStruct().unpack('=L', XSocket().inet_aton(ip))[0]
-        netaddr, bits = net.split('/')
-        netmask = XStruct().unpack('=L', XSocket().inet_aton(self.dotted_netmask(int(bits))))[0]
-        network = XStruct().unpack('=L', XSocket().inet_aton(netaddr))[0] & netmask
-        return (ipaddr & netmask) == (network & netmask)
-
-    def dotted_netmask(self, mask):  # ./Utils/utils.py
-        """Converts mask from /xx format to xxx.xxx.xxx.xxx
-
-        Example: if mask is 24 function returns 255.255.255.0
-
-        :rtype: str
-        """
-        bits = 0xffffffff ^ (1 << 32 - mask) - 1
-        return XSocket().inet_ntoa(XStruct().pack('>I', bits))
-
-    def is_ipv4_address(self, string_ip):  # ./Utils/utils.py
-        """
-        :rtype: bool
-        """
-        try:
-            XSocket().inet_aton(string_ip)
-        except XSocket().error():
-            return False
-        return True
-
-    def is_valid_cidr(self, string_network):  # ./Utils/utils.py
-        """
-        Very simple check of the cidr format in no_proxy variable.
-
-        :rtype: bool
-        """
-        if string_network.count('/') == 1:
-            try:
-                mask = int(string_network.split('/')[1])
-            except ValueError:
-                return False
-
-            if mask < 1 or mask > 32:
-                return False
-
-            try:
-                XSocket().inet_aton(string_network.split('/')[0])
-            except XSocket().error():
-                return False
-        else:
-            return False
-        return True
 
     @contextlib.contextmanager
     def set_environ(self, env_name, value):  # ./Utils/utils.py
@@ -4418,185 +4614,6 @@ class Utils:  # ./Utils/utils.py
                 else:
                     XOs().environ()[env_name] = old_value
 
-    def should_bypass_proxies(self, url, no_proxy):  # ./Utils/utils.py
-        """
-        Returns whether we should bypass proxies or not.
-
-        :rtype: bool
-        """
-        # Prioritize lowercase environment variables over uppercase
-        # to keep a consistent behaviour with other http projects (curl, wget).
-        get_proxy = lambda k: XOs().environ().get(k) or XOs().environ().get(k.upper())
-
-        # First check whether no_proxy is defined. If it is, check that the URL
-        # we're getting isn't in the no_proxy list.
-        no_proxy_arg = no_proxy
-        if no_proxy is None:
-            no_proxy = get_proxy('no_proxy')
-        parsed = XUrl().parse(url)
-
-        if parsed.hostname is None:
-            # URLs don't always have hostnames, e.g. file:/// urls.
-            return True
-
-        if no_proxy:
-            # We need to check whether we match here. We need to see if we match
-            # the end of the hostname, both with and without the port.
-            no_proxy = (
-                host for host in no_proxy.replace(' ', '').split(',') if host
-            )
-
-            if Utils().is_ipv4_address(parsed.hostname):
-                for proxy_ip in no_proxy:
-                    if self.is_valid_cidr(proxy_ip):
-                        if self.address_in_network(parsed.hostname, proxy_ip):
-                            return True
-                    elif parsed.hostname == proxy_ip:
-                        # If no_proxy ip was defined in plain IP notation instead of cidr notation &
-                        # matches the IP of the index
-                        return True
-            else:
-                host_with_port = parsed.hostname
-                if parsed.port:
-                    host_with_port += ':{}'.format(parsed.port)
-
-                for host in no_proxy:
-                    if parsed.hostname.endswith(host) or host_with_port.endswith(host):
-                        # The URL does match something in no_proxy, so we don't want
-                        # to apply the proxies on this URL.
-                        return True
-
-        with self.set_environ('no_proxy', no_proxy_arg):
-            # parsed.hostname can be `None` in cases such as a file URI.
-            try:
-                bypass = Utils().proxy_bypass(parsed.hostname)
-            except (TypeError, XSocket().gaierror()):
-                bypass = False
-
-        if bypass:
-            return True
-
-        return False
-
-    def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/utils.py
-        """
-        Return a dict of environment proxies.
-
-        :rtype: dict
-        """
-        if self.should_bypass_proxies(url, no_proxy=no_proxy):
-            return {}
-        else:
-            return XUrl().request().getproxies()
-
-    def select_proxy(self, url, proxies):  # ./Utils/utils.py
-        """Select a proxy for the url, if applicable.
-
-        :param url: The url being for the request
-        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
-        """
-        proxies = proxies or {}
-        urlparts = XUrl().parse(url)
-        if urlparts.hostname is None:
-            return proxies.get(urlparts.scheme, proxies.get('all'))
-
-        proxy_keys = [
-            urlparts.scheme + '://' + urlparts.hostname,
-            urlparts.scheme,
-            'all://' + urlparts.hostname,
-            'all',
-        ]
-        proxy = None
-        for proxy_key in proxy_keys:
-            if proxy_key in proxies:
-                proxy = proxies[proxy_key]
-                break
-
-        return proxy
-
-    def resolve_proxies(self, request, proxies, trust_env=True):  # ./Utils/utils.py
-        """This method takes proxy information from a request and configuration
-        input to resolve a mapping of target proxies. This will consider settings
-        such a NO_PROXY to strip proxy configurations.
-
-        :param request: Request or PreparedRequest
-        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
-        :param trust_env: Boolean declaring whether to trust environment configs
-
-        :rtype: dict
-        """
-        proxies = proxies if proxies is not None else {}
-        url = request.url_()
-        scheme = XUrl().parse(url).scheme
-        no_proxy = proxies.get('no_proxy')
-        new_proxies = proxies.copy()
-
-        bypass_proxy = self.should_bypass_proxies(url, no_proxy=no_proxy)
-        if trust_env and not bypass_proxy:
-            environ_proxies = self.get_environ_proxies(url, no_proxy=no_proxy)
-
-            proxy = environ_proxies.get(scheme, environ_proxies.get('all'))
-
-            if proxy:
-                new_proxies.setdefault(scheme, proxy)
-        return new_proxies
-
-    def default_user_agent(self, name="python-requests"):  # ./Utils/utils.py
-        """
-        Return a string representing the default user agent.
-
-        :rtype: str
-        """
-        global requests_version
-        return '%s/%s' % (name, requests_version)
-
-    def default_headers(self):  # ./Utils/utils.py
-        """
-        :rtype: requests.domain.CaseInsensitiveDict
-        """
-        return CaseInsensitiveDict({
-            'User-Agent': self.default_user_agent(),
-            'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
-            'Accept': '*/*',
-            'Connection': 'keep-alive',
-        })
-
-    def parse_header_links(self, value):  # ./Utils/utils.py
-        """Return a list of parsed link headers proxies.
-
-        i.e. Link: <http:/.../front.jpeg>; rel=front; type="image/jpeg",<http://.../back.jpeg>; rel=back;type="image/jpeg"
-
-        :rtype: list
-        """
-
-        links = []
-
-        replace_chars = ' \'"'
-
-        value = value.strip(replace_chars)
-        if not value:
-            return links
-
-        for val in XRe().split(', *<', value):
-            try:
-                url, params = val.split(';', 1)
-            except ValueError:
-                url, params = val, ''
-
-            link = {'url': url.strip('<> \'"')}
-
-            for param in params.split(';'):
-                try:
-                    key, value = param.split('=')
-                except ValueError:
-                    break
-
-                link[key.strip(replace_chars)] = value.strip(replace_chars)
-
-            links.append(link)
-
-        return links
-
     def guess_json_utf(self, data):  # ./Utils/utils.py
         """
         :rtype: XStr().clazz()
@@ -4604,6 +4621,8 @@ class Utils:  # ./Utils/utils.py
         # JSON always starts with two ASCII characters, so detection is as
         # easy as counting the nulls and from their location and count
         # determine the encoding. Also detect a BOM, if present.
+        # Called by Content.json and requests.utils.
+        # This should be moved to Content, except we support it in requests.utils
         sample = data[:4]
         if sample in (XCodecs().BOM_UTF32_LE(), XCodecs().BOM_UTF32_BE()):
             return 'utf-32'  # BOM included
@@ -4627,87 +4646,6 @@ class Utils:  # ./Utils/utils.py
                 return 'utf-32-le'
             # Did not detect a valid UTF-32 ascii-range character
         return None
-
-    def prepend_scheme_if_needed(self, url, new_scheme):  # ./Utils/utils.py
-        """Given a URL that may or may not have a scheme, prepend the given scheme.
-        Does not replace a present scheme with the one provided as an argument.
-
-        :rtype: XStr().clazz()
-        """
-        scheme, netloc, path, params, query, fragment = XUrl().parse(url, new_scheme)
-
-        # urlparse is a finicky beast, and sometimes decides that there isn't a
-        # netloc present. Assume that it's being over-cautious, and switch netloc
-        # and path if urlparse decided there was no netloc.
-        if not netloc:
-            netloc, path = path, netloc
-
-        return XUrl().unparse((scheme, netloc, path, params, query, fragment))
-
-    def get_auth_from_url(self, url):  # ./Utils/utils.py
-        """Given a url with authentication components, extract them into a tuple of
-        username,password.
-
-        :rtype: (str,str)
-        """
-        parsed = XUrl().parse(url)
-
-        try:
-            auth = (XUrl().unquote(parsed.username), XUrl().unquote(parsed.password))
-        except (AttributeError, TypeError):
-            auth = ('', '')
-
-        return auth
-
-    def check_header_validity(self, header):  # ./Utils/utils.py
-        """Verifies that header value is a string which doesn't contain
-        leading whitespace or return characters. This prevents unintended
-        header injection.
-
-        :param header: tuple, in the format (name, value).
-        """
-        name, value = header
-
-        if XBytes().is_instance(value):
-            pat = self._CLEAN_HEADER_REGEX_BYTE
-        else:
-            pat = self._CLEAN_HEADER_REGEX_STR
-        try:
-            if not pat.match(value):
-                raise InvalidHeader("Invalid return character or leading space in header: %s" % name)
-        except TypeError:
-            raise InvalidHeader("Value for header {%s: %s} must be of type str or "
-                                "bytes, not %s" % (name, value, type(value)))
-
-    def urldefragauth(self, url):  # ./Utils/utils.py
-        """
-        Given a url remove the fragment and the authentication part.
-
-        :rtype: str
-        """
-        scheme, netloc, path, params, query, fragment = XUrl().parse(url)
-
-        # see func:`prepend_scheme_if_needed`
-        if not netloc:
-            netloc, path = path, netloc
-
-        netloc = netloc.rsplit('@', 1)[-1]
-
-        return XUrl().unparse((scheme, netloc, path, params, query, ''))
-
-    def rewind_body(self, prepared_request):  # ./Utils/utils.py
-        """Move file pointer back to its recorded starting position
-        so it can be read again on redirect.
-        """
-        body_seek = getattr(prepared_request.body_(), 'seek', None)
-        if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
-            try:
-                body_seek(prepared_request._body_position)
-            except (IOError, OSError):
-                raise UnrewindableBodyError("An error occurred when rewinding request "
-                                            "body for redirect.")
-        else:
-            raise UnrewindableBodyError("Unable to rewind request body for redirect.")
 
 
 # *************************** Main section for calling domain.py directly *****************
