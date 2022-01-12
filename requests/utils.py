@@ -18,7 +18,8 @@ from .domain import WSGIutils
 from .domain import CookieUtils
 from .domain import HeaderUtils
 from .domain import IpUtils
-from .domain import UrlUtils
+from .domain import Url
+from .domain import Uri
 from .x import XWarnings
 from requests.x import XRe
 
@@ -32,7 +33,7 @@ def super_len(o):
     return Utils().super_len(o)
 
 def get_netrc_auth(url, raise_errors=False):
-    return UrlUtils().get_netrc_auth(url, raise_errors)
+    return Url(url).get_netrc_auth(raise_errors)
 
 def guess_filename(obj):
     return FileUtils().guess_filename(obj)
@@ -81,10 +82,10 @@ def get_unicode_from_response(r):
     return r.get_unicode()
 
 def unquote_unreserved(uri):
-    return UrlUtils().unquote_unreserved(uri)
+    return Uri(uri).unquote_unreserved()
 
 def requote_uri(uri):
-    return UrlUtils().requote_uri(uri)
+    return Uri(uri).requote()
 
 def address_in_network(ip, net):
     return ProxyUtils().address_in_network(ip, net)
@@ -126,16 +127,16 @@ def guess_json_utf(data):
     return Utils().guess_json_utf(data)
 
 def prepend_scheme_if_needed(url, new_scheme):
-    return UrlUtils().prepend_scheme_if_needed(url, new_scheme)
+    return Url(url).prepend_scheme_if_needed(new_scheme)
 
 def get_auth_from_url(url):
-    return UrlUtils().get_auth_from_url(url)
+    return Url(url).get_auth()
 
 def check_header_validity(header):
     return HeaderUtils().check_header_validity(header)
 
 def urldefragauth(url):
-    return UrlUtils().urldefragauth(url)
+    return Url(url).defragauth()
 
 def rewind_body(prepared_request):
     return FileUtils().rewind_body(prepared_request)

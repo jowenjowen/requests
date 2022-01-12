@@ -293,7 +293,7 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
                     setattr(self._codes_dict, title.upper(), code)
 
     def doc(self, code):
-        names = ', '.join('``%s``' % n for n in _codes[code])
+        names = ', '.join('``%s``' % n for n in self._codes[code])
         return '* %d: %s' % (code, names)
 
     def get(self, name):
@@ -452,7 +452,7 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         if proxy in self.proxy_manager:
             manager = self.proxy_manager[proxy]
         elif proxy.lower().startswith('socks'):
-            username, password = UrlUtils().get_auth_from_url(proxy)
+            username, password = Url(proxy).get_auth()
             manager = self.proxy_manager[proxy] = XUrllib3().SOCKSProxyManager(
                 proxy,
                 username=username,
@@ -575,7 +575,7 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         proxy = ProxyUtils().select_proxy(url, proxies)
 
         if proxy:
-            proxy = UrlUtils().prepend_scheme_if_needed(proxy, 'http')
+            proxy = Url(proxy).prepend_scheme_if_needed('http')
             proxy_url = XUrllib3().util().parse_url(proxy)
             if not proxy_url.host:
                 raise InvalidProxyURL("Please check proxy URL. It is malformed"
@@ -625,7 +625,7 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
 
         url = request.path_url
         if is_proxied_http_request and not using_socks_proxy:
-            url = UrlUtils().urldefragauth(request.url_())
+            url = Url(request.url_()).defragauth()
 
         return url
 
@@ -657,7 +657,7 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         :rtype: dict
         """
         headers = {}
-        username, password = UrlUtils().get_auth_from_url(proxy)
+        username, password = Url(proxy).get_auth()
 
         if username:
             headers['Proxy-Authorization'] = Auth().basic_auth_str(username,
@@ -2326,7 +2326,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             else:
                 query = enc_params
 
-        url = UrlUtils().requote_uri(XUrl().unparse([scheme, netloc, path, None, query, fragment]))
+        url = Uri(XUrl().unparse([scheme, netloc, path, None, query, fragment])).requote()
         self.url_(url)
 
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
@@ -2432,7 +2432,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
         # If no Auth is explicitly provided, extract it from the URL first.
         if auth is None:
-            url_auth = UrlUtils().get_auth_from_url(self.url_())
+            url_auth = Url(self.url_()).get_auth()
             auth = url_auth if any(url_auth) else None
 
         if auth:
@@ -3178,9 +3178,9 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
             # Compliant with RFC3986, we percent encode the url.
             if not parsed.netloc:
-                url = XUrl().join(resp.url_(), UrlUtils().requote_uri(url))
+                url = XUrl().join(resp.url_(), Uri(url).requote())
             else:
-                url = UrlUtils().requote_uri(url)
+                url = Uri(url).requote()
 
             prepared_request.url_(XUtils().to_native_string(url))
 
@@ -3259,7 +3259,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             del headers['Authorization']
 
         # .netrc might have more auth for us on our new host.
-        new_auth = UrlUtils().get_netrc_auth(url) if self.trust_env_() else None
+        new_auth = Url(url).get_netrc_auth() if self.trust_env_() else None
         if new_auth is not None:
             prepared_request.prepare_auth(new_auth)
 
@@ -3295,7 +3295,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             del headers_()['Proxy-Authorization']
 
         try:
-            username, password = UrlUtils().get_auth_from_url(new_proxies[scheme])
+            username, password = Url(new_proxies[scheme]).get_auth()
         except KeyError:
             username, password = None, None
 
@@ -3452,7 +3452,7 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth_()
         if self.trust_env_() and not auth and not self.auth_():
-            auth = UrlUtils().get_netrc_auth(request.url_())
+            auth = Url(request.url_()).get_netrc_auth()
 
         p = PreparedRequest()
         p.prepare(
@@ -4287,18 +4287,69 @@ class HeaderUtils:  # ./Utils/header_utils.py
     def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/header_utils.py
         return self._DEFAULT_ACCEPT_ENCODING
 
-
-
-class UrlUtils:  # ./Utils/url_utils.py
-    _NETRC_FILES = ('.netrc', '_netrc')
+class Uri:  # ./Utils/uri.py
     _UNRESERVED_SET = frozenset(
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
 
+    def __init__(self, uri):
+        self.uri = uri
+
     # The unreserved URI characters (RFC 3986)
-    def UNRESERVED_SET(self):  # ./Utils/url_utils.py
+    def UNRESERVED_SET(self):  # ./Utils/uri.py
         return self._UNRESERVED_SET
 
-    def get_netrc_auth(self, url, raise_errors=False):  # ./Utils/url_utils.py
+    def unquote_unreserved(self):  # ./Utils/uri.py
+        """Un-escape any percent-escape sequences in a URI that are unreserved
+        characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
+
+        :rtype: str
+        """
+        parts = self.uri.split('%')
+        for i in range(1, len(parts)):
+            h = parts[i][0:2]
+            if len(h) == 2 and h.isalnum():
+                try:
+                    c = chr(int(h, 16))
+                except ValueError:
+                    raise InvalidURL("Invalid percent-escape sequence: '%s'" % h)
+
+                if c in self.UNRESERVED_SET():
+                    parts[i] = c + parts[i][2:]
+                else:
+                    parts[i] = '%' + parts[i]
+            else:
+                parts[i] = '%' + parts[i]
+        return ''.join(parts)
+
+    def requote(self):  # ./Utils/uri.py
+        """Re-quote the given URI.
+
+        This function passes the given URI through an unquote/quote cycle to
+        ensure that it is fully and consistently quoted.
+
+        :rtype: str
+        """
+        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
+        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
+        try:
+            # Unquote only the unreserved characters
+            # Then quote only illegal characters (do not quote reserved,
+            # unreserved, or '%')
+            return XUrl().quote(Uri(self.uri).unquote_unreserved(), safe=safe_with_percent)
+        except InvalidURL:
+            # We couldn't unquote the given URI, so let's try quoting it, but
+            # there may be unquoted '%'s in the URI. We need to make sure they're
+            # properly quoted so they do not cause issues elsewhere.
+            return XUrl().quote(self.uri, safe=safe_without_percent)
+
+
+class Url:  # ./Utils/url.py
+    _NETRC_FILES = ('.netrc', '_netrc')
+
+    def __init__(self, url):
+        self.url = url
+
+    def get_netrc_auth(self, raise_errors=False):  # ./Utils/url.py
         """Returns the Requests tuple auth for a given url from netrc."""
 
         netrc_file = XOs().environ().get('NETRC')
@@ -4329,12 +4380,12 @@ class UrlUtils:  # ./Utils/url_utils.py
             if netrc_path is None:
                 return
 
-            ri = XUrl().parse(url)
+            ri = XUrl().parse(self.url)
 
             # Strip port numbers from netloc. This weird `if...encode`` dance is
             # used for Python 3.2, which doesn't support unicode literals.
             splitstr = b':'
-            if XStr().is_instance(url):
+            if XStr().is_instance(self.url):
                 splitstr = splitstr.decode('ascii')
             host = ri.netloc.split(splitstr)[0]
 
@@ -4354,57 +4405,13 @@ class UrlUtils:  # ./Utils/url_utils.py
         except (ImportError, AttributeError):
             pass
 
-    def unquote_unreserved(self, uri):  # ./Utils/url_utils.py
-        """Un-escape any percent-escape sequences in a URI that are unreserved
-        characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
-
-        :rtype: str
-        """
-        parts = uri.split('%')
-        for i in range(1, len(parts)):
-            h = parts[i][0:2]
-            if len(h) == 2 and h.isalnum():
-                try:
-                    c = chr(int(h, 16))
-                except ValueError:
-                    raise InvalidURL("Invalid percent-escape sequence: '%s'" % h)
-
-                if c in self.UNRESERVED_SET():
-                    parts[i] = c + parts[i][2:]
-                else:
-                    parts[i] = '%' + parts[i]
-            else:
-                parts[i] = '%' + parts[i]
-        return ''.join(parts)
-
-    def requote_uri(self, uri):  # ./Utils/url_utils.py
-        """Re-quote the given URI.
-
-        This function passes the given URI through an unquote/quote cycle to
-        ensure that it is fully and consistently quoted.
-
-        :rtype: str
-        """
-        safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
-        safe_without_percent = "!#$&'()*+,/:;=?@[]~"
-        try:
-            # Unquote only the unreserved characters
-            # Then quote only illegal characters (do not quote reserved,
-            # unreserved, or '%')
-            return XUrl().quote(UrlUtils().unquote_unreserved(uri), safe=safe_with_percent)
-        except InvalidURL:
-            # We couldn't unquote the given URI, so let's try quoting it, but
-            # there may be unquoted '%'s in the URI. We need to make sure they're
-            # properly quoted so they do not cause issues elsewhere.
-            return XUrl().quote(uri, safe=safe_without_percent)
-
-    def prepend_scheme_if_needed(self, url, new_scheme):  # ./Utils/url_utils.py
+    def prepend_scheme_if_needed(self, new_scheme):  # ./Utils/url.py
         """Given a URL that may or may not have a scheme, prepend the given scheme.
         Does not replace a present scheme with the one provided as an argument.
 
         :rtype: XStr().clazz()
         """
-        scheme, netloc, path, params, query, fragment = XUrl().parse(url, new_scheme)
+        scheme, netloc, path, params, query, fragment = XUrl().parse(self.url, new_scheme)
 
         # urlparse is a finicky beast, and sometimes decides that there isn't a
         # netloc present. Assume that it's being over-cautious, and switch netloc
@@ -4414,13 +4421,13 @@ class UrlUtils:  # ./Utils/url_utils.py
 
         return XUrl().unparse((scheme, netloc, path, params, query, fragment))
 
-    def get_auth_from_url(self, url):  # ./Utils/url_utils.py
+    def get_auth(self):  # ./Utils/url.py
         """Given a url with authentication components, extract them into a tuple of
         username,password.
 
         :rtype: (str,str)
         """
-        parsed = XUrl().parse(url)
+        parsed = XUrl().parse(self.url)
 
         try:
             auth = (XUrl().unquote(parsed.username), XUrl().unquote(parsed.password))
@@ -4429,13 +4436,13 @@ class UrlUtils:  # ./Utils/url_utils.py
 
         return auth
 
-    def urldefragauth(self, url):  # ./Utils/url_utils.py
+    def defragauth(self):  # ./Utils/url.py
         """
         Given a url remove the fragment and the authentication part.
 
         :rtype: str
         """
-        scheme, netloc, path, params, query, fragment = XUrl().parse(url)
+        scheme, netloc, path, params, query, fragment = XUrl().parse(self.url)
 
         # see func:`prepend_scheme_if_needed`
         if not netloc:

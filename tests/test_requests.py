@@ -41,7 +41,7 @@ from requests.domain import Session
 from requests.domain import Requests
 from requests.domain import Response
 from requests.domain import AuthBase
-from requests.domain import UrlUtils
+from requests.domain import Url
 
 from .compat import CompatStringIO, u
 from .utils import override_environ
@@ -590,12 +590,12 @@ class TestRequests:
         wrong_auth = ('wronguser', 'wrongpass')
         url = httpbin('basic-auth', 'user', 'pass')
 
-        old_auth = UrlUtils().get_netrc_auth
+        old_auth = Url.get_netrc_auth
 
         try:
-            def get_netrc_auth_mock(self, url):
+            def get_netrc_auth_mock(self):
                 return auth
-            UrlUtils.get_netrc_auth = get_netrc_auth_mock
+            Url.get_netrc_auth = get_netrc_auth_mock
 
             # Should use netrc and work.
             r = Requests().url_(url).get()
@@ -616,7 +616,7 @@ class TestRequests:
             r = s.get(url)
             assert r.status_code_() == 401
         finally:
-            UrlUtils.get_netrc_auth = old_auth
+            Url.get_netrc_auth = old_auth
 
     def test_DIGEST_HTTP_200_OK_GET(self, httpbin):
 
