@@ -91,6 +91,7 @@ elif is_py3:
     from urllib.parse import urlsplit as compat_urlsplit
     from urllib.parse import urldefrag as compat_urldefrag
     from urllib.request import parse_http_list as compat_parse_http_list
+    import http.cookiejar as compat_cookielib
     from http.cookiejar import CookieJar as CompatCookieJar
     from http.cookiejar import Cookie as CompatCookie
     from http.cookiejar import DefaultCookiePolicy as CompatDefaultCookiePolicy

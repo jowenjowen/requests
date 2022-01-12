@@ -1187,7 +1187,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
     def handle_redirect(self, r, **kwargs):  # ./Auth/HTTPDigestAuth.py
         """Reset num_401_calls counter on redirects."""
-        if r.is_redirect():
+        if r.is_redirect_():
             self._thread_local.num_401_calls = 1
 
     def handle_401(self, r, **kwargs):  # ./Auth/HTTPDigestAuth.py
@@ -2679,7 +2679,7 @@ class Response:  # ./Models/Response.py
     def __init__(self):  # ./Models/Response.py
 
         self.contentClass = Content(self.read_content)
-        self.next(None)
+        self.next_(None)
 
         #: Integer Code of responded HTTP Status, e.g. 404 or 200.
         self.status_code_(None)
@@ -2764,7 +2764,7 @@ class Response:  # ./Models/Response.py
         the status code, is between 200 and 400, this will return True. This
         is **not** a check to see if the response code is ``200 OK``.
         """
-        return self.ok()
+        return self.ok_()
 
     def __nonzero__(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400.
@@ -2774,13 +2774,17 @@ class Response:  # ./Models/Response.py
         the status code, is between 200 and 400, this will return True. This
         is **not** a check to see if the response code is ``200 OK``.
         """
-        return self.ok()
+        return self.ok_()
 
     def __iter__(self):  # ./Models/Response.py
         """Allows you to use a response as an iterator."""
         return self.iter_content(128)
 
+    @property
     def ok(self):  # ./Models/Response.py
+        return self.ok_()
+        
+    def ok_(self):  # ./Models/Response.py
         """Returns True if :attr:`status_code` is less than 400, False if not.
 
         This attribute checks if the status code of the response is between
@@ -2794,17 +2798,29 @@ class Response:  # ./Models/Response.py
             return False
         return True
 
-    def is_redirect(self):
+    @property
+    def is_redirect(self):  # ./Models/Response.py
+        return self.is_redirect_()
+
+    def is_redirect_(self):
         """True if this Response is a well-formed HTTP redirect that could have
         been processed automatically (by :meth:`Session.resolve_redirects`).
         """
         return ('location' in self.headers_() and self.status_code in Models().REDIRECT_STATI())
 
-    def is_permanent_redirect(self):
+    @property
+    def is_permanent_redirect(self):  # ./Models/Response.py
+        return self.is_permanent_redirect_()
+
+    def is_permanent_redirect_(self):
         """True if this Response one of the permanent versions of redirect."""
         return ('location' in self.headers_() and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
-    def next(self, *args):
+    @property
+    def next(self):  # ./Models/Response.py
+        return self.next_()
+
+    def next_(self, *args):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
         return XUtils().get_or_set(self, '_next', *args)
 
@@ -3079,7 +3095,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         # If a custom mixin is used to handle this logic, it may be advantageous
         # to cache the redirect location onto the response object as a private
         # attribute.
-        if resp.is_redirect():
+        if resp.is_redirect_():
             location = resp.headers_()['location']
             # Currently the underlying http module on py3 decode headers
             # in latin1, but empirical evidence suggests that latin1 is very
@@ -3676,10 +3692,10 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
             r = history.pop()
             r.history_(history)
 
-        # If redirects aren't being followed, store the response on the Request for Response.next().
+        # If redirects aren't being followed, store the response on the Request for Response.next_().
         if not allow_redirects:
             try:
-                r.next(next(self.resolve_redirects(r, request, yield_requests=True, **kwargs)))
+                r.next_(next(self.resolve_redirects(r, request, yield_requests=True, **kwargs)))
             except StopIteration:
                 pass
 
