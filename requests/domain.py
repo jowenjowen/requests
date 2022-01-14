@@ -89,13 +89,13 @@ requests.structures
 Data structures that power Requests.
 """
 class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self, data=None, **kwargs):
         self._store = XOrderedDict()
         if data is None:
             data = {}
         self.update(data, **kwargs)
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def __setitem__(self, key, value):
         self._store[key.lower()] = (key, value)
@@ -136,11 +136,11 @@ class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.
         return XStr().new(dict(self.items()))
 
 class LookupDict(dict):  # ./Structures/LookupDict.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self, name=None):
         self.name = name
         super(LookupDict, self).__init__()
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def __repr__(self):
         return '<lookup \'%s\'>' % (self.name)
@@ -156,6 +156,8 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
 
 # *************************** classes in StatusCodes section *****************
 class StatusCodes:  # ./StatusCodes/status_codes.py
+    def help(self): Help().display(self.__class__.__name__)
+
     _codes = {
 
         # Informational.
@@ -247,8 +249,6 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
                 if not title.startswith(('\\', '/')):
                     setattr(self._codes_dict, title.upper(), code)
 
-    def help(self): Help().display(self.__class__.__name__)
-
     def doc(self, code):
         names = ', '.join('``%s``' % n for n in self._codes[code])
         return '* %d: %s' % (code, names)
@@ -279,12 +279,11 @@ class Connections:  # ./Connections/connections.py
         return result
 
 class BaseConnections(object):  # ./Connections/BaseConnections.py
+    def help(self): Help().display(self.__class__.__name__)
     """The Base Transport Connection"""
 
     def __init__(self):  # ./Connections/BaseConnections.py
         super(BaseConnections, self).__init__()
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def send(self, request, stream=False, timeout=None, verify=True,
              cert=None, proxies=None):  # ./Connections/BaseConnections.py
@@ -306,6 +305,8 @@ class PicklerMixin:
 
 
 class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconnections.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self, xpool_connections=Connections().DEFAULT_XPOOLSIZE(),
                  pool_maxsize=Connections().DEFAULT_XPOOLSIZE(), max_retries=Connections().DEFAULT_RETRIES(),
                  pool_block=Connections().DEFAULT_XPOOLBLOCK()):  # ./Connections/HTTPconnections.py
@@ -323,8 +324,6 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
         self._xpool_block = pool_block
 
         self.init_xpoolmanager(xpool_connections, pool_maxsize, block=pool_block)
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Connections/HTTPconnections.py
         # save these values for pickling
@@ -636,12 +635,12 @@ class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
 
 # *************************** classes in Api section *****************
 class Requests:  # ./Api/api.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self):
         self.data_(None)
         self.json_(None)
         self.params_(None)
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def request(self, method, url, **kwargs):  # ./Api/api.py
         with Sessions().session() as session:
@@ -684,11 +683,10 @@ class Requests:  # ./Api/api.py
 
 # *************************** classes in Auth section *****************
 class Auth:  # ./Auth/auth.py
+    def help(self): Help().display(self.__class__.__name__)
 
     CONTENT_TYPE_FORM_URLENCODED = 'application/x-www-form-urlencoded'
     CONTENT_TYPE_MULTI_PART = 'multipart/form-data'
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def basic_auth_str(self, username, password):
         if not XBaseString().is_instance(username):
@@ -733,11 +731,11 @@ class AuthBase:  # ./Auth/AuthBase.py
 
 
 class HTTPBasicAuth(AuthBase):  # ./Auth/HTTPBasicAuth.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self, username, password):  # ./Auth/HTTPBasicAuth.py
         self.username = username
         self.password = password
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def __eq__(self, other):  # ./Auth/HTTPBasicAuth.py
         return all([
@@ -754,7 +752,6 @@ class HTTPBasicAuth(AuthBase):  # ./Auth/HTTPBasicAuth.py
 
 
 class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
-
     def help(self): Help().display(self.__class__.__name__)
 
     def __call__(self, r):
@@ -763,13 +760,13 @@ class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
 
 
 class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self, username, password):  # ./Auth/HTTPDigestAuth.py
         self.username = username
         self.password = password
         # Keep state in per-thread local storage
         self._thread_local = XThreading().local()
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def init_per_thread_state(self):  # ./Auth/HTTPDigestAuth.py
         # Ensure state is initialized just once per-thread
@@ -964,10 +961,10 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
 # *************************** classes in Certs section *****************
 class Certs:  # ./Certs/Certs.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def where(self):
         return certifi_where()
-
-    def help(self): Help().display(self.__class__.__name__)
 
 
 # *************************** classes in Cookies section *****************
@@ -1374,10 +1371,10 @@ class CookieJarPickle:  # ./Cookies/CookieJarPickle.py
 # *************************** classes in Help section *****************
 
 class Info:  # ./Help/info.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self):  # ./Help/info.py
         pass
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def _implementation(self):  # ./Help/info.py
         implementation = XPlatform().python_implementation()
@@ -1463,10 +1460,10 @@ class Info:  # ./Help/info.py
 # *************************** classes in Hooks section *****************
 
 class Hooks:  # ./Hooks/hooks.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self):
         self.HOOKS = ['response']
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def default_hooks(self):
         return {event: [] for event in self.HOOKS}
@@ -1490,6 +1487,8 @@ class Hooks:  # ./Hooks/hooks.py
 # *************************** classes in Models section *****************
 
 class Models:  # ./Models/models.py
+    def help(self): Help().display(self.__class__.__name__)
+
     _REDIRECT_STATI = (
         StatusCodes().get('moved'),              # 301
         StatusCodes().get('found'),               # 302
@@ -1501,8 +1500,6 @@ class Models:  # ./Models/models.py
     _DEFAULT_REDIRECT_LIMIT = 30
     _CONTENT_CHUNK_SIZE = 10 * 1024
     _ITER_CHUNK_SIZE = 512
-
-    def help(self): Help().display(self.__class__.__name__)
 
     def REDIRECT_STATI(self):
         return self._REDIRECT_STATI
@@ -3433,9 +3430,9 @@ class Uri:  # ./Utils/uri.py
 
 
 class Url:  # ./Utils/url.py
-    _NETRC_FILES = ('.netrc', '_netrc')
-
     def help(self): Help().display(self.__class__.__name__)
+
+    _NETRC_FILES = ('.netrc', '_netrc')
 
     def __init__(self, url):
         self.url = url
