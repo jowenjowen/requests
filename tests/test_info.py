@@ -4,12 +4,12 @@ import sys
 
 import pytest
 
-from requests.domain import Help
+from requests.domain import Info
 
 
 def test_system_ssl():
     """Verify we're actually setting system_ssl when it should be available."""
-    assert Help().info()['system_ssl']['version'] != ''
+    assert Info().info()['system_ssl']['version'] != ''
 
 
 class VersionedPackage:
@@ -22,10 +22,10 @@ def test_idna_without_version_attribute(mocker):
     that if we have such a package, we don't blow up.
     """
     mocker.patch('requests.x.idna', new=None)
-    assert Help().info()['idna'] == {'version': ''}
+    assert Info().info()['idna'] == {'version': ''}
 
 
 def test_idna_with_version_attribute(mocker):
     """Verify we're actually setting idna version when it should be available."""
     mocker.patch('requests.x.idna', new=VersionedPackage('2.6'))
-    assert Help().info()['idna'] == {'version': '2.6'}
+    assert Info().info()['idna'] == {'version': '2.6'}

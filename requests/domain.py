@@ -3,6 +3,8 @@
 # domain.py contains the code related to the domain
 # (use an ide showing class structures for navigation)
 
+from requests.help import Help
+
 from requests.x import XPlatform, XJson, XUrllib3, XSys, XCharSetNormalizer, XCharDet, \
     XOpenSSL, XIdna, XCryptography, XSsl, XPyOpenSsl, XMutableMapping, XOrderedDict, XMapping, XUtils
 
@@ -87,42 +89,15 @@ requests.structures
 Data structures that power Requests.
 """
 class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.py
-
-    """A case-insensitive ``dict``-like object.
-
-    Implements all methods and operations of
-    ``MutableMapping`` as well as dict's ``copy``. Also
-    provides ``lower_items``.
-
-    All keys are expected to be strings. The structure remembers the
-    case of the last key to be set, and ``iter(instance)``,
-    ``keys()``, ``items()``, ``iterkeys()``, and ``iteritems()``
-    will contain case-sensitive keys. However, querying and contains
-    testing is case insensitive::
-
-        cid = CaseInsensitiveDict()
-        cid['Accept'] = 'application/json'
-        cid['aCCEPT'] == 'application/json'  # True
-        list(cid) == ['Accept']  # True
-
-    For example, ``headers_()['content-encoding']`` will return the
-    value of a ``'Content-Encoding'`` response header, regardless
-    of how the header name was originally stored.
-
-    If the constructor, ``.update``, or equality comparison
-    operations are given keys that have equal ``.lower()``s, the
-    behavior is undefined.
-    """
-
     def __init__(self, data=None, **kwargs):
         self._store = XOrderedDict()
         if data is None:
             data = {}
         self.update(data, **kwargs)
 
+    def help(self): Help().display(self.__class__.__name__)
+
     def __setitem__(self, key, value):
-        # Use the lowercased key for lookups, but store the actual
-        # key alongside the value.
         self._store[key.lower()] = (key, value)
 
     def __getitem__(self, key):
@@ -161,11 +136,11 @@ class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.
         return XStr().new(dict(self.items()))
 
 class LookupDict(dict):  # ./Structures/LookupDict.py
-    """Dictionary lookup object."""
-
     def __init__(self, name=None):
         self.name = name
         super(LookupDict, self).__init__()
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def __repr__(self):
         return '<lookup \'%s\'>' % (self.name)
@@ -181,26 +156,6 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
 
 # *************************** classes in StatusCodes section *****************
 class StatusCodes:  # ./StatusCodes/status_codes.py
-
-    """
-    The ``codes`` object defines a mapping from common names for HTTP statuses
-    to their numerical codes, accessible either as attributes or as dictionary
-    items.
-
-    Example::
-
-        >>> import requests
-        >>> requests.codes['temporary_redirect']
-        307
-        >>> requests.codes.teapot
-        418
-        >>> requests.codes['\o/']
-        200
-
-    Some codes have multiple names, and both upper- and lower-case versions of
-    the names are allowed. For example, ``codes.ok``, ``codes.OK``, and
-    ``codes.okay`` all correspond to the HTTP status code 200.
-    """
     _codes = {
 
         # Informational.
@@ -292,6 +247,8 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
                 if not title.startswith(('\\', '/')):
                     setattr(self._codes_dict, title.upper(), code)
 
+    def help(self): Help().display(self.__class__.__name__)
+
     def doc(self, code):
         names = ', '.join('``%s``' % n for n in self._codes[code])
         return '* %d: %s' % (code, names)
@@ -301,13 +258,8 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
 
 # *************************** classes in Connections section *****************
 class Connections:  # ./Connections/connections.py
-    """
-    requests.adapters
-    ~~~~~~~~~~~~~~~~~
+    def help(self): Help().display(self.__class__.__name__)
 
-    This module contains the transport adapters that Requests uses to define
-    and maintain xconnections.
-    """
     def DEFAULT_XPOOLBLOCK(self):
         return False
 
@@ -332,22 +284,10 @@ class BaseConnections(object):  # ./Connections/BaseConnections.py
     def __init__(self):  # ./Connections/BaseConnections.py
         super(BaseConnections, self).__init__()
 
+    def help(self): Help().display(self.__class__.__name__)
+
     def send(self, request, stream=False, timeout=None, verify=True,
              cert=None, proxies=None):  # ./Connections/BaseConnections.py
-        """Sends PreparedRequest object. Returns Response object.
-
-        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
-        :param stream: (optional) Whether to stream the request content.
-        :param timeout: (optional) How long to wait for the server to send
-            data before giving up, as a float, or a :ref:`(connect timeout,
-            read timeout) <timeouts>` tuple.
-        :type timeout: float or tuple
-        :param verify: (optional) Either a boolean, in which case it controls whether we verify
-            the server's TLS certificate, or a string, in which case it must be a path
-            to a CA bundle to use
-        :param cert: (optional) Any user-provided SSL certificate to be trusted.
-        :param proxies: (optional) The proxies dictionary to apply to the request.
-        """
         raise NotImplementedError
 
     def close(self):  # ./Connections/BaseConnections.py
@@ -356,31 +296,6 @@ class BaseConnections(object):  # ./Connections/BaseConnections.py
 
 
 class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
-    """The built-in HTTP Connection for urllib3.
-
-    Provides a general-case interface for Requests sessions to contact HTTP and
-    HTTPS urls by implementing the Transport Connection interface. This class will
-    usually be created by the :class:`Session <Session>` class under the
-    covers.
-
-    :param xpool_connections: The number of xconnection xpools to cache.
-    :param pool_maxsize: The maximum number of xconnections to save in the xpool.
-    :param max_retries: The maximum number of retries each xconnection
-        should attempt. Note, this applies only to failed DNS lookups, socket
-        xconnections and xconnection timeouts, never to requests where data has
-        made it to the server. By default, Requests does not retry failed
-        xconnections. If you need granular control over the conditions under
-        which we retry a request, import urllib3's ``Retry`` class and pass
-        that instead.
-    :param pool_block: Whether the xconnection xpool should block for xconnections.
-
-    Usage::
-
-      >>> import requests
-      >>> s = requests.Session()
-      >>> a = requests.adapters.HTTPconnections(max_retries=3)
-      >>> s.mount('http://', a)
-    """
     __attrs__ = ['max_retries', 'config', '_xpool_connections', '_xpool_maxsize',
                  '_xpool_block']
 
@@ -402,12 +317,12 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
 
         self.init_xpoolmanager(xpool_connections, pool_maxsize, block=pool_block)
 
+    def help(self): Help().display(self.__class__.__name__)
+
     def __getstate__(self):  # ./Connections/HTTPconnections.py
         return {attr: getattr(self, attr, None) for attr in self.__attrs__}
 
     def __setstate__(self, state):  # ./Connections/HTTPconnections.py
-        # Can't handle by adding 'proxy_manager' to self.__attrs__ because
-        # self.xpoolmanager uses a lambda function, which isn't picklable.
         self.proxy_manager = {}
         self.config = {}
 
@@ -418,17 +333,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
                               block=self._xpool_block)
 
     def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Connections/HTTPconnections.py
-        """Initializes a urllib3 PoolManager.
-
-        This method should not be called from user code, and is only
-        exposed for use when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param xconnections: The number of xconnection xpools to cache.
-        :param maxsize: The maximum number of xconnections to save in the xpool.
-        :param block: Block when no free xconnections are available.
-        :param pool_kwargs: Extra keyword arguments used to initialize the Pool Manager.
-        """
         # save these values for pickling
         self._xpool_connections = xconnections
         self._xpool_maxsize = maxsize
@@ -438,17 +342,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
                                        block=block, strict=True, **pool_kwargs)
 
     def proxy_manager_for(self, proxy, **proxy_kwargs):  # ./Connections/HTTPconnections.py
-        """Return urllib3 ProxyManager for the given proxy.
-
-        This method should not be called from user code, and is only
-        exposed for use when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param proxy: The proxy to return a urllib3 ProxyManager for.
-        :param proxy_kwargs: Extra keyword arguments used to configure the Proxy Manager.
-        :returns: ProxyManager
-        :rtype: urllib3.ProxyManager
-        """
         if proxy in self.proxy_manager:
             manager = self.proxy_manager[proxy]
         elif proxy.lower().startswith('socks'):
@@ -475,17 +368,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         return manager
 
     def cert_verify(self, xconn, url, verify, cert):  # ./Connections/HTTPconnections.py
-        """Verify a SSL certificate. This method should not be called from user
-        code, and is only exposed for use when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param xconn: The urllib3 xconnection object associated with the cert.
-        :param url: The requested URL.
-        :param verify: Either a boolean, in which case it controls whether we verify
-            the server's TLS certificate, or a string, in which case it must be a path
-            to a CA bundle to use
-        :param cert: The SSL certificate to verify.
-        """
         if url.lower().startswith('https') and verify:
 
             cert_loc = None
@@ -527,15 +409,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
                               "invalid path: {}".format(xconn.key_file))
 
     def build_response(self, req, resp):  # ./Connections/HTTPconnections.py
-        """Builds a :class:`Response <requests.Response>` object from a urllib3
-        response. This should not be called from user code, and is only exposed
-        for use when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`
-
-        :param req: The :class:`PreparedRequest <PreparedRequest>` used to generate the response.
-        :param resp: The urllib3 response object.
-        :rtype: requests.Response
-        """
         response = Response()
 
         # Fallback to None if there's no status_code, for whatever reason.
@@ -564,14 +437,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         return response
 
     def get_connection(self, url, proxies=None):  # ./Connections/HTTPconnections.py
-        """Returns a urllib3 xconnection for the given URL. This should not be
-        called from user code, and is only exposed for use when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param url: The URL to connect to.
-        :param proxies: (optional) A Requests-style dictionary of proxies used on this request.
-        :rtype: urllib3.ConnectionPool
-        """
         proxy = ProxyUtils().select_proxy(url, proxies)
 
         if proxy:
@@ -591,29 +456,11 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         return xconn
 
     def close(self):  # ./Connections/HTTPconnections.py
-        """Disposes of any internal state.
-
-        Currently, this closes the PoolManager and any active ProxyManager,
-        which closes any pooled xconnections.
-        """
         self.xpoolmanager.clear()
         for proxy in self.proxy_manager.values():
             proxy.clear()
 
     def request_url(self, request, proxies):  # ./Connections/HTTPconnections.py
-        """Obtain the url to use when making the final request.
-
-        If the message is being sent through a HTTP proxy, the full URL has to
-        be used. Otherwise, we should only use the path portion of the URL.
-
-        This should not be called from user code, and is only exposed for use
-        when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
-        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs.
-        :rtype: str
-        """
         proxy = ProxyUtils().select_proxy(request.url_(), proxies)
         scheme = XUrl().parse(request.url_()).scheme
 
@@ -630,32 +477,9 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         return url
 
     def add_headers(self, request, **kwargs):  # ./Connections/HTTPconnections.py
-        """Add any headers needed by the xconnection. As of v2.0 this does
-        nothing by default, but is left for overriding by users that subclass
-        the :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        This should not be called from user code, and is only exposed for use
-        when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param request: The :class:`PreparedRequest <PreparedRequest>` to add headers to.
-        :param kwargs: The keyword arguments from the call to send().
-        """
         pass
 
     def proxy_headers(self, proxy):  # ./Connections/HTTPconnections.py
-        """Returns a dictionary of the headers to add to any request sent
-        through a proxy. This works with urllib3 magic to ensure that they are
-        correctly sent to the proxy, rather than in a tunnelled request if
-        CONNECT is being used.
-
-        This should not be called from user code, and is only exposed for use
-        when subclassing the
-        :class:`HTTPconnections <requests.adapters.HTTPconnections>`.
-
-        :param proxy: The url of the proxy being used for this request.
-        :rtype: dict
-        """
         headers = {}
         username, password = Url(proxy).get_auth()
 
@@ -666,22 +490,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         return headers
 
     def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):  # ./Connections/HTTPconnections.py
-        """Sends PreparedRequest object. Returns Response object.
-
-        :param request: The :class:`PreparedRequest <PreparedRequest>` being sent.
-        :param stream: (optional) Whether to stream the request content.
-        :param timeout: (optional) How long to wait for the server to send
-            data before giving up, as a float, or a :ref:`(connect timeout,
-            read timeout) <timeouts>` tuple.
-        :type timeout: float or tuple or urllib3 Timeout object
-        :param verify: (optional) Either a boolean, in which case it controls whether
-            we verify the server's TLS certificate, or a string, in which case it
-            must be a path to a CA bundle to use
-        :param cert: (optional) Any user-provided SSL certificate to be trusted.
-        :param proxies: (optional) The proxies dictionary to apply to the request.
-        :rtype: requests.Response
-        """
-
         try:
             xconn = self.get_connection(request.url_(), proxies)
         except XUrllib3().exceptions().LocationValueError as e:
@@ -813,156 +621,37 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
 
 # *************************** classes in Api section *****************
 class Requests:  # ./Api/api.py
-    """
-    requests.api
-    ~~~~~~~~~~~~
-
-    This module implements the Requests API. A Requests object uses a Session for all calls to a Request object.
-
-    :copyright: (c) 2012 by Kenneth Reitz.
-    :license: Apache2, see LICENSE for more details.
-    """
     def __init__(self):
         self.data_(None)
         self.json_(None)
         self.params_(None)
 
+    def help(self): Help().display(self.__class__.__name__)
+
     def request(self, method, url, **kwargs):  # ./Api/api.py
-        """Constructs and sends a :class:`Request <Request>`.
-
-        :param method: method for the new :class:`Request` object: ``GET``, ``OPTIONS``, ``HEAD``, ``POST``, ``PUT``, ``PATCH``, or ``DELETE``.
-        :param url: URL for the new :class:`Request` object.
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-            in the query string for the :class:`Request`.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param json: (optional) A JSON serializable Python object to send in the body of the :class:`Request`.
-        :param headers: (optional) Dictionary of HTTP Headers to send with the :class:`Request`.
-        :param cookies: (optional) Dict or CookieJar object (CookieJar or XCookieJar) to send with the :class:`Request`.
-        :param files: (optional) Dictionary of ``'name': file-like-objects`` (or ``{'name': file-tuple}``) for multipart encoding upload.
-            ``file-tuple`` can be a 2-tuple ``('filename', fileobj)``, 3-tuple ``('filename', fileobj, 'content_type')``
-            or a 4-tuple ``('filename', fileobj, 'content_type', custom_headers)``, where ``'content-type'`` is a string
-            defining the content type of the given file and ``custom_headers`` a dict-like object containing additional headers
-            to add for the file.
-        :param auth: (optional) Auth tuple to enable Basic/Digest/Custom HTTP Auth.
-        :param timeout: (optional) How many seconds to wait for the server to send data
-            before giving up, as a float, or a :ref:`(connect timeout, read
-            timeout) <timeouts>` tuple.
-        :type timeout: float or tuple
-        :param allow_redirects: (optional) Boolean. Enable/disable GET/OPTIONS/POST/PUT/PATCH/DELETE/HEAD redirection. Defaults to ``True``.
-        :type allow_redirects: bool
-        :param proxies: (optional) Dictionary mapping protocol to the URL of the proxy.
-        :param verify: (optional) Either a boolean, in which case it controls whether we verify
-                the server's TLS certificate, or a string, in which case it must be a path
-                to a CA bundle to use. Defaults to ``True``.
-        :param stream: (optional) if ``False``, the response content will be immediately downloaded.
-        :param cert: (optional) if String, path to ssl client cert file (.pem). If Tuple, ('cert', 'key') pair.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-
-        Usage::
-
-          >>> import requests
-          >>> req = requests.request('GET', 'https://httpbin.org/get')
-          >>> req
-          <Response [200]>
-        """
-
-        # By using the 'with' statement we are sure the session is closed, thus we
-        # avoid leaving sockets open which can trigger a ResourceWarning in some
-        # cases, and look like a memory leak in others.
         with Sessions().session() as session:
             return session.request(method=method, url=url, **kwargs)
 
     def get(self, **kwargs):  # ./Api/api.py
-        r"""Sends a GET request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param params: (optional) Dictionary, list of tuples or bytes to send
-            in the query string for the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         return self.request('get', self.url_(), params=self.params_(), **kwargs)
 
     def options(self, **kwargs):  # ./Api/api.py
-        r"""Sends an OPTIONS request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         return self.request('options', self.url_(), **kwargs)
 
     def head(self, **kwargs):  # ./Api/api.py
-        r"""Sends a HEAD request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes. If
-            `allow_redirects` is not provided, it will be set to `False` (as
-            opposed to the default :meth:`request` behavior).
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         kwargs.setdefault('allow_redirects', False)
         return self.request('head', self.url_(), **kwargs)
 
     def post(self, **kwargs):  # ./Api/api.py
-        r"""Sends a POST request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param json: (optional) json data to send in the body of the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         return self.request('post', self.url_(), **kwargs)
 
     def put(self, **kwargs):  # ./Api/api.py
-        r"""Sends a PUT request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param json: (optional) json data to send in the body of the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         return self.request('put', self.url_(), data=self.data_(), **kwargs)
 
     def patch(self, **kwargs):  # ./Api/api.py
-        r"""Sends a PATCH request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param json: (optional) json data to send in the body of the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         return self.request('patch', self.url_(), data=self.data_(), **kwargs)
 
     def delete(self, **kwargs):  # ./Api/api.py
-        r"""Sends a DELETE request.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :return: :class:`Response <Response>` object
-        :rtype: requests.Response
-        """
-
         return self.request('delete', self.url_(), **kwargs)
 
     def url_(self, *args):  # ./Requests.py
@@ -984,16 +673,9 @@ class Auth:  # ./Auth/auth.py
     CONTENT_TYPE_FORM_URLENCODED = 'application/x-www-form-urlencoded'
     CONTENT_TYPE_MULTI_PART = 'multipart/form-data'
 
-    def basic_auth_str(self, username, password):
-        """Returns a Basic Auth string."""
+    def help(self): Help().display(self.__class__.__name__)
 
-        # "I want us to put a big-ol' comment on top of it that
-        # says that this behaviour is dumb but we need to preserve
-        # it because people are relying on it."
-        #    - Lukasa
-        #
-        # These are here solely to maintain backwards compatibility
-        # for things like ints. This will be removed in 3.0.0.
+    def basic_auth_str(self, username, password):
         if not XBaseString().is_instance(username):
             XWarnings().warn((
                 "Non-string usernames will no longer be supported in Requests "
@@ -1029,18 +711,18 @@ class Auth:  # ./Auth/auth.py
 
 
 class AuthBase:  # ./Auth/AuthBase.py
-    """Base class that all auth implementations derive from"""
+    def help(self): Help().display(self.__class__.__name__)
 
     def __call__(self, r):  # ./Auth/AuthBase.py
         raise NotImplementedError('Auth hooks must be callable.')
 
 
 class HTTPBasicAuth(AuthBase):  # ./Auth/HTTPBasicAuth.py
-    """Attaches HTTP Basic Authentication to the given Request object."""
-
     def __init__(self, username, password):  # ./Auth/HTTPBasicAuth.py
         self.username = username
         self.password = password
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def __eq__(self, other):  # ./Auth/HTTPBasicAuth.py
         return all([
@@ -1057,7 +739,8 @@ class HTTPBasicAuth(AuthBase):  # ./Auth/HTTPBasicAuth.py
 
 
 class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
-    """Attaches HTTP Proxy Authentication to a given Request object."""
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def __call__(self, r):
         r.headers_()['Proxy-Authorization'] = Auth().basic_auth_str(self.username, self.password)
@@ -1065,13 +748,13 @@ class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
 
 
 class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
-    """Attaches HTTP Digest Authentication to the given Request object."""
-
     def __init__(self, username, password):  # ./Auth/HTTPDigestAuth.py
         self.username = username
         self.password = password
         # Keep state in per-thread local storage
         self._thread_local = XThreading().local()
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def init_per_thread_state(self):  # ./Auth/HTTPDigestAuth.py
         # Ensure state is initialized just once per-thread
@@ -1266,39 +949,17 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
 # *************************** classes in Certs section *****************
 class Certs:  # ./Certs/Certs.py
-    """
-    requests.certs
-    ~~~~~~~~~~~~~~
-
-    This module returns the preferred default CA certificate bundle. There is
-    only one — the one from the certifi package.
-
-    If you are packaging Requests, e.g., for a Linux distribution or a managed
-    environment, you can change the definition of where() to return a separately
-    packaged CA bundle.
-    """
-
     def where(self):
         return certifi_where()
 
+    def help(self): Help().display(self.__class__.__name__)
+
 
 # *************************** classes in Cookies section *****************
-"""
-requests.cookies
-~~~~~~~~~~~~~~~~
-
-Compatibility code to be able to use `cookielib.CookieJar` with requests.
-
-"""
-
 class CookieUtils:  # ./Cookies/CookieUtils.py
-    def to_jar(self, jar, request, response):
-        """Extract the cookies from the response into a CookieJar object (CookieJar or XCookieJar)
+    def help(self): Help().display(self.__class__.__name__)
 
-        :param jar: CookieJar object (CookieJar or XCookieJar)
-        :param request: our own requests.Request object
-        :param response: urllib3.HTTPResponse object
-        """
+    def to_jar(self, jar, request, response):
         if not (hasattr(response, '_original_response') and
                 response._original_response):
             return
@@ -1309,11 +970,6 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         jar.extract_cookies(res, req)
 
     def get_cookie_header(self, jar, request):  # ./Cookies/CookieUtils.py
-        """
-        Produce an appropriate Cookie header string to be sent with `request`, or None.
-
-        :rtype: str
-        """
         r = XCookieJarRequest(request)
         jar.add_cookie_header(r)
         return r.added_headers().get('Cookie')
@@ -1351,11 +1007,6 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         return new_jar
 
     def create_cookie(self, name, value, **kwargs):  # ./Cookies/CookieUtils.py
-        """Make a cookie from underspecified parameters.
-
-        By default, the pair of `name` and `value` will be set for the domain ''
-        and sent on every request (this is sometimes called a "supercookie").
-        """
         result = {
             'version': 0,
             'name': name,
@@ -1416,14 +1067,6 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         )
 
     def cookiejar_from_dict(self, cookie_dict, cookiejar=None, overwrite=True):  # ./Cookies/CookieUtils.py
-        """Returns a CookieJar from a key/value dictionary.
-
-        :param cookie_dict: Dict of key/values to insert into the CookieJar object (CookieJar or XCookieJar).
-        :param cookiejar: (optional) A CookieJar object (CookieJar or XCookieJar) to add the cookies to.
-        :param overwrite: (optional) If False, will not replace cookies
-            already in the jar with new ones.
-        :rtype: CookieJar object (CookieJar or XCookieJar)
-        """
         if cookiejar is None:
             cookiejar = CookieJar()
 
@@ -1436,12 +1079,6 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         return cookiejar
 
     def merge_cookies(self, cookiejar, cookies):  # ./Cookies/CookieUtils.py
-        """Add cookies to cookiejar and returns a merged CookieJar object (CookieJar or XCookieJar).
-
-        :param cookiejar: CookieJar object (CookieJar or XCookieJar) to add the cookies to.
-        :param cookies: Dictionary or CookieJar object (CookieJar or XCookieJar) to be added.
-        :rtype: CookieJar object (CookieJar or XCookieJar)
-        """
         if not isinstance(cookiejar, XCookieJar):
             raise ValueError('You can only merge into CookieJar')
 
@@ -1458,12 +1095,6 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         return cookiejar
 
     def dict_from_cookiejar(self, cj):  # ./Cookies/CookieUtils.py
-        """Returns a key/value dictionary from a CookieJar.
-
-        :param cj: CookieJar object to extract cookies from.
-        :rtype: dict
-        """
-
         cookie_dict = {}
 
         for cookie in cj:
@@ -1472,39 +1103,15 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         return cookie_dict
 
     def add_dict_to_cookiejar(self, cj, cookie_dict):  # ./Cookies/CookieUtils.py
-        """Returns a CookieJar from a key/value dictionary.
-
-        :param cj: CookieJar to insert cookies into.
-        :param cookie_dict: Dict of key/values to insert into CookieJar.
-        :rtype: CookieJar
-        """
-
         return self.cookiejar_from_dict(cookie_dict, cj)
 
 
 class CookieConflictError(RuntimeError):  # ./Cookies/CookieConflictError.py
-    """There are two cookies that meet the criteria specified in the cookie jar.
-    Use .get and .set and include domain and path args in order to be more specific.
-    """
+    def help(self): Help().display(self.__class__.__name__)
 
 
 class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
-    """Compatibility class; is a cookielib.CookieJar, but exposes a dict
-    interface.
-
-    This is the CookieJar we create by default for requests and sessions that
-    don't specify one, since some clients may expect response.cookies_() and
-    session.cookies_() to support dict operations.
-
-    Requests does not use the dict interface internally; it's just for
-    compatibility with external client code. All requests code should work
-    out of the box with externally provided instances of ``CookieJar``, e.g.
-    ``LWPCookieJar`` and ``FileCookieJar``.
-
-    Unlike a XCookieJar, this class is picklable.
-
-    .. warning:: dictionary operations that are normally O(1) may be O(n).
-    """
+    def help(self): Help().display(self.__class__.__name__)
 
     def get(self, name, default=None, domain=None, path=None):  # ./Cookies/CookieJar.py
         """Dict-like get() that also supports optional domain and path args in
@@ -1745,21 +1352,13 @@ class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
 
 # *************************** classes in Help section *****************
 
-class Help:  # ./Help/help.py
-    def __init__(self):  # ./Help/help.py
+class Info:  # ./Help/info.py
+    def __init__(self):  # ./Help/info.py
         pass
 
-    def _implementation(self):  # ./Help/help.py
-        """Return a dict with the Python implementation and version.
+    def help(self): Help().display(self.__class__.__name__)
 
-        Provide both the name and the version of the Python implementation
-        currently running. For example, on CPython 2.7.5 it will return
-        {'name': 'CPython', 'version': '2.7.5'}.
-
-        This function works best on CPython and PyPy: in particular, it probably
-        doesn't work for Jython or IronPython. Future investigation should be done
-        to work out the correct shape of the code for those platforms.
-        """
+    def _implementation(self):  # ./Help/info.py
         implementation = XPlatform().python_implementation()
 
         if implementation == 'CPython':
@@ -1781,8 +1380,7 @@ class Help:  # ./Help/help.py
 
         return {'name': implementation, 'version': implementation_version}
 
-    def info(self):  # ./Help/help.py
-        """Generate information for a bug report."""
+    def info(self):  # ./Help/info.py
         try:
             platform_info = {
                 'system': XPlatform().system(),
@@ -1844,18 +1442,10 @@ class Help:  # ./Help/help.py
 # *************************** classes in Hooks section *****************
 
 class Hooks:  # ./Hooks/hooks.py
-    """
-    requests.hooks
-    ~~~~~~~~~~~~~~
-    This class provides the capabilities for the Requests hooks system.
-
-    Available hooks:
-
-    ``response``:
-        The response generated from a Request.
-    """
     def __init__(self):
         self.HOOKS = ['response']
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def default_hooks(self):
         return {event: [] for event in self.HOOKS}
@@ -1879,15 +1469,6 @@ class Hooks:  # ./Hooks/hooks.py
 # *************************** classes in Models section *****************
 
 class Models:  # ./Models/models.py
-    """
-    requests.models
-    ~~~~~~~~~~~~~~~
-
-    This module contains the primary objects that power Requests.
-    """
-
-    #: The set of HTTP status codes that indicate an automatically
-    #: processable redirect.
     _REDIRECT_STATI = (
         StatusCodes().get('moved'),              # 301
         StatusCodes().get('found'),               # 302
@@ -1899,6 +1480,8 @@ class Models:  # ./Models/models.py
     _DEFAULT_REDIRECT_LIMIT = 30
     _CONTENT_CHUNK_SIZE = 10 * 1024
     _ITER_CHUNK_SIZE = 512
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def REDIRECT_STATI(self):
         return self._REDIRECT_STATI
@@ -1914,9 +1497,10 @@ class Models:  # ./Models/models.py
 
 
 class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
+    def help(self): Help().display(self.__class__.__name__)
+
     @property
     def path_url(self):  # ./Models/RequestEncodingMixin.py
-        """Build the path URL to use."""
 
         url = []
 
@@ -1937,13 +1521,6 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
 
     @staticmethod
     def _encode_params(data):  # ./Models/RequestEncodingMixin.py
-        """Encode parameters in a piece of data.
-
-        Will successfully encode parameters when passed as a dict or a list of
-        2-tuples. Order is retained if data is a list of 2-tuples but arbitrary
-        if parameters are supplied as a dict.
-        """
-
         if isinstance(data, (XStr().clazz(), XBytes().clazz())):
             return data
         elif hasattr(data, 'read'):
@@ -1964,14 +1541,6 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
 
     @staticmethod
     def _encode_files(files, data):  # ./Models/RequestEncodingMixin.py
-        """Build the body for a multipart/form-data request.
-
-        Will successfully encode files when passed as a dict or a list of
-        tuples. Order is retained if data is a list of tuples but arbitrary
-        if parameters are supplied as a dict.
-        The tuples may be 2-tuples (filename, fileobj), 3-tuples (filename, fileobj, contentype)
-        or 4-tuples (filename, fileobj, contentype, custom_headers).
-        """
         if (not files):
             raise ValueError("Files must be provided.")
         elif XBaseString().is_instance(data):
@@ -2028,19 +1597,15 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
 
 
 class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
-    def register_hook(self, event, hook):
-        """Properly register a hook."""
+    def help(self): Help().display(self.__class__.__name__)
 
+    def register_hook(self, event, hook):
         if event not in self.hooks_() :
             raise ValueError('Unsupported event specified, with event name "%s"' % (event))
 
         XCompat().append_callable_instance(self.hooks_()[event], hook)
 
     def deregister_hook(self, event, hook):
-        """Deregister a previously registered hook.
-        Returns True if the hook existed, False if not.
-        """
-
         try:
             self.hooks_()[event].remove(hook)
             return True
@@ -2049,32 +1614,7 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
 
 
 class Request(RequestHooksMixin):  # ./Models/Request.py
-    """A user-created :class:`Request <Request>` object.
-
-    Used to prepare a :class:`PreparedRequest <PreparedRequest>`, which is sent to the server.
-
-    :param method: HTTP method to use.
-    :param url: URL to send.
-    :param headers: dictionary of headers to send.
-    :param files: dictionary of {filename: fileobject} files to multipart upload.
-    :param data: the body to attach to the request. If a dictionary or
-        list of tuples ``[(key, value)]`` is provided, form-encoding will
-        take place.
-    :param json: json for the body to attach to the request (if files or data is not specified).
-    :param params: URL parameters to append to the URL. If a dictionary or
-        list of tuples ``[(key, value)]`` is provided, form-encoding will
-        take place.
-    :param auth: Auth handler or (user, pass) tuple.
-    :param cookies: dictionary or CookieJar of cookies to attach to this request.
-    :param hooks: dictionary of callback hooks, for internal usage.
-
-    Usage::
-
-      >>> import requests
-      >>> req = Request().method_('GET').url_('https://httpbin.org/get')
-      >>> req.prepare()
-      <PreparedRequest [GET]>
-    """
+    def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self,
             method=None, url=None, headers=None, files=None, data=None,
@@ -2160,42 +1700,17 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
 
 
 class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
-    """The fully mutable :class:`PreparedRequest <PreparedRequest>` object,
-    containing the exact bytes that will be sent to the server.
-
-    Instances are generated from a :class:`Request <Request>` object, and
-    should not be instantiated manually; doing so may produce undesirable
-    effects.
-
-    Usage::
-
-      >>> import requests
-      >>> req = Request().method_('GET').url_('https://httpbin.org/get')
-      >>> r = req.prepare()
-      >>> r
-      <PreparedRequest [GET]>
-
-      >>> s = requests.Session()
-      >>> s.send(r)
-      <Response [200]>
-    """
+    def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/PreparedRequest.py
-        #: HTTP verb to send to the server.
-        self.method_(None)
-        #: HTTP URL to send the request to.
-        self.url_(None)
-        #: dictionary of HTTP headers.
-        self.headers_(None)
-        # The `CookieJar` (CookieJar or XCookieJar) used to create the Cookie header will be stored here
-        # after prepare_cookies is called
-        self._cookies = None
-        #: request body to send to the server.
-        self.body_(None)
-        #: dictionary of callback hooks, for internal usage.
-        self.hooks_(Hooks().default_hooks())
-        #: integer denoting starting position of a readable file-like body.
-        self._body_position = None
+        self.method_(None)  #: HTTP verb to send to the server.
+        self.url_(None)  #: HTTP URL to send the request to.
+        self.headers_(None)  #: dictionary of HTTP headers.
+        self._cookies = None # The `CookieJar` (CookieJar or XCookieJar) used to create the Cookie header
+                             # will be stored here after prepare_cookies is called
+        self.body_(None)  #: request body to send to the server.
+        self.hooks_(Hooks().default_hooks())  #: dictionary of callback hooks, for internal usage.
+        self._body_position = None  #: integer denoting starting position of a readable file-like body.
 
     def prepare(self,
             method=None, url=None, headers=None, files=None, data=None,
@@ -2244,12 +1759,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         return host
 
     def prepare_url(self, url, params):  # ./Models/PreparedRequest.py
-        """Prepares the given HTTP URL."""
-        #: Accept objects that have string representations.
-        #: We're unable to blindly call unicode/str functions
-        #: as this will include the bytestring indicator (b'')
-        #: on python 3.x.
-        #: https://github.com/psf/requests/pull/2238
         if XBytes().is_instance(url):
             url = url.decode('utf8')
         else:
@@ -2341,12 +1850,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
                 self.headers_()[XUtils().to_native_string(name)] = value
 
     def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
-        """Prepares the given HTTP body data."""
-
-        # Check if file, fo, generator, iterator.
-        # If not, run through normal process.
-
-        # Nottin' on you.
         body = None
         content_type = None
 
@@ -2415,7 +1918,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         self.body_(body)
 
     def prepare_content_length(self, body):  # ./Models/PreparedRequest.py
-        """Prepare Content-Length header based on request method and body"""
         if body is not None:
             length = Utils().super_len(body)
             if length:
@@ -2428,9 +1930,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             self.headers_()['Content-Length'] = '0'
 
     def prepare_auth(self, auth, url=''):  # ./Models/PreparedRequest.py
-        """Prepares the given HTTP auth data."""
-
-        # If no Auth is explicitly provided, extract it from the URL first.
         if auth is None:
             url_auth = Url(self.url_()).get_auth()
             auth = url_auth if any(url_auth) else None
@@ -2450,16 +1949,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             self.prepare_content_length(self.body_())
 
     def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
-        """Prepares the given HTTP cookie data.
-
-        This function eventually generates a ``Cookie`` header from the
-        given cookies using cookielib. Due to cookielib's design, the header
-        will not be regenerated if it already exists, meaning this function
-        can only be called once for the life of the
-        :class:`PreparedRequest <PreparedRequest>` object. Any subsequent calls
-        to ``prepare_cookies`` will have no actual effect, unless the "Cookie"
-        header is removed beforehand.
-        """
         if isinstance(cookies, XCookieJar):
             self._cookies = cookies
         else:
@@ -2470,10 +1959,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
             self.headers_()['Cookie'] = cookie_header
 
     def prepare_hooks(self, hooks):  # ./Models/PreparedRequest.py
-        """Prepares the given hooks."""
-        # hooks can be passed as None to the prepare method and to this
-        # method. To prevent iterating over None, simply use an empty list
-        # if hooks is False-y
         hooks = hooks or []
         for event in hooks:
             self.register_hook(event, hooks[event])
@@ -2495,6 +1980,8 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
 
 class Content:  # ./Models/Content.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self, read_func):  # ./Models/Content.py
         self._content = False
         self._content_consumed = False
@@ -2507,22 +1994,6 @@ class Content:  # ./Models/Content.py
             raise TypeError("chunk_size must be an int, it is instead a %s." % type(chunk_size))
 
     def iterate(self, chunk_size, decode_unicode, raw, encoding):  # ./Models/Content.py
-        """Iterates over the response data.  When stream=True is set on the
-        request, this avoids reading the content at once into memory for
-        large responses.  The chunk size is the number of bytes it should
-        read into memory.  This is not necessarily the length of each item
-        returned as decoding can take place.
-
-        chunk_size must be of type int or None. A value of None will
-        function differently depending on the value of `stream`.
-        stream=True will read data as it arrives in whatever size the
-        chunks are received. If stream=False, data is returned as
-        a single chunk.
-
-        If decode_unicode is True, content will be decoded using the best
-        available encoding based on the response.
-        """
-
         def generate():  # ./Models/Content.py
             # Special case for urllib3.
             if hasattr(raw, 'stream'):
@@ -2577,8 +2048,6 @@ class Content:  # ./Models/Content.py
         return self._content
 
     def consume_everything(self):  # ./Models/Content.py
-        # Consume everything; accessing the content attribute makes
-        # sure the content has been fully read.
         if not self._content_consumed:
             self.content()
 
@@ -2588,18 +2057,6 @@ class Content:  # ./Models/Content.py
         return XCharDet().detect(self.content())['encoding']
 
     def text(self, encoding):  # ./Models/Content.py
-        """Content of the response, in unicode.
-
-        If Response.encoding_() is None, encoding will be guessed using
-        ``charset_normalizer`` or ``chardet``.
-
-        The encoding of the response content is determined based solely on HTTP
-        headers, following RFC 2616 to the letter. If you can take advantage of
-        non-HTTP knowledge to make a better guess at the encoding, you should
-        set ``r.encoding_()`` appropriately before accessing this property.
-        """
-
-        # Try charset from content-type
         content = None
 
         if not self.content():
@@ -2624,13 +2081,6 @@ class Content:  # ./Models/Content.py
         return content
 
     def json(self, encoding, **kwargs):  # ./Models/Content.py
-        r"""Returns the json-encoded content of a response, if any.
-
-        :param \*\*kwargs: Optional arguments that ``json.loads`` takes.
-        :raises requests.exceptions.JSONDecodeError: If the response body does not
-            contain valid json.
-        """
-
         if not encoding and self.content and len(self.content()) > 3:
             # No encoding set. JSON RFC 4627 section 3 states we should expect
             # UTF-8, -16 or -32. Detect which one to use; If the detection or
@@ -2667,10 +2117,6 @@ class Content:  # ./Models/Content.py
 
 
 class Response:  # ./Models/Response.py
-    """The :class:`Response <Response>` object, which contains a
-    server's response to an HTTP request.
-    """
-
     __attrs__ = [
         '_content', 'status_code', 'headers', 'url', 'history',
         'encoding', 'reason', 'cookies', 'elapsed', 'request'
@@ -2757,23 +2203,9 @@ class Response:  # ./Models/Response.py
         return '<Response [%s]>' % (self.status_code_())
 
     def __bool__(self):  # ./Models/Response.py
-        """Returns True if :attr:`status_code` is less than 400.
-
-        This attribute checks if the status code of the response is between
-        400 and 600 to see if there was a client error or a server error. If
-        the status code, is between 200 and 400, this will return True. This
-        is **not** a check to see if the response code is ``200 OK``.
-        """
         return self.ok_()
 
     def __nonzero__(self):  # ./Models/Response.py
-        """Returns True if :attr:`status_code` is less than 400.
-
-        This attribute checks if the status code of the response is between
-        400 and 600 to see if there was a client error or a server error. If
-        the status code, is between 200 and 400, this will return True. This
-        is **not** a check to see if the response code is ``200 OK``.
-        """
         return self.ok_()
 
     def __iter__(self):  # ./Models/Response.py
@@ -2785,13 +2217,6 @@ class Response:  # ./Models/Response.py
         return self.ok_()
         
     def ok_(self):  # ./Models/Response.py
-        """Returns True if :attr:`status_code` is less than 400, False if not.
-
-        This attribute checks if the status code of the response is between
-        400 and 600 to see if there was a client error or a server error. If
-        the status code is between 200 and 400, this will return True. This
-        is **not** a check to see if the response code is ``200 OK``.
-        """
         try:
             self.raise_for_status()
         except HTTPError:
@@ -2803,9 +2228,6 @@ class Response:  # ./Models/Response.py
         return self.is_redirect_()
 
     def is_redirect_(self):
-        """True if this Response is a well-formed HTTP redirect that could have
-        been processed automatically (by :meth:`Session.resolve_redirects`).
-        """
         return ('location' in self.headers_() and self.status_code in Models().REDIRECT_STATI())
 
     @property
@@ -2828,13 +2250,6 @@ class Response:  # ./Models/Response.py
         return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding_())
 
     def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./Models/Response.py
-        """Iterates over the response data, one line at a time.  When
-        stream=True is set on the request, this avoids reading the
-        content at once into memory for large responses.
-
-        .. note:: This method is not reentrant safe.
-        """
-
         if chunk_size == -1:
             chunk_size = Models().ITER_CHUNK_SIZE()
 
@@ -2917,11 +2332,6 @@ class Response:  # ./Models/Response.py
             raise HTTPError(http_error_msg, response=self)
 
     def close(self):  # ./Models/Response.py
-        """Releases the xconnection back to the xpool. Once this method has been
-        called the underlying ``raw`` object must not be accessed again.
-
-        *Note: Should not normally need to be called explicitly.*
-        """
         self.contentClass.close(self.raw_())
 
         release_conn = getattr(self.raw_(), 'release_conn', None)
@@ -2965,17 +2375,6 @@ class Response:  # ./Models/Response.py
         return XUtils().get_or_set(self, 'auth', *args)
 
     def get_unicode(self):  # ./Models/Response.py
-        """Returns the requested content back in unicode.
-
-        :param r: Response object to get unicode content from.
-
-        Tried:
-
-        1. charset from content-type
-        2. fall back and replace all unicode characters
-
-        :rtype: str
-        """
         XWarnings().warn((
             'In requests 3.0, get_unicode will be removed. For '
             'more information, please see the discussion on issue #2266. (This'
@@ -3002,6 +2401,8 @@ class Response:  # ./Models/Response.py
 
 # *************************** classes in Packages section *****************
 class Packages:  # ./Packages/Packages.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def urllib3(self):
         return XUrllib3()
 
@@ -3014,22 +2415,12 @@ class Packages:  # ./Packages/Packages.py
 
 # *************************** classes in Sessions section *****************
 class Sessions:  # ./Sessions/Sessions.py
-    """
-    requests.sessions
-    ~~~~~~~~~~~~~~~~~
+    def help(self): Help().display(self.__class__.__name__)
 
-    This module provides a Session object to manage and persist settings across
-    requests (cookies, auth, proxies).
-    """
     def preferred_clock(self):
         return XTime().clock_method()()
 
     def merge_setting(self, request_setting, session_setting, dict_class=XOrderedDict):  # ./Sessions/Sessions.py
-        """Determines appropriate setting for a given request, taking into account
-        the explicit setting on that request, and the setting in the session. If a
-        setting is a dictionary, they will be merged together using `dict_class`
-        """
-
         if session_setting is None:
             return request_setting
 
@@ -3055,11 +2446,6 @@ class Sessions:  # ./Sessions/Sessions.py
         return merged_setting
 
     def merge_hooks(self, request_hooks, session_hooks, dict_class=XOrderedDict):
-        """Properly merges both requests and session hooks.
-
-        This is necessary because when request_hooks == {'response': []}, the
-        merge breaks Session hooks entirely.
-        """
         if session_hooks is None or session_hooks.get('response') == []:
             return request_hooks
 
@@ -3069,21 +2455,12 @@ class Sessions:  # ./Sessions/Sessions.py
         return self.merge_setting(request_hooks, session_hooks, dict_class)
 
     def session(self):  # ./Sessions/Session.py
-        """
-        Returns a :class:`Session` for context-management.
-
-        .. deprecated:: 1.0.0
-
-            This method has been deprecated since version 1.0.0 and is only kept for
-            backwards compatibility. New code should use :class:`~requests.sessions.Session`
-            to create a session. This may be removed at a future date.
-
-        :rtype: Session
-        """
         return Session()
 
 
 class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def DEFAULT_PORTS(self):  # ./Sessions/SessionRedirectMixin.py
         return {'http': 80, 'https': 443}
 
@@ -3337,88 +2714,26 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
 
 class Session(SessionRedirectMixin):  # ./Sessions/Session.py
-    """A Requests session.
-
-    Provides cookie persistence, connection-pooling, and configuration.
-
-    Basic Usage::
-
-      >>> import requests
-      >>> s = requests.Session()
-      >>> s.get('https://httpbin.org/get')
-      <Response [200]>
-
-    Or as a context manager::
-
-      >>> with requests.Session() as s:
-      ...     s.get('https://httpbin.org/get')
-      <Response [200]>
-    """
-
     __attrs__ = [
         'headers', 'cookies', 'auth', 'proxies', 'hooks', 'params', 'verify',
         'cert', 'adapters', 'stream', 'trust_env',
         'max_redirects',
     ]
 
+    def help(self): Help().display(self.__class__.__name__)
+
     def __init__(self):  # ./Sessions/Session.py
-
-        #: A case-insensitive dictionary of headers to be sent on each
-        #: :class:`Request <Request>` sent from this
-        #: :class:`Session <Session>`.
         self.headers_(HeaderUtils().default_headers())
-
-        #: Default Authentication tuple or object to attach to
-        #: :class:`Request <Request>`.
         self.auth_(None)
-
-        #: Dictionary mapping protocol or protocol and host to the URL of the proxy
-        #: (e.g. {'http': 'foo.bar:3128', 'http://host.name': 'foo.bar:4012'}) to
-        #: be used on each :class:`Request <Request>`.
         self.proxies_({})
-
-        #: Event-handling hooks.
         self.hooks_(Hooks().default_hooks())
-
-
-        #: Dictionary of querystring data to attach to each
-        #: :class:`Request <Request>`. The dictionary values may be lists for
-        #: representing multivalued query parameters.
         self.params_({})
-
-        #: Stream response content default.
         self.stream_(False)
-
-        #: SSL Verification default.
-        #: Defaults to `True`, requiring requests to verify the TLS certificate at the
-        #: remote end.
-        #: If verify is set to `False`, requests will accept any TLS certificate
-        #: presented by the server, and will ignore hostname mismatches and/or
-        #: expired certificates, which will make your application vulnerable to
-        #: man-in-the-middle (MitM) attacks.
-        #: Only set this to `False` for testing.
         self.verify_(True)
-
-        #: SSL client certificate default, if String, path to ssl client
-        #: cert file (.pem). If Tuple, ('cert', 'key') pair.
         self.cert_(None)
-
-        #: Maximum number of redirects allowed. If the request exceeds this
-        #: limit, a :class:`TooManyRedirects` exception is raised.
-        #: This defaults to requests.models.DEFAULT_REDIRECT_LIMIT, which is
-        #: 30.
         self.max_redirects_(Models().DEFAULT_REDIRECT_LIMIT())
-
-        #: Trust environment settings for proxy configuration, default
-        #: authentication and similar.
         self.trust_env_(True)
-
-        #: A CookieJar (CookieJar or XCookieJar) containing all currently outstanding cookies set on this
-        #: session. By default it is a
-        #: :class:`CookieJar` or `XCookieJar`
         self.cookies_(CookieUtils().cookiejar_from_dict({}))
-
-        # Default connection adapters.
         self.adapters_(XOrderedDict())
         self.mount('https://', HTTPconnections())
         self.mount('http://', HTTPconnections())
@@ -3430,15 +2745,6 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         self.close()
 
     def prepare_request(self, request):  # ./Sessions/Session.py
-        """Constructs a :class:`PreparedRequest <PreparedRequest>` for
-        transmission and returns it. The :class:`PreparedRequest` has settings
-        merged from the :class:`Request <Request>` instance and those of the
-        :class:`Session`.
-
-        :param request: :class:`Request` instance to prepare with this
-            session's settings.
-        :rtype: requests.PreparedRequest
-        """
         cookies = request.cookies_() or {}
 
         # Bootstrap CookieJar.
@@ -3473,48 +2779,6 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
                 params=None, data=None, headers=None, cookies=None, files=None,
                 auth=None, timeout=None, allow_redirects=True, proxies=None,
                 hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
-        """Constructs a :class:`Request <Request>`, prepares it and sends it.
-        Returns :class:`Response <Response>` object.
-
-        :param method: method for the new :class:`Request` object.
-        :param url: URL for the new :class:`Request` object.
-        :param params: (optional) Dictionary or bytes to be sent in the query
-            string for the :class:`Request`.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param json: (optional) json to send in the body of the
-            :class:`Request`.
-        :param headers: (optional) Dictionary of HTTP Headers to send with the
-            :class:`Request`.
-        :param cookies: (optional) Dict or CookieJar object to send with the
-            :class:`Request`.
-        :param files: (optional) Dictionary of ``'filename': file-like-objects``
-            for multipart encoding upload.
-        :param auth: (optional) Auth tuple or callable to enable
-            Basic/Digest/Custom HTTP Auth.
-        :param timeout: (optional) How long to wait for the server to send
-            data before giving up, as a float, or a :ref:`(connect timeout,
-            read timeout) <timeouts>` tuple.
-        :type timeout: float or tuple
-        :param allow_redirects: (optional) Set to True by default.
-        :type allow_redirects: bool
-        :param proxies: (optional) Dictionary mapping protocol or protocol and
-            hostname to the URL of the proxy.
-        :param stream: (optional) whether to immediately download the response
-            content. Defaults to ``False``.
-        :param verify: (optional) Either a boolean, in which case it controls whether we verify
-            the server's TLS certificate, or a string, in which case it must be a path
-            to a CA bundle to use. Defaults to ``True``. When set to
-            ``False``, requests will accept any TLS certificate presented by
-            the server, and will ignore hostname mismatches and/or expired
-            certificates, which will make your application vulnerable to
-            man-in-the-middle (MitM) attacks. Setting verify to ``False``
-            may be useful during local development or testing.
-        :param cert: (optional) if String, path to ssl client cert file (.pem).
-            If Tuple, ('cert', 'key') pair.
-        :rtype: requests.Response
-        """
-        # Create the Request.
         req = Request(
                       method=method.upper(),
                       url=url,
@@ -3547,92 +2811,30 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         return resp
 
     def get(self, url, **kwargs):  # ./Sessions/Session.py
-        r"""Sends a GET request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         kwargs.setdefault('allow_redirects', True)
         return self.request('GET', url, **kwargs)
 
     def options(self, url, **kwargs):
-        r"""Sends a OPTIONS request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         kwargs.setdefault('allow_redirects', True)
         return self.request('OPTIONS', url, **kwargs)
 
     def head(self, url, **kwargs):  # ./Sessions/Session.py
-        r"""Sends a HEAD request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         kwargs.setdefault('allow_redirects', False)
         return self.request('HEAD', url, **kwargs)
 
     def post(self, url, data=None, json=None, **kwargs):  # ./Sessions/Session.py
-        r"""Sends a POST request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param json: (optional) json to send in the body of the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         return self.request('POST', url, data=data, json=json, **kwargs)
 
     def put(self, url, data=None, **kwargs):  # ./Sessions/Session.py
-        r"""Sends a PUT request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         return self.request('PUT', url, data=data, **kwargs)
 
     def patch(self, url, data=None, **kwargs):  # ./Sessions/Session.py
-        r"""Sends a PATCH request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param data: (optional) Dictionary, list of tuples, bytes, or file-like
-            object to send in the body of the :class:`Request`.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         return self.request('PATCH', url, data=data, **kwargs)
 
     def delete(self, url, **kwargs):  # ./Sessions/Session.py
-        r"""Sends a DELETE request. Returns :class:`Response` object.
-
-        :param url: URL for the new :class:`Request` object.
-        :param \*\*kwargs: Optional arguments that ``request`` takes.
-        :rtype: requests.Response
-        """
-
         return self.request('DELETE', url, **kwargs)
 
     def send(self, request, **kwargs):  # ./Sessions/Session.py
-        """Send a given PreparedRequest.
-
-        :rtype: requests.Response
-        """
-        # Set defaults that the hooks can utilize to ensure they always have
-        # the correct parameters to reproduce the previous request.
         kwargs.setdefault('stream', self.stream_())
         kwargs.setdefault('verify', self.verify_())
         kwargs.setdefault('cert', self.cert_())
@@ -3705,12 +2907,6 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         return r
 
     def merge_environment_settings(self, url, proxies, stream, verify, cert):  # ./Sessions/Session.py
-        """
-        Check the environment and merge it with some settings.
-
-        :rtype: dict
-        """
-        # Gather clues from the surrounding environment.
         if self.trust_env_():
             # Set environment's proxies.
             no_proxy = proxies.get('no_proxy') if proxies is not None else None
@@ -3734,11 +2930,6 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
                 'cert': cert}
 
     def get_adapter(self, url):  # ./Sessions/Session.py
-        """
-        Returns the appropriate connection adapter for the given URL.
-
-        :rtype: requests.adapters.BaseConnections
-        """
         for (prefix, adapter) in self.adapters_().items():
 
             if url.lower().startswith(prefix.lower()):
@@ -3748,15 +2939,10 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
         raise InvalidSchema("No connection adapters were found for {!r}".format(url))
 
     def close(self):
-        """Closes all adapters and as such the session"""
         for v in self.adapters_().values():
             v.close()
 
     def mount(self, prefix, adapter):  # ./Sessions/Session.py
-        """Registers a connection adapter to a prefix.
-
-        Connections are sorted in descending order by prefix length.
-        """
         self.adapters_()[prefix] = adapter
         keys_to_move = [k for k in self.adapters_() if len(k) < len(prefix)]
 
@@ -3802,6 +2988,8 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
 # *************************** classes in Utils section *****************
 class ProxyUtils:  # ./Utils/proxy_utils.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def proxy_bypass(self, host):  # noqa  # ./Utils/proxy_utils.py
         if XSys().platform() == 'win32':
             return self._proxy_bypass_win32(host)
@@ -3845,24 +3033,12 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
             return False
 
         def _proxy_bypass_win32(self, host):  # noqa  # ./Utils/utils.py
-            """Return True, if the host should be bypassed.
-
-            Checks proxy settings gathered from the environment, if specified,
-            or the registry.
-            """
             if XCompat().getproxies_environment():
                 return XCompat().proxy_bypass_environment(host)
             else:
                 return XCompat().proxy_bypass_registry(host)
 
     def should_bypass_proxies(self, url, no_proxy):  # ./Utils/proxy_utils.py
-        """
-        Returns whether we should bypass proxies or not.
-
-        :rtype: bool
-        """
-        # Prioritize lowercase environment variables over uppercase
-        # to keep a consistent behaviour with other http projects (curl, wget).
         get_proxy = lambda k: XOs().environ().get(k) or XOs().environ().get(k.upper())
 
         # First check whether no_proxy is defined. If it is, check that the URL
@@ -3916,13 +3092,6 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         return False
 
     def address_in_network(self, ip, net):  # ./Utils/proxy_utils.py
-        """This function allows you to check if an IP belongs to a network subnet
-
-        Example: returns True if ip = 192.168.1.1 and net = 192.168.1.0/24
-                 returns False if ip = 192.168.1.1 and net = 192.168.100.0/24
-
-        :rtype: bool
-        """
         ipaddr = XStruct().unpack('=L', XSocket().inet_aton(ip))[0]
         netaddr, bits = net.split('/')
         netmask = XStruct().unpack('=L', XSocket().inet_aton(self.dotted_netmask(int(bits))))[0]
@@ -3930,21 +3099,10 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         return (ipaddr & netmask) == (network & netmask)
 
     def dotted_netmask(self, mask):  # ./Utils/proxy_utils.py
-        """Converts mask from /xx format to xxx.xxx.xxx.xxx
-
-        Example: if mask is 24 function returns 255.255.255.0
-
-        :rtype: str
-        """
         bits = 0xffffffff ^ (1 << 32 - mask) - 1
         return XSocket().inet_ntoa(XStruct().pack('>I', bits))
 
     def is_valid_cidr(self, string_network):  # ./Utils/proxy_utils.py
-        """
-        Very simple check of the cidr format in no_proxy variable.
-
-        :rtype: bool
-        """
         if string_network.count('/') == 1:
             try:
                 mask = int(string_network.split('/')[1])
@@ -3963,22 +3121,12 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         return True
 
     def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/proxy_utils.py
-        """
-        Return a dict of environment proxies.
-
-        :rtype: dict
-        """
         if self.should_bypass_proxies(url, no_proxy=no_proxy):
             return {}
         else:
             return XUrl().request().getproxies()
 
     def select_proxy(self, url, proxies):  # ./Utils/proxy_utils.py
-        """Select a proxy for the url, if applicable.
-
-        :param url: The url being for the request
-        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
-        """
         proxies = proxies or {}
         urlparts = XUrl().parse(url)
         if urlparts.hostname is None:
@@ -3999,16 +3147,6 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         return proxy
 
     def resolve_proxies(self, request, proxies, trust_env=True):  # ./Utils/proxy_utils.py
-        """This method takes proxy information from a request and configuration
-        input to resolve a mapping of target proxies. This will consider settings
-        such a NO_PROXY to strip proxy configurations.
-
-        :param request: Request or PreparedRequest
-        :param proxies: A dictionary of schemes or schemes and hosts to proxy URLs
-        :param trust_env: Boolean declaring whether to trust environment configs
-
-        :rtype: dict
-        """
         proxies = proxies if proxies is not None else {}
         url = request.url_()
         scheme = XUrl().parse(url).scheme
@@ -4026,23 +3164,9 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         return new_proxies
 
 class CollectionsUtils:  # ./Utils/collections_utils.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def to_key_val_list(self, value):  # ./Utils/collections_utils.py
-        """Take an object and test to see if it can be represented as a
-        dictionary. If it can be, return a list of tuples, e.g.,
-
-        ::
-
-            >>> to_key_val_list([('key', 'val')])
-            [('key', 'val')]
-            >>> to_key_val_list({'key': 'val'})
-            [('key', 'val')]
-            >>> to_key_val_list('string')
-            Traceback (most recent call last):
-            ...
-            ValueError: cannot encode objects that are not 2-tuples
-
-        :rtype: list
-        """
         if value is None:
             return None
         if isinstance(value, (XStr().clazz(), XBytes().clazz(), bool, int)):
@@ -4055,29 +3179,10 @@ class CollectionsUtils:  # ./Utils/collections_utils.py
 
 
 class WSGIutils:  # ./Utils/wsgi_utils.py
+    def help(self): Help().display(self.__class__.__name__)
+
     # From mitsuhiko/werkzeug (used with permission).
     def parse_dict_header(self, value):  # ./Utils/wsgi_utils.py
-        """Parse lists of key, value pairs as described by RFC 2068 Section 2 and
-        convert them into a python dict:
-
-        >>> d = parse_dict_header('foo="is a fish", bar="as well"')
-        >>> type(d) is dict
-        True
-        >>> sorted(d.items())
-        [('bar', 'as well'), ('foo', 'is a fish')]
-
-        If there is no value for a key it will be `None`:
-
-        >>> parse_dict_header('key_without_value')
-        {'key_without_value': None}
-
-        To create a header from the :class:`dict` again, use the
-        :func:`dump_header` function.
-
-        :param value: a string with a dict header.
-        :return: :class:`dict`
-        :rtype: dict
-        """
         result = {}
         for item in _parse_list_header(value):
             if '=' not in item:
@@ -4091,13 +3196,6 @@ class WSGIutils:  # ./Utils/wsgi_utils.py
 
     # From mitsuhiko/werkzeug (used with permission).
     def unquote_header_value(self, value, is_filename=False):  # ./Utils/wsgi_utils.py
-        r"""Unquotes a header value.  (Reversal of :func:`quote_header_value`).
-        This does not use the real unquoting but what browsers are actually
-        using for quoting.
-
-        :param value: the header value to unquote.
-        :rtype: str
-        """
         if value and value[0] == value[-1] == '"':
             # this is not the real unquoting, but fixing this so that the
             # RFC is met will result in bugs with internet explorer and
@@ -4116,6 +3214,8 @@ class WSGIutils:  # ./Utils/wsgi_utils.py
 
 
 class FileUtils:  # ./Utils/file_utils.py
+    def help(self): Help().display(self.__class__.__name__)
+
     def guess_filename(self, obj):  # ./Utils/file_utils.py
         """Tries to guess the filename of the given object."""
         name = getattr(obj, 'name', None)
@@ -4137,9 +3237,6 @@ class FileUtils:  # ./Utils/file_utils.py
             raise
 
     def rewind_body(self, prepared_request):  # ./Utils/file_utils.py
-        """Move file pointer back to its recorded starting position
-        so it can be read again on redirect.
-        """
         body_seek = getattr(prepared_request.body_(), 'seek', None)
         if body_seek is not None and isinstance(prepared_request._body_position, XCompat().integer_types()):
             try:
@@ -4152,6 +3249,8 @@ class FileUtils:  # ./Utils/file_utils.py
 
 
 class HeaderUtils:  # ./Utils/header_utils.py
+    def help(self): Help().display(self.__class__.__name__)
+
     # Ensure that ', ' is used to preserve previous delimiter behavior.
     _DEFAULT_ACCEPT_ENCODING = ", ".join(
         XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
@@ -4162,12 +3261,6 @@ class HeaderUtils:  # ./Utils/header_utils.py
     _CLEAN_HEADER_REGEX_STR = XRe().compile(r'^\S[^\r\n]*$|^$')
 
     def _parse_content_type_header(self, header):  # ./Utils/header_utils.py
-        """Returns content type and parameters from given header
-
-        :param header: string
-        :return: tuple containing content type and dictionary of
-             parameters
-        """
         tokens = header.split(';')
         content_type, params = tokens[0].strip(), tokens[1:]
         params_dict = {}
@@ -4185,12 +3278,6 @@ class HeaderUtils:  # ./Utils/header_utils.py
         return content_type, params_dict
 
     def get_encoding_from_headers(self, headers):  # ./Utils/header_utils.py
-        """Returns encodings from given HTTP Header Dict.
-
-        :param headers: dictionary to extract encoding from.
-        :rtype: str
-        """
-
         content_type = headers.get('content-type')
 
         if not content_type:
@@ -4209,9 +3296,6 @@ class HeaderUtils:  # ./Utils/header_utils.py
             return 'utf-8'
 
     def default_headers(self):  # ./Utils/header_utils.py
-        """
-        :rtype: requests.domain.CaseInsensitiveDict
-        """
         return CaseInsensitiveDict({
             'User-Agent': self.default_user_agent(),
             'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
@@ -4220,13 +3304,6 @@ class HeaderUtils:  # ./Utils/header_utils.py
         })
 
     def parse_header_links(self, value):  # ./Utils/header_utils.py
-        """Return a list of parsed link headers proxies.
-
-        i.e. Link: <http:/.../front.jpeg>; rel=front; type="image/jpeg",<http://.../back.jpeg>; rel=back;type="image/jpeg"
-
-        :rtype: list
-        """
-
         links = []
 
         replace_chars = ' \'"'
@@ -4256,12 +3333,6 @@ class HeaderUtils:  # ./Utils/header_utils.py
         return links
 
     def check_header_validity(self, header):  # ./Utils/header_utils.py
-        """Verifies that header value is a string which doesn't contain
-        leading whitespace or return characters. This prevents unintended
-        header injection.
-
-        :param header: tuple, in the format (name, value).
-        """
         name, value = header
 
         if XBytes().is_instance(value):
@@ -4276,11 +3347,6 @@ class HeaderUtils:  # ./Utils/header_utils.py
                                 "bytes, not %s" % (name, value, type(value)))
 
     def default_user_agent(self, name="python-requests"):  # ./Utils/header_utils.py
-        """
-        Return a string representing the default user agent.
-
-        :rtype: str
-        """
         global requests_version
         return '%s/%s' % (name, requests_version)
 
@@ -4288,6 +3354,8 @@ class HeaderUtils:  # ./Utils/header_utils.py
         return self._DEFAULT_ACCEPT_ENCODING
 
 class Uri:  # ./Utils/uri.py
+    def help(self): Help().display(self.__class__.__name__)
+
     _UNRESERVED_SET = frozenset(
             "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
 
@@ -4299,11 +3367,6 @@ class Uri:  # ./Utils/uri.py
         return self._UNRESERVED_SET
 
     def unquote_unreserved(self):  # ./Utils/uri.py
-        """Un-escape any percent-escape sequences in a URI that are unreserved
-        characters. This leaves all reserved, illegal and non-ASCII bytes encoded.
-
-        :rtype: str
-        """
         parts = self.uri.split('%')
         for i in range(1, len(parts)):
             h = parts[i][0:2]
@@ -4322,13 +3385,6 @@ class Uri:  # ./Utils/uri.py
         return ''.join(parts)
 
     def requote(self):  # ./Utils/uri.py
-        """Re-quote the given URI.
-
-        This function passes the given URI through an unquote/quote cycle to
-        ensure that it is fully and consistently quoted.
-
-        :rtype: str
-        """
         safe_with_percent = "!#$%&'()*+,/:;=?@[]~"
         safe_without_percent = "!#$&'()*+,/:;=?@[]~"
         try:
@@ -4345,6 +3401,8 @@ class Uri:  # ./Utils/uri.py
 
 class Url:  # ./Utils/url.py
     _NETRC_FILES = ('.netrc', '_netrc')
+
+    def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self, url):
         self.url = url
@@ -4406,11 +3464,6 @@ class Url:  # ./Utils/url.py
             pass
 
     def prepend_scheme_if_needed(self, new_scheme):  # ./Utils/url.py
-        """Given a URL that may or may not have a scheme, prepend the given scheme.
-        Does not replace a present scheme with the one provided as an argument.
-
-        :rtype: XStr().clazz()
-        """
         scheme, netloc, path, params, query, fragment = XUrl().parse(self.url, new_scheme)
 
         # urlparse is a finicky beast, and sometimes decides that there isn't a
@@ -4422,11 +3475,6 @@ class Url:  # ./Utils/url.py
         return XUrl().unparse((scheme, netloc, path, params, query, fragment))
 
     def get_auth(self):  # ./Utils/url.py
-        """Given a url with authentication components, extract them into a tuple of
-        username,password.
-
-        :rtype: (str,str)
-        """
         parsed = XUrl().parse(self.url)
 
         try:
@@ -4437,11 +3485,6 @@ class Url:  # ./Utils/url.py
         return auth
 
     def defragauth(self):  # ./Utils/url.py
-        """
-        Given a url remove the fragment and the authentication part.
-
-        :rtype: str
-        """
         scheme, netloc, path, params, query, fragment = XUrl().parse(self.url)
 
         # see func:`prepend_scheme_if_needed`
@@ -4455,9 +3498,6 @@ class Url:  # ./Utils/url.py
 
 class IpUtils:  # ./Utils/ip_utils.py
     def is_ipv4_address(self, string_ip):  # ./Utils/ip_utils.py
-        """
-        :rtype: bool
-        """
         try:
             XSocket().inet_aton(string_ip)
         except XSocket().error():
@@ -4466,13 +3506,8 @@ class IpUtils:  # ./Utils/ip_utils.py
 
 
 class Utils:  # ./Utils/utils.py
-    """
-    requests.utils
-    ~~~~~~~~~~~~~~
+    def help(self): Help().display(self.__class__.__name__)
 
-    This class provides utility functions that are used within Requests
-    that are also useful for external consumption.
-    """
     _DEFAULT_CA_BUNDLE_PATH = Certs().where()
 
     _DEFAULT_PORTS = {'http': 80, 'https': 443}
@@ -4549,12 +3584,6 @@ class Utils:  # ./Utils/utils.py
         return max(0, total_length - current_position)
 
     def extract_zipped_paths(self, path):  # ./Utils/utils.py
-        """Replace nonexistent paths that look like they refer to a member of a zip
-        archive with the location of an extracted copy of the target, or else
-        just return the provided path unchanged.
-        """
-        # Called by HTTPconnections.cert_verify and requests.utils.
-        # This should be moved to HTTPconnections, except we support it in requests.utils
         if XOs().path().exists(path):
             # this is already a valid path, no need to do anything further
             return path
@@ -4587,10 +3616,6 @@ class Utils:  # ./Utils/utils.py
         return extracted_path
 
     def stream_decode_response_unicode(self, iterator, encoding):  # ./Utils/utils.py
-        """Stream decodes a iterator."""
-        # Called by Content.iterate and requests.utils.
-        # This should be moved to Content, except we support it in requests.utils
-
         if encoding is None:
             for item in iterator:
                 yield item
@@ -4606,9 +3631,6 @@ class Utils:  # ./Utils/utils.py
             yield rv
 
     def iter_slices(self, string, slice_length):  # ./Utils/utils.py
-        """Iterate over slices of a string."""
-        # Called by Content.generate and requests.utils.
-        # This should be moved to Content, except we support it in requests.utils
         pos = 0
         if slice_length is None or slice_length <= 0:
             slice_length = len(string)
@@ -4618,12 +3640,6 @@ class Utils:  # ./Utils/utils.py
 
     @contextlib.contextmanager
     def set_environ(self, env_name, value):  # ./Utils/utils.py
-        """Set the environment variable 'env_name' to 'value'
-
-        Save previous value, yield, and then restore the previous value stored in
-        the environment variable 'env_name'.
-
-        If 'value' is None, do nothing"""
         value_changed = value is not None
         if value_changed:
             old_value = XOs().environ().get(env_name)
@@ -4638,14 +3654,6 @@ class Utils:  # ./Utils/utils.py
                     XOs().environ()[env_name] = old_value
 
     def guess_json_utf(self, data):  # ./Utils/utils.py
-        """
-        :rtype: XStr().clazz()
-        """
-        # JSON always starts with two ASCII characters, so detection is as
-        # easy as counting the nulls and from their location and count
-        # determine the encoding. Also detect a BOM, if present.
-        # Called by Content.json and requests.utils.
-        # This should be moved to Content, except we support it in requests.utils
         sample = data[:4]
         if sample in (XCodecs().BOM_UTF32_LE(), XCodecs().BOM_UTF32_BE()):
             return 'utf-32'  # BOM included
@@ -4674,7 +3682,7 @@ class Utils:  # ./Utils/utils.py
 # *************************** Main section for calling domain.py directly *****************
 def main():
     """Pretty-print the bug information as JSON."""
-    print(XJson().dumps(Help().info(), sort_keys=True, indent=2))
+    print(XJson().dumps(Info().info(), sort_keys=True, indent=2))
     print(Certs().where())
 
 
