@@ -10,18 +10,18 @@ These functions have been moved to the .domain.Utils class - see documentation t
 This file only exists for compatibility for external users
 """
 import contextlib
-from .domain import Utils
-from .domain import ProxyUtils
-from .domain import CollectionsUtils
-from .domain import FileUtils
-from .domain import WSGIutils
-from .domain import CookieUtils
-from .domain import HeaderUtils
-from .domain import IpUtils
-from .domain import Url
-from .domain import Uri
-from .x import XWarnings
-from requests.x import XRe
+from .five_d.domain import Utils
+from .five_d.domain import ProxyUtils
+from .five_d.domain import CollectionsUtils
+from .five_d.domain import FileUtils
+from .five_d.domain import WSGIutils
+from .five_d.domain import CookieUtils
+from .five_d.domain import HeaderUtils
+from .five_d.domain import IpUtils
+from .five_d.domain import Url
+from .five_d.domain import Uri
+from .five_d.x import XWarnings
+from .five_d.x import XRe
 
 def proxy_bypass(host):
     return ProxyUtils().proxy_bypass(host)

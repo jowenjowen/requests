@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from requests.x import XOs
+from requests.five_d.x import XOs
 import copy
 import filecmp
 from io import BytesIO

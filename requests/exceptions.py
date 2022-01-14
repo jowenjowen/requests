@@ -9,7 +9,7 @@ This module contains the set of Requests' exceptions.
 """
 from urllib3.exceptions import HTTPError as BaseHTTPError
 
-from .x import XJSONDecodeError
+from .five_d.x import XJSONDecodeError
 
 
 class RequestException(IOError):

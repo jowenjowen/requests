@@ -3,30 +3,30 @@
 # domain.py contains the code related to the domain
 # (use an ide showing class structures for navigation)
 
-from requests.help import Help
+from requests.five_d.help import Help
 
-from requests.x import XPlatform, XJson, XUrllib3, XSys, XCharSetNormalizer, XCharDet, \
+from .x import XPlatform, XJson, XUrllib3, XSys, XCharSetNormalizer, XCharDet, \
     XOpenSSL, XIdna, XCryptography, XSsl, XPyOpenSsl, XMutableMapping, XOrderedDict, XMapping, XUtils
 
-from requests.x import XStr
-from requests.x import XBytes
-from requests.x import XBuiltinStr
-from requests.x import XBaseString
-from requests.x import XUrl
+from .x import XStr
+from .x import XBytes
+from .x import XBuiltinStr
+from .x import XBaseString
+from .x import XUrl
 
 # classes needed for Auth section
-from requests.x import XWarnings
-from requests.x import XBase64
-from requests.x import XHashLib
-from requests.x import XTime
-from requests.x import XOs
-from requests.x import XRe
+from .x import XWarnings
+from .x import XBase64
+from .x import XHashLib
+from .x import XTime
+from .x import XOs
+from .x import XRe
 
 # classes needed for InternalUtilitites
-from requests.x import XCompat, XThreading
+from .x import XCompat, XThreading
 
 # imports needed for Utils
-from .compat import compat_parse_http_list as _parse_list_header
+from requests.compat import compat_parse_http_list as _parse_list_header
 from .x import XSocket, XCodecs, XIo, XTempFile, XStruct
 # imports needed for Exceptions
 from .x import XJSONDecodeError
@@ -44,7 +44,6 @@ from .x import XCookieJarResponse
 
 # imports needed for Sessions
 from .x import XDateTime
-from . import __version__ as requests_version
 
 #         Help
 #             class Help
@@ -54,32 +53,34 @@ from . import __version__ as requests_version
 #             class Structures
 
 # imports needed for Models
-from .compat import compat_json as complexjson
+from requests.compat import compat_json as complexjson
 
 #imports needed for adapters
 from .x import XZipfile
 import contextlib
 
-from .exceptions import FileModeWarning
-from .exceptions import InvalidURL
-from .exceptions import ConnectionError
-from .exceptions import MissingSchema
-from .exceptions import InvalidSchema
-from .exceptions import InvalidJSONError
-from .exceptions import HTTPError
-from .exceptions import TooManyRedirects
-from .exceptions import ContentDecodingError
-from .exceptions import ChunkedEncodingError
-from .exceptions import SSLError
-from .exceptions import ConnectTimeout
-from .exceptions import RetryError
-from .exceptions import ProxyError
-from .exceptions import UnrewindableBodyError
-from .exceptions import ReadTimeout
-from .exceptions import InvalidHeader
-from .exceptions import InvalidProxyURL
-from .exceptions import StreamConsumedError
-from .exceptions import JSONDecodeError
+from requests.exceptions import FileModeWarning
+from requests.exceptions import InvalidURL
+from requests.exceptions import ConnectionError
+from requests.exceptions import MissingSchema
+from requests.exceptions import InvalidSchema
+from requests.exceptions import InvalidJSONError
+from requests.exceptions import HTTPError
+from requests.exceptions import TooManyRedirects
+from requests.exceptions import ContentDecodingError
+from requests.exceptions import ChunkedEncodingError
+from requests.exceptions import SSLError
+from requests.exceptions import ConnectTimeout
+from requests.exceptions import RetryError
+from requests.exceptions import ProxyError
+from requests.exceptions import UnrewindableBodyError
+from requests.exceptions import ReadTimeout
+from requests.exceptions import InvalidHeader
+from requests.exceptions import InvalidProxyURL
+from requests.exceptions import StreamConsumedError
+from requests.exceptions import JSONDecodeError
+
+from requests import __version__ as requests_version
 
 # *************************** classes in Structures section *****************
 """
@@ -2435,7 +2436,7 @@ class Packages:  # ./Packages/Packages.py
         return XIdna()
 
     def chardet(self):
-        return XCharDet('packages.py')
+        return XCharDet('../packages.py')
 
 
 # *************************** classes in Sessions section *****************

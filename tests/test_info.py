@@ -1,10 +1,6 @@
 # -*- encoding: utf-8
 
-import sys
-
-import pytest
-
-from requests.domain import Info
+from requests.five_d.domain import Info
 
 
 def test_system_ssl():
@@ -21,11 +17,11 @@ def test_idna_without_version_attribute(mocker):
     """Older versions of IDNA don't provide a __version__ attribute, verify
     that if we have such a package, we don't blow up.
     """
-    mocker.patch('requests.x.idna', new=None)
+    mocker.patch('requests.five_d.x.idna', new=None)
     assert Info().info()['idna'] == {'version': ''}
 
 
 def test_idna_with_version_attribute(mocker):
     """Verify we're actually setting idna version when it should be available."""
-    mocker.patch('requests.x.idna', new=VersionedPackage('2.6'))
+    mocker.patch('requests.five_d.x.idna', new=VersionedPackage('2.6'))
     assert Info().info()['idna'] == {'version': '2.6'}

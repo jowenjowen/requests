@@ -8,41 +8,41 @@ import sys
 import idna
 import urllib3
 from collections import OrderedDict as XOrderedDict
-from .compat import CompatMapping as XMapping
-from .compat import CompatMutableMapping as XMutableMapping
-from .compat import conpat_basestring
+from requests.compat import CompatMapping as XMapping
+from requests.compat import CompatMutableMapping as XMutableMapping
+from requests.compat import conpat_basestring
 import warnings
 from base64 import b64encode
 
 # imports for XWarnings, XBase64, XCompat, XThreading, XHashLib
-from .compat import is_py2, compat_builtin_str, compat_str, compat_bytes
+from requests.compat import is_py2, compat_builtin_str, compat_str, compat_bytes
 import threading
 import hashlib
 
-from .compat import compat_urlparse, compat_urljoin, compat_urlunparse, compat_urlsplit, compat_urlencode
+from requests.compat import compat_urlparse, compat_urljoin, compat_urlunparse, compat_urlsplit, compat_urlencode
 import time
 import os
 import re
 
 #imports for cookies
-from .compat import CompatCookieJar as XCookieJar
-from .compat import CompatCookie as XCookie
-from .compat import CompatDefaultCookiePolicy as XDefaultCookiePolicy
-from .compat import CompatMorsel as XMorsel
+from requests.compat import CompatCookieJar as XCookieJar
+from requests.compat import CompatCookie as XCookie
+from requests.compat import CompatDefaultCookiePolicy as XDefaultCookiePolicy
+from requests.compat import CompatMorsel as XMorsel
 import copy
 import calendar
 
 #imports for sessions
-from .compat import is_py3, compat_quote
+from requests.compat import is_py3, compat_quote
 from datetime import timedelta
 
 #imports for models
-from .compat import compat_chardet
+from requests.compat import compat_chardet
 
 #imports for utils
 import socket
-from .compat import CompatCallable as XCallable
-from .compat import integer_types, compat_proxy_bypass, compat_getproxies, compat_unquote
+from requests.compat import CompatCallable as XCallable
+from requests.compat import integer_types, compat_proxy_bypass, compat_getproxies, compat_unquote
 import codecs
 import zipfile
 import tempfile
@@ -78,7 +78,7 @@ else:
     import cryptography
 
 #imports for exceptions
-from .compat import CompatJSONDecodeError as XJSONDecodeError
+from requests.compat import CompatJSONDecodeError as XJSONDecodeError
 
 class XStruct:
     def unpack(self, fmt, string):

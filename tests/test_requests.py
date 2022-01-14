@@ -13,39 +13,39 @@ import requests
 
 import io
 import pytest
-from requests.x import XStr
-
-from requests.domain import HTTPconnections
-from requests.domain import HeaderUtils
-from requests.domain import HTTPDigestAuth
-from requests.domain import Auth
-from requests.x import XCookieJar
-from requests.x import XDefaultCookiePolicy
-from requests.x import XOs
-from requests.x import XUrl
-from requests.x import XBuiltinStr
-from requests.domain import XMorsel
-
-from requests.domain import CookieUtils
-from requests import exceptions
-from requests.domain import CookieConflictError
-from requests.domain import PreparedRequest
-from requests.domain import CaseInsensitiveDict
-from requests.domain import SessionRedirectMixin
-from requests.domain import Hooks
-from requests.domain import FileUtils
-from requests.domain import XMutableMapping
-from requests.domain import CookieJar
-from requests.domain import Request
-from requests.domain import Session
-from requests.domain import Requests
-from requests.domain import Response
-from requests.domain import AuthBase
-from requests.domain import Url
 
 from .compat import CompatStringIO, u
 from .utils import override_environ
 from urllib3.util import Timeout as Urllib3Timeout
+
+from requests import exceptions
+
+from requests.five_d.x import XStr
+from requests.five_d.x import XCookieJar
+from requests.five_d.x import XDefaultCookiePolicy
+from requests.five_d.x import XOs
+from requests.five_d.x import XUrl
+from requests.five_d.x import XBuiltinStr
+
+from requests.five_d.domain import HTTPconnections
+from requests.five_d.domain import HTTPDigestAuth
+from requests.five_d.domain import Auth
+from requests.five_d.domain import XMorsel
+from requests.five_d.domain import CookieUtils
+from requests.five_d.domain import CookieConflictError
+from requests.five_d.domain import PreparedRequest
+from requests.five_d.domain import CaseInsensitiveDict
+from requests.five_d.domain import SessionRedirectMixin
+from requests.five_d.domain import Hooks
+from requests.five_d.domain import FileUtils
+from requests.five_d.domain import XMutableMapping
+from requests.five_d.domain import CookieJar
+from requests.five_d.domain import Request
+from requests.five_d.domain import Session
+from requests.five_d.domain import Requests
+from requests.five_d.domain import Response
+from requests.five_d.domain import AuthBase
+from requests.five_d.domain import Url
 
 # Requests to this URL should always fail with a connection timeout (nothing
 # listening on that port)

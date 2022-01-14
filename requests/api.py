@@ -1,16 +1,13 @@
 # -*- coding: utf-8 -*-
-from .domain import Requests
-from .domain import Session
-from .domain import Request
-from .domain import Response
-import requests.exceptions
+from .five_d.domain import Requests
+from .five_d.domain import Session
 
 from requests.exceptions import HTTPError as HTTPErrorUnused
 class DummyClass1:
     HTTPError = HTTPErrorUnused
 exceptions = DummyClass1()
 
-from requests.domain import CookieJar as RequestsCookieJarUnused
+from .five_d.domain import CookieJar as RequestsCookieJarUnused
 class DummyClass2:
     RequestsCookieJar = RequestsCookieJarUnused
 cookies = DummyClass2()

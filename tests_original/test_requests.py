@@ -14,12 +14,12 @@ import requests.api as requests
 
 import io
 import pytest
-from requests.domain import HTTPDigestAuth, Requests
-from requests.domain import PreparedRequest
-from requests.domain import CaseInsensitiveDict
-from requests.domain import SessionRedirectMixin
+from requests.five_d.domain import HTTPDigestAuth
+from requests.five_d.domain import PreparedRequest
+from requests.five_d.domain import CaseInsensitiveDict
+from requests.five_d.domain import SessionRedirectMixin
 
-from requests.domain import CookieUtils
+from requests.five_d.domain import CookieUtils
 cookiejar_from_dict = CookieUtils().cookiejar_from_dict
 
 from requests.exceptions import MissingSchema
@@ -30,7 +30,7 @@ from requests.exceptions import ProxyError
 from requests.exceptions import InvalidProxyURL
 from requests.exceptions import SSLError
 
-from requests.domain import Hooks
+from requests.five_d.domain import Hooks
 default_hooks = Hooks().default_hooks
 
 from requests.compat import compat_cookielib as cookielib
@@ -45,11 +45,11 @@ from requests.compat import compat_str as str
 # from requests.compat import compat_ as
 # from requests.compat import compat_ as
 StringIO
-from requests.domain import Auth
+from requests.five_d.domain import Auth
 _basic_auth_str = Auth().basic_auth_str
 
-from requests.x import XMutableMapping as MutableMapping
-from .compat import CompatStringIO, u
+from requests.five_d.x import XMutableMapping as MutableMapping
+from .compat import u
 from .utils import override_environ
 
 from urllib3.util import Timeout as Urllib3Timeout
@@ -89,7 +89,7 @@ class TestRequests:
         requests.patch
         requests.post
         # Not really an entry point, but people rely on it.
-        from requests.packages.urllib3.poolmanager import PoolManager
+
     @pytest.mark.parametrize(
         'exception, url', (
                 (MissingSchema, 'hiwpefhipowhefopw'),

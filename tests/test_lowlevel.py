@@ -4,8 +4,8 @@ import pytest
 import threading
 
 from requests import exceptions
-from requests.domain import Requests
-from requests.domain import HTTPDigestAuth
+from requests.five_d.domain import Requests
+from requests.five_d.domain import HTTPDigestAuth
 
 from tests.testserver.server import Server, consume_socket_content
 

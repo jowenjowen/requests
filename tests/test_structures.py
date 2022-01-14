@@ -2,7 +2,7 @@
 
 import pytest
 
-from requests.domain import CaseInsensitiveDict, LookupDict
+from requests.five_d.domain import CaseInsensitiveDict, LookupDict
 
 
 class TestCaseInsensitiveDict:

@@ -6,7 +6,7 @@ import time
 
 import pytest
 from requests import exceptions
-from requests.domain import Requests
+from requests.five_d.domain import Requests
 from tests.testserver.server import Server
 
 

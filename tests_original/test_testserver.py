@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import threading
-from requests.x import XSocket
+from requests.five_d.x import XSocket
 import time
 
 import pytest
