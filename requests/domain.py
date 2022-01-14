@@ -295,10 +295,17 @@ class BaseConnections(object):  # ./Connections/BaseConnections.py
         raise NotImplementedError
 
 
-class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
-    __attrs__ = ['max_retries', 'config', '_xpool_connections', '_xpool_maxsize',
-                 '_xpool_block']
+class PicklerMixin:
+    def __getstate__(self):  # ./Connections/HTTPconnections.py
+        pickler = eval(self.__class__.__name__ + 'Pickle(self)')
+        return pickler.state_()
 
+    def __setstate__(self, state):  # ./Connections/HTTPconnections.py
+        pickler = eval(self.__class__.__name__ + 'Pickle(self)')
+        return pickler.state_(state)
+
+
+class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconnections.py
     def __init__(self, xpool_connections=Connections().DEFAULT_XPOOLSIZE(),
                  pool_maxsize=Connections().DEFAULT_XPOOLSIZE(), max_retries=Connections().DEFAULT_RETRIES(),
                  pool_block=Connections().DEFAULT_XPOOLBLOCK()):  # ./Connections/HTTPconnections.py
@@ -318,19 +325,6 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
         self.init_xpoolmanager(xpool_connections, pool_maxsize, block=pool_block)
 
     def help(self): Help().display(self.__class__.__name__)
-
-    def __getstate__(self):  # ./Connections/HTTPconnections.py
-        return {attr: getattr(self, attr, None) for attr in self.__attrs__}
-
-    def __setstate__(self, state):  # ./Connections/HTTPconnections.py
-        self.proxy_manager = {}
-        self.config = {}
-
-        for attr, value in state.items():
-            setattr(self, attr, value)
-
-        self.init_xpoolmanager(self._xpool_connections, self._xpool_maxsize,
-                              block=self._xpool_block)
 
     def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Connections/HTTPconnections.py
         # save these values for pickling
@@ -617,6 +611,27 @@ class HTTPconnections(BaseConnections):  # ./Connections/HTTPconnections.py
                 raise
 
         return self.build_response(request, resp)
+
+
+class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
+    def __init__(self, instance):
+        self.instance = instance
+
+    def state_(self, *args):
+        it = self.instance
+        if (len(args) == 0):
+            attrs = ['max_retries', 'config', '_xpool_connections', '_xpool_maxsize',
+                         '_xpool_block']
+            return {attr: getattr(it, attr, None) for attr in attrs}
+        else:
+            it.proxy_manager = {}
+            it.config = {}
+
+            for attr, value in args[0].items():
+                setattr(it, attr, value)
+
+            it.init_xpoolmanager(it._xpool_connections, it._xpool_maxsize,
+                                   block=it._xpool_block)
 
 
 # *************************** classes in Api section *****************
@@ -1110,7 +1125,7 @@ class CookieConflictError(RuntimeError):  # ./Cookies/CookieConflictError.py
     def help(self): Help().display(self.__class__.__name__)
 
 
-class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
+class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJar.py
     def help(self): Help().display(self.__class__.__name__)
 
     def get(self, name, default=None, domain=None, path=None):  # ./Cookies/CookieJar.py
@@ -1325,19 +1340,6 @@ class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
             return toReturn
         raise KeyError('name=%r, domain=%r, path=%r' % (name, domain, path))
 
-    def __getstate__(self):  # ./Cookies/CookieJar.py
-        """Unlike a XCookieJar, this class is picklable."""
-        state = self.__dict__.copy()
-        # remove the unpickleable RLock object
-        state.pop('_cookies_lock')
-        return state
-
-    def __setstate__(self, state):  # ./Cookies/CookieJar.py
-        """Unlike a XCookieJar, this class is picklable."""
-        self.__dict__.update(state)
-        if '_cookies_lock' not in self.__dict__:
-            self._cookies_lock = XThreading().RLock()
-
     def copy(self):  # ./Cookies/CookieJar.py
         """Return a copy of this CookieJar."""
         new_cj = CookieJar()
@@ -1348,6 +1350,25 @@ class CookieJar(XCookieJar, XMutableMapping):  # ./Cookies/CookieJar.py
     def get_policy(self):  # ./Cookies/CookieJar.py
         """Return the CookiePolicy instance used."""
         return self._policy
+
+class CookieJarPickle:  # ./Cookies/CookieJarPickle.py
+    def __init__(self, instance):
+        self.instance = instance
+
+    def state_(self, *args):
+        it = self.instance
+        if (len(args) == 0):
+            """Unlike a XCookieJar, this class is picklable."""
+            state = it.__dict__.copy()
+            # remove the unpicklable RLock object
+            state.pop('_cookies_lock')
+            return state
+        else:
+            """Unlike a XCookieJar, this class is picklable."""
+            it.__dict__.update(args[0])
+            if '_cookies_lock' not in self.__dict__:
+                it._cookies_lock = XThreading().RLock()
+
 
 
 # *************************** classes in Help section *****************
@@ -1494,7 +1515,6 @@ class Models:  # ./Models/models.py
 
     def ITER_CHUNK_SIZE(self):
         return self._ITER_CHUNK_SIZE
-
 
 class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
     def help(self): Help().display(self.__class__.__name__)
@@ -2116,12 +2136,7 @@ class Content:  # ./Models/Content.py
         XUtils().get_or_set(self, '_content', *args)
 
 
-class Response:  # ./Models/Response.py
-    __attrs__ = [
-        '_content', 'status_code', 'headers', 'url', 'history',
-        'encoding', 'reason', 'cookies', 'elapsed', 'request'
-    ]
-
+class Response(PicklerMixin):  # ./Models/Response/Response.py
     def __init__(self):  # ./Models/Response.py
 
         self.contentClass = Content(self.read_content)
@@ -2182,22 +2197,6 @@ class Response:  # ./Models/Response.py
 
     def __exit__(self, *args):  # ./Models/Response.py
         self.close()
-
-    def __getstate__(self):  # ./Models/Response.py
-        self.contentClass.consume_everything()
-        self._content = self.contentClass.internal_content()
-        return {attr: getattr(self, attr, None) for attr in self.__attrs__}
-
-    def __setstate__(self, state):  # ./Models/Response.py
-        for name, value in state.items():
-            setattr(self, name, value)
-
-        self.contentClass = Content(self.read_content)
-        self.contentClass.internal_content(self._content)
-
-        # pickled objects do not have .raw
-        self.contentClass.reset_content_consumed()
-        setattr(self, 'raw', None)
 
     def __repr__(self):  # ./Models/Response.py
         return '<Response [%s]>' % (self.status_code_())
@@ -2397,6 +2396,35 @@ class Response:  # ./Models/Response.py
             return str(self.content_(), encoding, errors='replace')
         except TypeError:
             return self.content_()
+
+
+class ResponsePickle:  # ./Models/Response/ResponsePickle.py
+    def __init__(self, instance):
+        self.instance = instance
+
+    def state_(self, *args):
+        it = self.instance
+        if (len(args) == 0):
+
+            it.contentClass.consume_everything()
+            it._content = it.contentClass.internal_content()
+            attrs = [
+                '_content', 'status_code', 'headers', 'url', 'history',
+                'encoding', 'reason', 'cookies', 'elapsed', 'request'
+            ]
+
+            return {attr: getattr(it, attr, None) for attr in attrs}
+        else:
+            state = args[0]
+            for name, value in state.items():
+                setattr(it, name, value)
+
+            it.contentClass = Content(it.read_content)
+            it.contentClass.internal_content(it._content)
+
+            # pickled objects do not have .raw
+            it.contentClass.reset_content_consumed()
+            setattr(it, 'raw', None)
 
 
 # *************************** classes in Packages section *****************
@@ -2713,13 +2741,26 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         return XUtils().get_or_set(self, 'max_redirects', *args)
 
 
-class Session(SessionRedirectMixin):  # ./Sessions/Session.py
-    __attrs__ = [
-        'headers', 'cookies', 'auth', 'proxies', 'hooks', 'params', 'verify',
-        'cert', 'adapters', 'stream', 'trust_env',
-        'max_redirects',
-    ]
+class SessionPickle:
+    def __init__(self, instance):
+        self.instance = instance
 
+    def state_(self, *args):
+        it = self.instance
+        if (len(args) == 0):
+            attrs = [
+                'headers', 'cookies', 'auth', 'proxies', 'hooks', 'params', 'verify',
+                'cert', 'adapters', 'stream', 'trust_env',
+                'max_redirects',
+            ]
+            state = {attr: getattr(it, attr, None) for attr in attrs}
+            return state
+        else:
+            for attr, value in args[0].items():
+                setattr(it, attr, value)
+
+
+class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Sessions/Session.py
@@ -2948,14 +2989,6 @@ class Session(SessionRedirectMixin):  # ./Sessions/Session.py
 
         for key in keys_to_move:
             self.adapters_()[key] = self.adapters_().pop(key)
-
-    def __getstate__(self):
-        state = {attr: getattr(self, attr, None) for attr in self.__attrs__}
-        return state
-
-    def __setstate__(self, state):
-        for attr, value in state.items():
-            setattr(self, attr, value)
 
     def headers_(self, *args):  # ./Sessions/Session.py
         return XUtils().get_or_set(self, 'headers', *args)
