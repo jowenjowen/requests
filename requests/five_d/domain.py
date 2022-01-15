@@ -1634,30 +1634,20 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
 class Request(RequestHooksMixin):  # ./Models/Request.py
     def help(self): Help().display(self.__class__.__name__)
 
-    def __init__(self,
-            method=None, url=None, headers=None, files=None, data=None,
-            params=None, auth=None, cookies=None, hooks=None, json=None):
+    def __init__(self):
         # ./Models/Request.py
         # Default empty dicts for dict params.
-        data = [] if data is None else data
-        files = [] if files is None else files
-        headers = {} if headers is None else headers
-        params = {} if params is None else params
-        hooks = {} if hooks is None else hooks
-
-        self.hooks_(Hooks().default_hooks())
-        for (k, v) in list(hooks.items()):
-            self.register_hook(event=k, hook=v)
-
-        self.method_(method)
-        self.url_(url)
-        self.headers_(headers)
-        self.files_(files)
-        self.data_(data)
-        self.json_(json)
-        self.params_(params)
-        self.auth_(auth)
-        self.cookies_(cookies)
+        self\
+            .auth_(None) \
+            .cookies_(None) \
+            .data_([]) \
+            .files_([]) \
+            .headers_({}) \
+            .json_(None) \
+            .method_(None) \
+            .params_({}) \
+            .hooks_(Hooks().default_hooks()) \
+            .url_(None)
 
     def __repr__(self):  # ./Models/Request.py
         return '<Request [%s]>' % (self.method_())
@@ -1711,7 +1701,14 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'params', *args)
 
     def hooks_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'hooks', *args)
+        if len(args) != 0:
+            self.hooks = Hooks().default_hooks()
+            hooks = args[0] if args[0] else {}
+            for (k, v) in list(hooks.items()):
+                self.register_hook(event=k, hook=v)
+            return self
+        else:
+            return self.hooks
 
     def json_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'json', *args)
@@ -2818,18 +2815,17 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
                 params=None, data=None, headers=None, cookies=None, files=None,
                 auth=None, timeout=None, allow_redirects=True, proxies=None,
                 hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
-        req = Request(
-                      method=method.upper(),
-                      url=url,
-                      headers=headers,
-                      files=files,
-                      data=data or {},
-                      json=json,
-                      params=params or {},
-                      auth=auth,
-                      cookies=cookies,
-                      hooks=hooks,
-                      )
+        req = Request()\
+            .auth_(auth)\
+            .cookies_(cookies)\
+            .data_(data or {})\
+            .files_(files)\
+            .headers_(headers)\
+            .json_(json)\
+            .method_(method.upper())\
+            .params_(params or {})\
+            .hooks_(hooks)\
+            .url_(url)
 
         prep = self.prepare_request(req)
 

@@ -4,14 +4,14 @@ from requests.compat import is_py3
 
 
 try:
-    import StringIO as CompatStringIO
+    import StringIO
 except ImportError:
-    import io as CompatStringIO
+    import io as StringIO
 
 try:
-    from cStringIO import StringIO as Compat_cStringIO
+    from cStringIO import StringIO as cStringIO
 except ImportError:
-    Compat_cStringIO = None
+    cStringIO = None
 
 if is_py3:
     def u(s):

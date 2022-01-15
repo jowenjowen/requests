@@ -1,6 +1,24 @@
 # -*- coding: utf-8 -*-
 from .five_d.domain import Requests
 from .five_d.domain import Session
+from .five_d.domain import Request
+
+class Request2(Request):
+    def __init__(self,
+            method=None, url=None, headers=None, files=None, data=None,
+            params=None, auth=None, cookies=None, hooks=None, json=None):
+        pass
+        # super().__init__().\
+        #     method_(method).\
+        #     url_(url).\
+        #     headers_(headers).\
+        #     files_(files).\
+        #     data_(data).\
+        #     params_(params).\
+        #     auth_(auth).\
+        #     cookies_(cookies).\
+        #     hooks_(hooks).\
+        #     json_(json)
 
 from requests.exceptions import HTTPError as HTTPErrorUnused
 class DummyClass1:

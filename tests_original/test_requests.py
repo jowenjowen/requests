@@ -44,7 +44,7 @@ from requests.compat import compat_str as str
 # from requests.compat import compat_ as
 # from requests.compat import compat_ as
 # from requests.compat import compat_ as
-StringIO
+from .compat import StringIO, u
 from requests.five_d.domain import Auth
 _basic_auth_str = Auth().basic_auth_str
 
@@ -113,7 +113,7 @@ class TestRequests:
 
     @pytest.mark.parametrize('method', ('GET', 'HEAD'))
     def test_no_content_length(self, httpbin, method):
-        req = requests.Request(method, httpbin(method.lower())).prepare()
+        req = requests.Request2(method, httpbin(method.lower())).prepare()
         assert 'Content-Length' not in req.headers
 
     @pytest.mark.parametrize('method', ('POST', 'PUT', 'PATCH', 'OPTIONS'))
