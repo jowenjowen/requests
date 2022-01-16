@@ -125,7 +125,7 @@ class TestRequests:
     def test_path_is_not_double_encoded(self):
         request = Request().method_('GET').url_("http://0.0.0.0/get/test case").prepare()
 
-        assert request.path_url == '/get/test%20case'
+        assert request.path_url_() == '/get/test%20case'
 
     @pytest.mark.parametrize(
         'url, expected', (
@@ -2431,12 +2431,12 @@ class TestPreparingURLs:
     def test_preparing_url(self, url, expected):
 
         def normalize_percent_encode(x):
-            # Helper function that normalizes equivalent 
+            # Helper function that normalizes equivalent
             # percent-encoded bytes before comparisons
             for c in re.findall(r'%[a-fA-F0-9]{2}', x):
                 x = x.replace(c, c.upper())
             return x
-        
+
         r = Request().method_('GET').url_(url)
         p = r.prepare()
         assert normalize_percent_encode(p.url_()) == expected

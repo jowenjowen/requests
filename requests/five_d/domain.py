@@ -464,7 +464,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
             proxy_scheme = XUrl().parse(proxy).scheme.lower()
             using_socks_proxy = proxy_scheme.startswith('socks')
 
-        url = request.path_url
+        url = request.path_url_()
         if is_proxied_http_request and not using_socks_proxy:
             url = Url(request.url_()).defragauth()
 
@@ -1514,15 +1514,14 @@ class Models:  # ./Models/models.py
     def ITER_CHUNK_SIZE(self):
         return self._ITER_CHUNK_SIZE
 
-class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
+class Encoding:  # ./Models/Encoding.py
     def help(self): Help().display(self.__class__.__name__)
 
-    @property
-    def path_url(self):  # ./Models/RequestEncodingMixin.py
+    def path_url(self, url_in):  # ./Models/Encoding.py
 
         url = []
 
-        p = XUrl().split(self.url_())
+        p = XUrl().split(url_in)
 
         path = p.path
         if not path:
@@ -1537,8 +1536,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
 
         return ''.join(url)
 
-    @staticmethod
-    def _encode_params(data):  # ./Models/RequestEncodingMixin.py
+    def params(self, data):  # ./Models/Encoding.py
         if isinstance(data, (XStr().clazz(), XBytes().clazz())):
             return data
         elif hasattr(data, 'read'):
@@ -1557,8 +1555,7 @@ class RequestEncodingMixin:  # ./Models/RequestEncodingMixin.py
         else:
             return data
 
-    @staticmethod
-    def _encode_files(files, data):  # ./Models/RequestEncodingMixin.py
+    def files(self, files, data):  # ./Models/Encoding.py
         if (not files):
             raise ValueError("Files must be provided.")
         elif XBaseString().is_instance(data):
@@ -1713,8 +1710,11 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
     def json_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'json', *args)
 
+    def path_url_(self):
+        return Encoding().path_url(self.url_())
 
-class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/PreparedRequest.py
+
+class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/PreparedRequest.py
@@ -1733,7 +1733,7 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         """Prepares the entire request with the given parameters."""
 
         self.prepare_method(method)
-        self.prepare_url(url, params)
+        self.url_(Url(url).prepare(params).value_())
         self.prepare_headers(headers)
         self.prepare_cookies(cookies)
         self.prepare_body(data, files, json)
@@ -1772,86 +1772,6 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         except XIdna().IDNAError():
             raise UnicodeError
         return host
-
-    def prepare_url(self, url, params):  # ./Models/PreparedRequest.py
-        if XBytes().is_instance(url):
-            url = url.decode('utf8')
-        else:
-            url = unicode(url) if XCompat().is_py2() else XStr().new(url)
-
-        # Remove leading whitespaces from url
-        url = url.lstrip()
-
-        # Don't do any URL preparation for non-HTTP schemes like `mailto`,
-        # `data` etc to work around exceptions from `url_parse`, which
-        # handles RFC 3986 only.
-        if ':' in url and not url.lower().startswith('http'):
-            self.url_(url)
-            return
-
-        # Support for unicode domain names and paths.
-        try:
-            scheme, auth, host, port, path, query, fragment = XUrllib3().util().parse_url(url)
-        except XUrllib3().exceptions().LocationParseError as e:
-            raise InvalidURL(*e.args)
-
-        if not scheme:
-            error = ("Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?")
-            error = error.format(XUtils().to_native_string(url, 'utf8'))
-
-            raise MissingSchema(error)
-
-        if not host:
-            raise InvalidURL("Invalid URL %r: No host supplied" % url)
-
-        # In general, we want to try IDNA encoding the hostname if the string contains
-        # non-ASCII characters. This allows users to automatically get the correct IDNA
-        # behaviour. For strings containing only ASCII characters, we need to also verify
-        # it doesn't start with a wildcard (*), before allowing the unencoded hostname.
-        if not XUtils().unicode_is_ascii(host):
-            try:
-                host = self._get_idna_encoded_host(host)
-            except UnicodeError:
-                raise InvalidURL('URL has an invalid label.')
-        elif host.startswith(u'*'):
-            raise InvalidURL('URL has an invalid label.')
-
-        # Carefully reconstruct the network location
-        netloc = auth or ''
-        if netloc:
-            netloc += '@'
-        netloc += host
-        if port:
-            netloc += ':' + XStr().new(port)
-
-        # Bare domains aren't valid URLs.
-        if not path:
-            path = '/'
-
-        if XCompat().is_py2():
-            if XStr().is_instance(scheme):
-                scheme = scheme.encode('utf-8')
-            if XStr().is_instance(netloc):
-                netloc = netloc.encode('utf-8')
-            if XStr().is_instance(path):
-                path = path.encode('utf-8')
-            if XStr().is_instance(query):
-                query = query.encode('utf-8')
-            if XStr().is_instance(fragment):
-                fragment = fragment.encode('utf-8')
-
-        if isinstance(params, (XStr().clazz(), XBytes().clazz())):
-            params = XUtils().to_native_string(params)
-
-        enc_params = self._encode_params(params)
-        if enc_params:
-            if query:
-                query = '%s&%s' % (query, enc_params)
-            else:
-                query = enc_params
-
-        url = Uri(XUrl().unparse([scheme, netloc, path, None, query, fragment])).requote()
-        self.url_(url)
 
     def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
         """Prepares the given HTTP headers."""
@@ -1915,10 +1835,10 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
         else:
             # Multi-part file uploads.
             if files:
-                (body, content_type) = self._encode_files(files, data)
+                (body, content_type) = Encoding().files(files, data)
             else:
                 if data:
-                    body = self._encode_params(data)
+                    body = Encoding().params(data)
                     if XBaseString().is_instance(data) or hasattr(data, 'read'):
                         content_type = None
                     else:
@@ -1992,6 +1912,9 @@ class PreparedRequest(RequestEncodingMixin, RequestHooksMixin):  # ./Models/Prep
 
     def hooks_(self, *args):  # ./Models/PreparedRequest.py
         return XUtils().get_or_set(self, 'hooks', *args)
+
+    def path_url_(self):
+        return Encoding().path_url(self.url_())
 
 
 class Content:  # ./Models/Content.py
@@ -3432,7 +3355,7 @@ class Url:  # ./Utils/url.py
     _NETRC_FILES = ('.netrc', '_netrc')
 
     def __init__(self, url):
-        self.url = url
+        self.value_(url)
 
     def get_netrc_auth(self, raise_errors=False):  # ./Utils/url.py
         """Returns the Requests tuple auth for a given url from netrc."""
@@ -3465,12 +3388,12 @@ class Url:  # ./Utils/url.py
             if netrc_path is None:
                 return
 
-            ri = XUrl().parse(self.url)
+            ri = XUrl().parse(self.value)
 
             # Strip port numbers from netloc. This weird `if...encode`` dance is
             # used for Python 3.2, which doesn't support unicode literals.
             splitstr = b':'
-            if XStr().is_instance(self.url):
+            if XStr().is_instance(self.value):
                 splitstr = splitstr.decode('ascii')
             host = ri.netloc.split(splitstr)[0]
 
@@ -3491,7 +3414,7 @@ class Url:  # ./Utils/url.py
             pass
 
     def prepend_scheme_if_needed(self, new_scheme):  # ./Utils/url.py
-        scheme, netloc, path, params, query, fragment = XUrl().parse(self.url, new_scheme)
+        scheme, netloc, path, params, query, fragment = XUrl().parse(self.value, new_scheme)
 
         # urlparse is a finicky beast, and sometimes decides that there isn't a
         # netloc present. Assume that it's being over-cautious, and switch netloc
@@ -3502,7 +3425,7 @@ class Url:  # ./Utils/url.py
         return XUrl().unparse((scheme, netloc, path, params, query, fragment))
 
     def get_auth(self):  # ./Utils/url.py
-        parsed = XUrl().parse(self.url)
+        parsed = XUrl().parse(self.value)
 
         try:
             auth = (XUrl().unquote(parsed.username), XUrl().unquote(parsed.password))
@@ -3512,7 +3435,7 @@ class Url:  # ./Utils/url.py
         return auth
 
     def defragauth(self):  # ./Utils/url.py
-        scheme, netloc, path, params, query, fragment = XUrl().parse(self.url)
+        scheme, netloc, path, params, query, fragment = XUrl().parse(self.value)
 
         # see func:`prepend_scheme_if_needed`
         if not netloc:
@@ -3521,6 +3444,91 @@ class Url:  # ./Utils/url.py
         netloc = netloc.rsplit('@', 1)[-1]
 
         return XUrl().unparse((scheme, netloc, path, params, query, ''))
+
+    def prepare(self, params):  # ./Utils/url.py
+        url = self.value_()
+        if XBytes().is_instance(url):
+            url = url.decode('utf8')
+        else:
+            url = unicode(url) if XCompat().is_py2() else XStr().new(url)
+
+        # Remove leading whitespaces from url
+        url = url.lstrip()
+
+        # Don't do any URL preparation for non-HTTP schemes like `mailto`,
+        # `data` etc to work around exceptions from `url_parse`, which
+        # handles RFC 3986 only.
+        if ':' in url and not url.lower().startswith('http'):
+            self.value_(url)
+            return self
+
+        # Support for unicode domain names and paths.
+        try:
+            scheme, auth, host, port, path, query, fragment = XUrllib3().util().parse_url(url)
+        except XUrllib3().exceptions().LocationParseError as e:
+            raise InvalidURL(*e.args)
+
+        if not scheme:
+            error = ("Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?")
+            error = error.format(XUtils().to_native_string(url, 'utf8'))
+
+            raise MissingSchema(error)
+
+        if not host:
+            raise InvalidURL("Invalid URL %r: No host supplied" % url)
+
+        # In general, we want to try IDNA encoding the hostname if the string contains
+        # non-ASCII characters. This allows users to automatically get the correct IDNA
+        # behaviour. For strings containing only ASCII characters, we need to also verify
+        # it doesn't start with a wildcard (*), before allowing the unencoded hostname.
+        if not XUtils().unicode_is_ascii(host):
+            try:
+                host = self._get_idna_encoded_host(host)
+            except UnicodeError:
+                raise InvalidURL('URL has an invalid label.')
+        elif host.startswith(u'*'):
+            raise InvalidURL('URL has an invalid label.')
+
+        # Carefully reconstruct the network location
+        netloc = auth or ''
+        if netloc:
+            netloc += '@'
+        netloc += host
+        if port:
+            netloc += ':' + XStr().new(port)
+
+        # Bare domains aren't valid URLs.
+        if not path:
+            path = '/'
+
+        if XCompat().is_py2():
+            if XStr().is_instance(scheme):
+                scheme = scheme.encode('utf-8')
+            if XStr().is_instance(netloc):
+                netloc = netloc.encode('utf-8')
+            if XStr().is_instance(path):
+                path = path.encode('utf-8')
+            if XStr().is_instance(query):
+                query = query.encode('utf-8')
+            if XStr().is_instance(fragment):
+                fragment = fragment.encode('utf-8')
+
+        if isinstance(params, (XStr().clazz(), XBytes().clazz())):
+            params = XUtils().to_native_string(params)
+
+        enc_params = Encoding().params(params)
+        if enc_params:
+            if query:
+                query = '%s&%s' % (query, enc_params)
+            else:
+                query = enc_params
+
+        url = Uri(XUrl().unparse([scheme, netloc, path, None, query, fragment])).requote()
+        self.value_(url)
+        return self
+
+    def value_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'value', *args)
 
 
 class IpUtils:  # ./Utils/ip_utils.py
