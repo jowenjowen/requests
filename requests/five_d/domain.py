@@ -1713,6 +1713,61 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
     def path_url_(self):
         return Encoding().path_url(self.url_())
 
+class Method:
+    def __init__(self, method):
+        self.method = method
+
+    def prepare(self):
+        """Prepares the given HTTP method."""
+        if self.method_() is not None:
+            self.method_(XUtils().to_native_string(self.method_().upper()))
+        return self.method
+
+    def method_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'method', *args)
+
+
+class Cookies:
+    def __init__(self, cookies):
+        self.cookies_(cookies)
+
+    def prepare(self, request):
+        cookies = self.cookies_()
+        if isinstance(cookies, XCookieJar):
+            self.cookies_(cookies)
+        else:
+            self.cookies_(CookieUtils().cookiejar_from_dict(cookies))
+
+        self.cookie_header = CookieUtils().get_cookie_header(self.cookies_(), request)
+
+        return self.cookies_()
+
+    def cookies_(self, *args):  # ./Cookies/Cookies.py
+        return XUtils().get_or_set(self, 'cookies', *args)
+
+    def cookie_header_(self):
+        return self.cookie_header
+
+
+class Headers:
+    def __init__(self, headers):
+        self.headers_(headers)
+
+    def prepare(self):
+        """Prepares the given HTTP headers."""
+        headers = self.headers_()
+        self.headers_(CaseInsensitiveDict())
+        if headers:
+            for header in headers.items():
+                # Raise exception on invalid header value.
+                HeaderUtils().check_header_validity(header)
+                name, value = header
+                self.headers_()[XUtils().to_native_string(name)] = value
+        return self.headers_()
+
+    def headers_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'headers', *args)
+
 
 class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
     def help(self): Help().display(self.__class__.__name__)
@@ -1732,9 +1787,9 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
             params=None, auth=None, cookies=None, hooks=None, json=None):  # ./Models/PreparedRequest.py
         """Prepares the entire request with the given parameters."""
 
-        self.prepare_method(method)
+        self.method_(Method(method).prepare())
         self.url_(Url(url).prepare(params).value_())
-        self.prepare_headers(headers)
+        self.headers_(Headers(headers).prepare())
         self.prepare_cookies(cookies)
         self.prepare_body(data, files, json)
         self.prepare_auth(auth, url)
@@ -1759,12 +1814,6 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
         p._body_position = self._body_position
         return p
 
-    def prepare_method(self, method):  # ./Models/PreparedRequest.py
-        """Prepares the given HTTP method."""
-        self.method_(method)
-        if self.method_() is not None:
-            self.method_(XUtils().to_native_string(self.method_().upper()))
-
     @staticmethod
     def _get_idna_encoded_host(host):  # ./Models/PreparedRequest.py
         try:
@@ -1772,17 +1821,6 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
         except XIdna().IDNAError():
             raise UnicodeError
         return host
-
-    def prepare_headers(self, headers):  # ./Models/PreparedRequest.py
-        """Prepares the given HTTP headers."""
-
-        self.headers_(CaseInsensitiveDict())
-        if headers:
-            for header in headers.items():
-                # Raise exception on invalid header value.
-                HeaderUtils().check_header_validity(header)
-                name, value = header
-                self.headers_()[XUtils().to_native_string(name)] = value
 
     def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
         body = None
@@ -1884,12 +1922,9 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
             self.prepare_content_length(self.body_())
 
     def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
-        if isinstance(cookies, XCookieJar):
-            self._cookies = cookies
-        else:
-            self._cookies = CookieUtils().cookiejar_from_dict(cookies)
-
-        cookie_header = CookieUtils().get_cookie_header(self._cookies, self)
+        c = Cookies(cookies)
+        self._cookies = c.prepare(self)
+        cookie_header = c.cookie_header_()
         if cookie_header is not None:
             self.headers_()['Cookie'] = cookie_header
 
