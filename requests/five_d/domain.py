@@ -412,7 +412,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
         response.headers_(CaseInsensitiveDict(getattr(resp, 'headers', {})))
 
         # Set encoding.
-        response.encoding_(HeaderUtils().get_encoding_from_headers(response.headers_()))
+        response.encoding_(Headers(response.headers_()).get_encoding_from_headers())
         response.raw_(resp)
         response.reason_(response.raw_().reason)
 
@@ -1777,7 +1777,9 @@ class Cookies:  # ./Models/cookies.py
 
 
 class Headers:  # ./Models/headers.py
-    def __init__(self, headers):  # ./Models/headers.py
+    def help(self): Help().display(self.__class__.__name__)
+
+    def __init__(self, headers=None):  # ./Models/headers.py
         self.headers_(headers)
 
     def prepare(self):  # ./Models/headers.py
@@ -1787,13 +1789,117 @@ class Headers:  # ./Models/headers.py
         if headers:
             for header in headers.items():
                 # Raise exception on invalid header value.
-                HeaderUtils().check_header_validity(header)
+                Header().check_header_validity(header)
                 name, value = header
                 self.headers_()[XUtils().to_native_string(name)] = value
         return self.headers_()
 
     def headers_(self, *args):  # ./Models/headers.py
         return XUtils().get_or_set(self, 'headers', *args)
+
+    def get_encoding_from_headers(self):  # ./Models/headers.py
+        content_type = self.headers_().get('content-type')
+
+        if not content_type:
+            return None
+
+        content_type, params = Header()._parse_content_type_header(content_type)
+
+        if 'charset' in params:
+            return params['charset'].strip("'\"")
+
+        if 'text' in content_type:
+            return 'ISO-8859-1'
+
+        if 'application/json' in content_type:
+            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
+            return 'utf-8'
+
+    def default_headers(self):  # ./Utils/headers.py
+        return CaseInsensitiveDict({
+            'User-Agent': Header().default_user_agent(),
+            'Accept-Encoding': Header().DEFAULT_ACCEPT_ENCODING(),
+            'Accept': '*/*',
+            'Connection': 'keep-alive',
+        })
+
+
+class Header:  # ./Models/header.py
+    # Ensure that ', ' is used to preserve previous delimiter behavior.
+    _DEFAULT_ACCEPT_ENCODING = ", ".join(
+        XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
+    )
+
+    # Moved outside of function to avoid recompile every call
+    _CLEAN_HEADER_REGEX_BYTE = XRe().compile(b'^\\S[^\\r\\n]*$|^$')
+    _CLEAN_HEADER_REGEX_STR = XRe().compile(r'^\S[^\r\n]*$|^$')
+
+    def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/header.py
+        return self._DEFAULT_ACCEPT_ENCODING
+
+    def _parse_content_type_header(self, header):  # ./Models/header.py
+        tokens = header.split(';')
+        content_type, params = tokens[0].strip(), tokens[1:]
+        params_dict = {}
+        items_to_strip = "\"' "
+
+        for param in params:
+            param = param.strip()
+            if param:
+                key, value = param, True
+                index_of_equals = param.find("=")
+                if index_of_equals != -1:
+                    key = param[:index_of_equals].strip(items_to_strip)
+                    value = param[index_of_equals + 1:].strip(items_to_strip)
+                params_dict[key.lower()] = value
+        return content_type, params_dict
+
+    def parse_header_links(self, value):  # ./Utils/header.py
+        links = []
+
+        replace_chars = ' \'"'
+
+        value = value.strip(replace_chars)
+        if not value:
+            return links
+
+        for val in XRe().split(', *<', value):
+            try:
+                url, params = val.split(';', 1)
+            except ValueError:
+                url, params = val, ''
+
+            link = {'url': url.strip('<> \'"')}
+
+            for param in params.split(';'):
+                try:
+                    key, value = param.split('=')
+                except ValueError:
+                    break
+
+                link[key.strip(replace_chars)] = value.strip(replace_chars)
+
+            links.append(link)
+
+        return links
+
+    def check_header_validity(self, header):  # ./Utils/header.py
+        name, value = header
+
+        if XBytes().is_instance(value):
+            pat = self._CLEAN_HEADER_REGEX_BYTE
+        else:
+            pat = self._CLEAN_HEADER_REGEX_STR
+        try:
+            if not pat.match(value):
+                raise InvalidHeader("Invalid return character or leading space in header: %s" % name)
+        except TypeError:
+            raise InvalidHeader("Value for header {%s: %s} must be of type str or "
+                                "bytes, not %s" % (name, value, type(value)))
+
+    def default_user_agent(self, name="python-requests"):  # ./Utils/header.py
+        global requests_version
+        return '%s/%s' % (name, requests_version)
 
 
 class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
@@ -2294,7 +2400,7 @@ class Response(PicklerMixin):  # ./Models/Response/Response.py
         l = {}
 
         if header:
-            links = HeaderUtils().parse_header_links(header)
+            links = Header().parse_header_links(header)
 
             for link in links:
                 key = link.get('rel') or link.get('url')
@@ -2761,7 +2867,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Sessions/Session.py
-        self.headers_(HeaderUtils().default_headers())
+        self.headers_(Headers().default_headers())
         self.auth_(None)
         self.proxies_({})
         self.hooks_(Hooks().default_hooks())
@@ -3276,111 +3382,6 @@ class FileUtils:  # ./Utils/file_utils.py
         else:
             raise UnrewindableBodyError("Unable to rewind request body for redirect.")
 
-
-class HeaderUtils:  # ./Utils/header_utils.py
-    def help(self): Help().display(self.__class__.__name__)
-
-    # Ensure that ', ' is used to preserve previous delimiter behavior.
-    _DEFAULT_ACCEPT_ENCODING = ", ".join(
-        XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
-    )
-
-    # Moved outside of function to avoid recompile every call
-    _CLEAN_HEADER_REGEX_BYTE = XRe().compile(b'^\\S[^\\r\\n]*$|^$')
-    _CLEAN_HEADER_REGEX_STR = XRe().compile(r'^\S[^\r\n]*$|^$')
-
-    def _parse_content_type_header(self, header):  # ./Utils/header_utils.py
-        tokens = header.split(';')
-        content_type, params = tokens[0].strip(), tokens[1:]
-        params_dict = {}
-        items_to_strip = "\"' "
-
-        for param in params:
-            param = param.strip()
-            if param:
-                key, value = param, True
-                index_of_equals = param.find("=")
-                if index_of_equals != -1:
-                    key = param[:index_of_equals].strip(items_to_strip)
-                    value = param[index_of_equals + 1:].strip(items_to_strip)
-                params_dict[key.lower()] = value
-        return content_type, params_dict
-
-    def get_encoding_from_headers(self, headers):  # ./Utils/header_utils.py
-        content_type = headers.get('content-type')
-
-        if not content_type:
-            return None
-
-        content_type, params = self._parse_content_type_header(content_type)
-
-        if 'charset' in params:
-            return params['charset'].strip("'\"")
-
-        if 'text' in content_type:
-            return 'ISO-8859-1'
-
-        if 'application/json' in content_type:
-            # Assume UTF-8 based on RFC 4627: https://www.ietf.org/rfc/rfc4627.txt since the charset was unset
-            return 'utf-8'
-
-    def default_headers(self):  # ./Utils/header_utils.py
-        return CaseInsensitiveDict({
-            'User-Agent': self.default_user_agent(),
-            'Accept-Encoding': self.DEFAULT_ACCEPT_ENCODING(),
-            'Accept': '*/*',
-            'Connection': 'keep-alive',
-        })
-
-    def parse_header_links(self, value):  # ./Utils/header_utils.py
-        links = []
-
-        replace_chars = ' \'"'
-
-        value = value.strip(replace_chars)
-        if not value:
-            return links
-
-        for val in XRe().split(', *<', value):
-            try:
-                url, params = val.split(';', 1)
-            except ValueError:
-                url, params = val, ''
-
-            link = {'url': url.strip('<> \'"')}
-
-            for param in params.split(';'):
-                try:
-                    key, value = param.split('=')
-                except ValueError:
-                    break
-
-                link[key.strip(replace_chars)] = value.strip(replace_chars)
-
-            links.append(link)
-
-        return links
-
-    def check_header_validity(self, header):  # ./Utils/header_utils.py
-        name, value = header
-
-        if XBytes().is_instance(value):
-            pat = self._CLEAN_HEADER_REGEX_BYTE
-        else:
-            pat = self._CLEAN_HEADER_REGEX_STR
-        try:
-            if not pat.match(value):
-                raise InvalidHeader("Invalid return character or leading space in header: %s" % name)
-        except TypeError:
-            raise InvalidHeader("Value for header {%s: %s} must be of type str or "
-                                "bytes, not %s" % (name, value, type(value)))
-
-    def default_user_agent(self, name="python-requests"):  # ./Utils/header_utils.py
-        global requests_version
-        return '%s/%s' % (name, requests_version)
-
-    def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/header_utils.py
-        return self._DEFAULT_ACCEPT_ENCODING
 
 class Uri:  # ./Utils/uri.py
     def help(self): Help().display(self.__class__.__name__)

@@ -16,7 +16,8 @@ from .five_d.domain import CollectionsUtils
 from .five_d.domain import FileUtils
 from .five_d.domain import WSGIutils
 from .five_d.domain import CookieUtils
-from .five_d.domain import HeaderUtils
+from .five_d.domain import Headers
+from .five_d.domain import Header
 from .five_d.domain import IpUtils
 from .five_d.domain import Url
 from .five_d.domain import Uri
@@ -70,7 +71,7 @@ def get_encodings_from_content(content):
     return DeprecatedUtils().get_encodings_from_content(content)
 
 def get_encoding_from_headers(headers):
-    return HeaderUtils().get_encoding_from_headers(headers)
+    return Headers(headers).get_encoding_from_headers()
 
 def stream_decode_response_unicode(iterator, r):
     return Utils().stream_decode_response_unicode(iterator, r.encoding_())
@@ -115,13 +116,13 @@ def resolve_proxies(request, proxies, trust_env=True):
     return ProxyUtils().resolve_proxies(request, proxies, trust_env)
 
 def default_user_agent(name="python-requests"):
-    return HeaderUtils().default_user_agent(name)
+    return Headers().default_user_agent(name)
 
 def default_headers():
-    return HeaderUtils().default_headers()
+    return Headers().default_headers()
 
 def parse_header_links(value):
-    return HeaderUtils().parse_header_links(value)
+    return Header().parse_header_links(value)
 
 def guess_json_utf(data):
     return Utils().guess_json_utf(data)
@@ -133,7 +134,7 @@ def get_auth_from_url(url):
     return Url(url).get_auth()
 
 def check_header_validity(header):
-    return HeaderUtils().check_header_validity(header)
+    return Header().check_header_validity(header)
 
 def urldefragauth(url):
     return Url(url).defragauth()

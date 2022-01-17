@@ -24,7 +24,8 @@ from requests.utils import (
     unquote_header_value, unquote_unreserved,
     urldefragauth, add_dict_to_cookiejar, set_environ)
 
-from requests.five_d.domain import HeaderUtils
+from requests.five_d.domain import Headers
+from requests.five_d.domain import Header
 
 from .compat import CompatStringIO, Compat_cStringIO
 
@@ -538,7 +539,7 @@ def test_parse_dict_header(value, expected):
         )
     ))
 def test__parse_content_type_header(value, expected):
-    assert HeaderUtils()._parse_content_type_header(value) == expected
+    assert Header()._parse_content_type_header(value) == expected
 
 # cut_down 3  455 + (539-455)/2 =497 it's between 455 and 539
 

@@ -1048,14 +1048,8 @@ The built-in HTTP Connection for urllib3.
         so it can be read again on redirect.
 '''
 
-    class HeaderUtils:  # ./Utils/header_utils.py
+    class Headers:  # ./Utils/headers.py
         def msg(self): return '''
-• method _parse_content_type_header
-    Returns content type and parameters from given header
-
-    :param header: string
-    :return: tuple containing content type and dictionary of
-         parameters   
 • method get_encoding_from_headers
     Returns encodings from given HTTP Header Dict.
 
@@ -1063,6 +1057,16 @@ The built-in HTTP Connection for urllib3.
     :rtype: str
 • method default_headers
     :rtype: requests.domain.CaseInsensitiveDict
+'''
+
+    class Header:  # ./Utils/header.py
+        def msg(self): return '''
+• method _parse_content_type_header
+    Returns content type and parameters from given header
+
+    :param header: string
+    :return: tuple containing content type and dictionary of
+         parameters   
 • method parse_header_links
     Return a list of parsed link headers proxies.
     i.e. Link: <http:/.../front.jpeg>; rel=front; type="image/jpeg",<http://.../back.jpeg>; rel=back;type="image/jpeg"
