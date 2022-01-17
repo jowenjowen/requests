@@ -689,7 +689,34 @@ class Auth:  # ./Auth/auth.py
     CONTENT_TYPE_FORM_URLENCODED = 'application/x-www-form-urlencoded'
     CONTENT_TYPE_MULTI_PART = 'multipart/form-data'
 
-    def basic_auth_str(self, username, password):
+    def __init__(self, request = None):  # ./Auth/auth.py
+        self.request = request
+
+    def prepare(self, auth):  # ./Auth/auth.py
+        if auth is None:
+            url_auth = Url(self.request.url_()).get_auth()
+            auth = url_auth if any(url_auth) else None
+
+        if auth:
+            if isinstance(auth, tuple) and len(auth) == 2:
+                # special-case basic HTTP auth
+                auth = HTTPBasicAuth(*auth)
+
+            # Allow auth to make its changes.
+            r = auth(self.request)
+
+            # Update self to reflect the auth changes.
+            self.__dict__.update(r.__dict__)
+
+            # Recompute Content-Length
+            self.request.headers_().update(Body(self.request).prepare_content_length().headers())
+        self.auth_(auth)
+        return self.auth_()
+
+    def auth_(self, *args):  # ./Auth/auth.py
+        return XUtils().get_or_set(self, 'auth', *args)
+
+    def basic_auth_str(self, username, password):  # ./Auth/auth.py
         if not XBaseString().is_instance(username):
             XWarnings().warn((
                 "Non-string usernames will no longer be supported in Requests "
@@ -1713,25 +1740,25 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
     def path_url_(self):
         return Encoding().path_url(self.url_())
 
-class Method:
+class Method:  # ./Models/method.py
     def __init__(self, method):
         self.method = method
 
-    def prepare(self):
+    def prepare(self):  # ./Models/method.py
         """Prepares the given HTTP method."""
         if self.method_() is not None:
             self.method_(XUtils().to_native_string(self.method_().upper()))
         return self.method
 
-    def method_(self, *args):  # ./Models/PreparedRequest.py
+    def method_(self, *args):  # ./Models/method.py
         return XUtils().get_or_set(self, 'method', *args)
 
 
-class Cookies:
+class Cookies:  # ./Models/cookies.py
     def __init__(self, cookies):
         self.cookies_(cookies)
 
-    def prepare(self, request):
+    def prepare(self, request):  # ./Models/cookies.py
         cookies = self.cookies_()
         if isinstance(cookies, XCookieJar):
             self.cookies_(cookies)
@@ -1742,18 +1769,18 @@ class Cookies:
 
         return self.cookies_()
 
-    def cookies_(self, *args):  # ./Cookies/Cookies.py
+    def cookies_(self, *args):  # ./Models/cookies.py
         return XUtils().get_or_set(self, 'cookies', *args)
 
-    def cookie_header_(self):
+    def cookie_header_(self):  # ./Models/cookies.py
         return self.cookie_header
 
 
-class Headers:
-    def __init__(self, headers):
+class Headers:  # ./Models/headers.py
+    def __init__(self, headers):  # ./Models/headers.py
         self.headers_(headers)
 
-    def prepare(self):
+    def prepare(self):  # ./Models/headers.py
         """Prepares the given HTTP headers."""
         headers = self.headers_()
         self.headers_(CaseInsensitiveDict())
@@ -1765,7 +1792,7 @@ class Headers:
                 self.headers_()[XUtils().to_native_string(name)] = value
         return self.headers_()
 
-    def headers_(self, *args):  # ./Models/PreparedRequest.py
+    def headers_(self, *args):  # ./Models/headers.py
         return XUtils().get_or_set(self, 'headers', *args)
 
 
@@ -1792,7 +1819,8 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
         self.headers_(Headers(headers).prepare())
         self.prepare_cookies(cookies)
         self.prepare_body(data, files, json)
-        self.prepare_auth(auth, url)
+        self.auth_(Auth(self).prepare(auth))
+        self.prepare_auth(auth)
 
         # Note that prepare_auth must be last to enable authentication schemes
         # such as OAuth to work on a fully prepared request.
@@ -1823,103 +1851,15 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
         return host
 
     def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
-        body = None
-        content_type = None
+        body = Body(self)
+        self.body_(body.prepare(data, files, json))
+        if body.is_stream():
+            self._body_position = body.body_position()
+        headers = self.headers_()
+        headers.update(body.headers())
 
-        if not data and json is not None:
-            # urllib3 requires a bytes-like body. Python 2's json.dumps
-            # provides this natively, but Python 3 gives a Unicode string.
-            content_type = 'application/json'
-
-            try:
-                body = complexjson.dumps(json, allow_nan=False)
-            except ValueError as ve:
-                raise InvalidJSONError(ve, request=self)
-
-            if not XBytes().is_instance(body):
-                body = body.encode('utf-8')
-
-        is_stream = all([
-            hasattr(data, '__iter__'),
-            not isinstance(data, (XBaseString().clazz(), list, tuple, XMapping))
-        ])
-
-        if is_stream:
-            try:
-                length = Utils().super_len(data)
-            except (TypeError, AttributeError, XIo().UnsupportedOperation()):
-                length = None
-
-            body = data
-
-            if getattr(body, 'tell', None) is not None:
-                # Record the current file position before reading.
-                # This will allow us to rewind a file in the event
-                # of a redirect.
-                try:
-                    self._body_position = body.tell()
-                except (IOError, OSError):
-                    # This differentiates from None, allowing us to catch
-                    # a failed `tell()` later when trying to rewind the body
-                    self._body_position = object()
-
-            if files:
-                raise NotImplementedError('Streamed bodies and files are mutually exclusive.')
-
-            if length:
-                self.headers_()['Content-Length'] = XBuiltinStr().new(length)
-            else:
-                self.headers_()['Transfer-Encoding'] = 'chunked'
-        else:
-            # Multi-part file uploads.
-            if files:
-                (body, content_type) = Encoding().files(files, data)
-            else:
-                if data:
-                    body = Encoding().params(data)
-                    if XBaseString().is_instance(data) or hasattr(data, 'read'):
-                        content_type = None
-                    else:
-                        content_type = 'application/x-www-form-urlencoded'
-
-            self.prepare_content_length(body)
-
-            # Add content-type if it wasn't explicitly provided.
-            if content_type and ('content-type' not in self.headers_()):
-                self.headers_()['Content-Type'] = content_type
-
-        self.body_(body)
-
-    def prepare_content_length(self, body):  # ./Models/PreparedRequest.py
-        if body is not None:
-            length = Utils().super_len(body)
-            if length:
-                # If length exists, set it. Otherwise, we fallback
-                # to Transfer-Encoding: chunked.
-                self.headers_()['Content-Length'] = XBuiltinStr().new(length)
-        elif self.method_() not in ('GET', 'HEAD') and self.headers_().get('Content-Length') is None:
-            # Set Content-Length to 0 for methods that can have a body
-            # but don't provide one. (i.e. not GET or HEAD)
-            self.headers_()['Content-Length'] = '0'
-
-    def prepare_auth(self, auth, url=''):  # ./Models/PreparedRequest.py
-        if auth is None:
-            url_auth = Url(self.url_()).get_auth()
-            auth = url_auth if any(url_auth) else None
-
-        if auth:
-            if isinstance(auth, tuple) and len(auth) == 2:
-                # special-case basic HTTP auth
-                auth = HTTPBasicAuth(*auth)
-
-            # Allow auth to make its changes.
-            r = auth(self)
-
-            # Update self to reflect the auth changes.
-            self.__dict__.update(r.__dict__)
-
-            # Recompute Content-Length
-            self.prepare_content_length(self.body_())
+    def prepare_auth(self, auth):  # ./Models/PreparedRequest.py
+        self.auth_(Auth(self).prepare(auth))
 
     def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
         c = Cookies(cookies)
@@ -1950,6 +1890,110 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
 
     def path_url_(self):
         return Encoding().path_url(self.url_())
+
+    def auth_(self, *args):  # ./Models/PreparedRequest.py
+        return XUtils().get_or_set(self, 'auth', *args)
+
+
+class Body:  # ./Models/body.py
+    def __init__(self, request):  # ./Models/body.py
+        self.request = request
+        self.body = request.body_()
+        self._body_position = None
+        self._headers = {}
+
+    def prepare(self, data, files, json):  # ./Models/body.py
+        self.body = None
+        content_type = None
+
+        if not data and json is not None:
+            # urllib3 requires a bytes-like body. Python 2's json.dumps
+            # provides this natively, but Python 3 gives a Unicode string.
+            content_type = 'application/json'
+
+            try:
+                self.body = complexjson.dumps(json, allow_nan=False)
+            except ValueError as ve:
+                raise InvalidJSONError(ve, request=self.request)
+
+            if not XBytes().is_instance(self.body):
+                self.body = self.body.encode('utf-8')
+
+        self._is_stream = all([
+            hasattr(data, '__iter__'),
+            not isinstance(data, (XBaseString().clazz(), list, tuple, XMapping))
+        ])
+
+        if self._is_stream:
+            try:
+                length = Utils().super_len(data)
+            except (TypeError, AttributeError, XIo().UnsupportedOperation()):
+                length = None
+
+            self.body = data
+
+            if getattr(self.body, 'tell', None) is not None:
+                # Record the current file position before reading.
+                # This will allow us to rewind a file in the event
+                # of a redirect.
+                try:
+                    self._body_position = self.body.tell()
+                except (IOError, OSError):
+                    # This differentiates from None, allowing us to catch
+                    # a failed `tell()` later when trying to rewind the body
+                    self._body_position = object()
+
+            if files:
+                raise NotImplementedError('Streamed bodies and files are mutually exclusive.')
+
+            if length:
+                self._headers['Content-Length'] = XBuiltinStr().new(length)
+            else:
+                self._headers['Transfer-Encoding'] = 'chunked'
+        else:
+            # Multi-part file uploads.
+            if files:
+                (self.body, content_type) = Encoding().files(files, data)
+            else:
+                if data:
+                    self.body = Encoding().params(data)
+                    if XBaseString().is_instance(data) or hasattr(data, 'read'):
+                        content_type = None
+                    else:
+                        content_type = 'application/x-www-form-urlencoded'
+
+            self.prepare_content_length()
+
+            # Add content-type if it wasn't explicitly provided.
+            if content_type and ('content-type' not in self.request.headers_()):
+                self._headers['Content-Type'] = content_type
+        return self.body
+
+    def prepare_content_length(self):  # ./Models/body.py
+        if self.body is not None:
+            length = Utils().super_len(self.body)
+            if length:
+                # If length exists, set it. Otherwise, we fallback
+                # to Transfer-Encoding: chunked.
+                self._headers['Content-Length'] = XBuiltinStr().new(length)
+        elif self.request.method_() not in ('GET', 'HEAD') and self.request.headers_().get('Content-Length') is None:
+            # Set Content-Length to 0 for methods that can have a body
+            # but don't provide one. (i.e. not GET or HEAD)
+            self._headers['Content-Length'] = '0'
+        return self
+
+    def body_position(self):  # ./Models/body.py
+        return self._body_position
+
+    def headers(self):  # ./Models/body.py
+        return self._headers
+
+    def body_(self, *args):  # ./Models/body.py
+        return XUtils().get_or_set(self, 'body', *args)
+
+    def is_stream(self):  # ./Models/body.py
+        return self._is_stream
+
 
 
 class Content:  # ./Models/Content.py
