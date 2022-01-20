@@ -624,7 +624,7 @@ class TestRequests:
             auth = HTTPDigestAuth('user', 'pass')
             url = httpbin('digest-auth', 'auth', 'user', 'pass', authtype, 'never')
 
-            r = Requests().url_(url).get( auth=auth)
+            r = Requests().url_(url).get(auth=auth)
             assert r.status_code_() == 200
 
             r = Requests().url_(url).get()
@@ -2265,12 +2265,7 @@ class RedirectSession(SessionRedirectMixin):
 def test_json_encodes_as_bytes():
     # urllib3 expects bodies as bytes-like objects
     body = {"key": "value"}
-    p = PreparedRequest()
-    p.prepare(
-        method='GET',
-        url='https://www.example.com/',
-        json=body
-    )
+    p = PreparedRequest().method_('GET').url_('https://www.example.com/').json_(body).prepare()
     assert isinstance(p.body_(), bytes)
 
 
@@ -2303,8 +2298,7 @@ def test_requests_are_updated_each_time(httpbin):
 ])
 def test_proxy_env_vars_override_default(var, url, proxy):
     session = Session()
-    prep = PreparedRequest()
-    prep.prepare(method='GET', url=url)
+    prep = PreparedRequest().method_('GET').url_(url).prepare()
 
     kwargs = {
         var: proxy
@@ -2326,13 +2320,8 @@ def test_data_argument_accepts_tuples(data):
     """Ensure that the data argument will accept tuples of strings
     and properly encode them.
     """
-    p = PreparedRequest()
-    p.prepare(
-        method='GET',
-        url='http://www.example.com',
-        data=data,
-        hooks=Hooks().default_hooks()
-    )
+    p = PreparedRequest().method_('GET').url_('http://www.example.com')\
+        .data_(data).hooks_(Hooks().default_hooks()).prepare()
     assert p.body_() == XUrl().encode(data)
 
 
@@ -2360,7 +2349,10 @@ def test_data_argument_accepts_tuples(data):
 def test_prepared_copy(kwargs):
     p = PreparedRequest()
     if kwargs:
-        p.prepare(**kwargs)
+        for key, value in kwargs.items():
+            func = eval("p.%s_"%key)
+            func(value)
+        p.prepare()
     copy = p.copy()
     for attr in ('method', 'url', 'headers', 'cookies', 'body', 'hooks'):
         assert getattr(p, attr) == getattr(copy, attr)

@@ -241,7 +241,7 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
 
     _codes_dict = LookupDict(name='status_codes')
 
-    def __init__(self):
+    def __init__(self):  # ./StatusCodes/status_codes.py
         if self._codes_dict.__dict__.__len__() > 10:
             return
         for code, titles in self._codes.items():
@@ -250,11 +250,11 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
                 if not title.startswith(('\\', '/')):
                     setattr(self._codes_dict, title.upper(), code)
 
-    def doc(self, code):
+    def doc(self, code):  # ./StatusCodes/status_codes.py
         names = ', '.join('``%s``' % n for n in self._codes[code])
         return '* %d: %s' % (code, names)
 
-    def get(self, name):
+    def get(self, name):  # ./StatusCodes/status_codes.py
         return self._codes_dict.get(name)
 
 # *************************** classes in Connections section *****************
@@ -1654,7 +1654,7 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
         except ValueError:
             return False
 
-class CommonProperties:
+class CommonProperties(object):
     def __init__(self):  # ./Models/Request.py
         # Default empty dicts for dict params.
         self\
@@ -1675,7 +1675,7 @@ class CommonProperties:
 class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
     def help(self): Help().display(self.__class__.__name__)
 
-    def __init__(self):
+    def __init__(self):  # ./Models/Request.py
         super(Request, self).__init__()
         # ./Models/Request.py
         # Default empty dicts for dict params.
@@ -1693,39 +1693,34 @@ class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
 
     def prepare(self):  # ./Models/Request.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for transmission and returns it."""
-        p = PreparedRequest()
-        p.prepare(
-            method=self.method_(),
-            url=self.url_(),
-            headers=self.headers_(),
-            files=self.files_(),
-            data=self.data_(),
-            json=self.json_(),
-            params=self.params_(),
-            auth=self.auth_(),
-            cookies=self.cookies_(),
-            hooks=self.hooks_() ,
-        )
-        return p
+        return PreparedRequest()\
+            .method_(self.method_())\
+            .url_(self.url_())\
+            .headers_(self.headers_())\
+            .files_(self.files_())\
+            .data_(self.data_())\
+            .json_(self.json_())\
+            .params_(self.params_())\
+            .auth_(self.auth_())\
+            .cookies_(self.cookies_())\
+            .hooks_(self.hooks_() )\
+            .prepare()
 
     def add_header(self, key, value):  # ./Models/Request.py
         self.headers_()[key] = value
         return self
 
-    def  auth_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'auth', *args)
+    def path_url_(self):
+        return Encoding().path_url(self.url_())
 
-    def method_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'method', *args)
+    def auth_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'auth', *args)
 
     def data_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'data', *args)
 
     def files_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'files', *args)
-
-    def params_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'params', *args)
 
     def hooks_(self, *args):  # ./Models/Request.py
         if len(args) != 0:
@@ -1740,8 +1735,12 @@ class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
     def json_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'json', *args)
 
-    def path_url_(self):
-        return Encoding().path_url(self.url_())
+    def method_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'method', *args)
+
+    def params_(self, *args):  # ./Models/Request.py
+        return XUtils().get_or_set(self, 'params', *args)
+
 
 class Method:  # ./Models/method.py
     def __init__(self, method):
@@ -1905,39 +1904,37 @@ class Header:  # ./Models/header.py
         return '%s/%s' % (name, requests_version)
 
 
-class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/PreparedRequest.py
+class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/prepared_request.py
     def help(self): Help().display(self.__class__.__name__)
 
-    def __init__(self):  # ./Models/PreparedRequest.py
+    def __init__(self):  # ./Models/prepared_request.py
         super(PreparedRequest, self).__init__()
-        self.method_(None)  #: HTTP verb to send to the server.
-        self.body_(None)  #: request body to send to the server.
-        self.hooks_(Hooks().default_hooks())  #: dictionary of callback hooks, for internal usage.
+        self.method_(None).url_(None).headers_(None).files_(None).data_(None).params_(None)\
+            .auth_(None).cookies_(None).hooks_(Hooks().default_hooks()).json_(None).body_(None)
         self._body_position = None  #: integer denoting starting position of a readable file-like body.
 
-    def prepare(self,
-            method=None, url=None, headers=None, files=None, data=None,
-            params=None, auth=None, cookies=None, hooks=None, json=None):  # ./Models/PreparedRequest.py
+    def prepare(self):  # ./Models/prepared_request.py
         """Prepares the entire request with the given parameters."""
 
-        self.method_(Method(method).prepare())
-        self.url_(Url(url).prepare(params).value_())
-        self.headers_(Headers(headers).prepare())
-        self.prepare_cookies(cookies)
-        self.prepare_body(data, files, json)
-        self.auth_(Auth(self).prepare(auth))
-        self.prepare_auth(auth)
+        self.method_(Method(self.method_()).prepare())
+        self.url_(Url(self.url_()).prepare(self.params_()).value_())
+        self.headers_(Headers(self.headers_()).prepare())
+        self.prepare_cookies(self.cookies_())
+        self.prepare_body(self.data_(), self.files_(), self.json_())
+        self.auth_(Auth(self).prepare(self.auth_()))
 
         # Note that prepare_auth must be last to enable authentication schemes
         # such as OAuth to work on a fully prepared request.
 
         # This MUST go after prepare_auth. Authenticators could add a hook
-        self.prepare_hooks(hooks)
+        self.prepare_hooks(self.hooks_())
+        del self.data, self.files, self.json, self.params
+        return self
 
-    def __repr__(self):  # ./Models/PreparedRequest.py
+    def __repr__(self):  # ./Models/prepared_request.py
         return '<PreparedRequest [%s]>' % (self.method_())
 
-    def copy(self):  # ./Models/PreparedRequest.py
+    def copy(self):  # ./Models/prepared_request.py
         p = PreparedRequest()
         p.method_(self.method_())
         p.url_(self.url_())
@@ -1949,14 +1946,14 @@ class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/Prepared
         return p
 
     @staticmethod
-    def _get_idna_encoded_host(host):  # ./Models/PreparedRequest.py
+    def _get_idna_encoded_host(host):  # ./Models/prepared_request.py
         try:
             host = XIdna().encode(host, uts46=True).decode('utf-8')
         except XIdna().IDNAError():
             raise UnicodeError
         return host
 
-    def prepare_body(self, data, files, json=None):  # ./Models/PreparedRequest.py
+    def prepare_body(self, data, files, json=None):  # ./Models/prepared_request.py
         body = Body(self)
         self.body_(body.prepare(data, files, json))
         if body.is_stream():
@@ -1964,35 +1961,48 @@ class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/Prepared
         headers = self.headers_()
         headers.update(body.headers())
 
-    def prepare_auth(self, auth):  # ./Models/PreparedRequest.py
+    def prepare_auth(self, auth):  # ./Models/prepared_request.py
         self.auth_(Auth(self).prepare(auth))
 
-    def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
+    def prepare_cookies(self, cookies):  # ./Models/prepared_request.py
         c = Cookies(cookies)
         self.cookies_(c.prepare(self))
         cookie_header = c.cookie_header_()
         if cookie_header is not None:
             self.headers_()['Cookie'] = cookie_header
 
-    def prepare_hooks(self, hooks):  # ./Models/PreparedRequest.py
+    def prepare_hooks(self, hooks):  # ./Models/prepared_request.py
+        self.hooks_(Hooks().default_hooks())  #: dictionary of callback hooks, for internal usage.
         hooks = hooks or []
         for event in hooks:
             self.register_hook(event, hooks[event])
 
-    def method_(self, *args):  # ./Models/PreparedRequest.py
+    def method_(self, *args):  # ./Models/prepared_request.py
         return XUtils().get_or_set(self, 'method', *args)
 
-    def body_(self, *args):  # ./Models/PreparedRequest.py
+    def files_(self, *args):  # ./Models/prepared_request.py
+        return XUtils().get_or_set(self, 'files', *args)
+
+    def data_(self, *args):  # ./Models/prepared_request.py
+        return XUtils().get_or_set(self, 'data', *args)
+
+    def json_(self, *args):  # ./Models/prepared_request.py
+        return XUtils().get_or_set(self, 'json', *args)
+
+    def params_(self, *args):  # ./Models/prepared_request.py
+        return XUtils().get_or_set(self, 'params', *args)
+
+    def body_(self, *args):  # ./Models/prepared_request.py
         return XUtils().get_or_set(self, 'body', *args)
 
-    def hooks_(self, *args):  # ./Models/PreparedRequest.py
+    def auth_(self, *args):  # ./Models/prepared_request.py
+        return XUtils().get_or_set(self, 'auth', *args)
+
+    def hooks_(self, *args):  # ./Models/prepared_request.py
         return XUtils().get_or_set(self, 'hooks', *args)
 
     def path_url_(self):
         return Encoding().path_url(self.url_())
-
-    def auth_(self, *args):  # ./Models/PreparedRequest.py
-        return XUtils().get_or_set(self, 'auth', *args)
 
 
 class Body:  # ./Models/body.py
@@ -2093,7 +2103,6 @@ class Body:  # ./Models/body.py
 
     def is_stream(self):  # ./Models/body.py
         return self._is_stream
-
 
 
 class Content:  # ./Models/Content.py
@@ -2236,7 +2245,6 @@ class Content:  # ./Models/Content.py
 class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
     def __init__(self):  # ./Models/Response.py
         super(Response, self).__init__()
-
         self.contentClass = Content(self.read_content)
         self.next_(None)
 
@@ -2887,20 +2895,18 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         if self.trust_env_() and not auth and not self.auth_():
             auth = Url(request.url_()).get_netrc_auth()
 
-        p = PreparedRequest()
-        p.prepare(
-            method=request.method_().upper(),
-            url=request.url_(),
-            files=request.files_(),
-            data=request.data_(),
-            json=request.json_(),
-            headers=Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict),
-            params=Sessions().merge_setting(request.params_(), self.params_()),
-            auth=Sessions().merge_setting(auth, self.auth_()),
-            cookies=merged_cookies,
-            hooks=Sessions().merge_hooks(request.hooks_() , self.hooks_() ),
-        )
-        return p
+        return PreparedRequest()\
+            .method_(request.method_().upper())\
+            .url_(request.url_())\
+            .files_(request.files_())\
+            .data_(request.data_())\
+            .json_(request.json_())\
+            .headers_(Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict))\
+            .params_(Sessions().merge_setting(request.params_(), self.params_()))\
+            .auth_(Sessions().merge_setting(auth, self.auth_()))\
+            .cookies_(merged_cookies)\
+            .hooks_(Sessions().merge_hooks(request.hooks_() , self.hooks_() )).prepare()
+
 
     def request(self, method, url,
                 params=None, data=None, headers=None, cookies=None, files=None,
