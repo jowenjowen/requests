@@ -943,8 +943,8 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
             r.content_()
             r.close()
             prep = r.request_().copy()
-            CookieUtils().to_jar(prep._cookies, r.request_(), r.raw_())
-            prep.prepare_cookies(prep._cookies)
+            CookieUtils().to_jar(prep.cookies_(), r.request_(), r.raw_())
+            prep.prepare_cookies(prep.cookies_())
 
             prep.headers_()['Authorization'] = self.build_digest_header(
                 prep.method_(), prep.url_())
@@ -1654,24 +1654,39 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
         except ValueError:
             return False
 
+class CommonProperties:
+    def __init__(self):  # ./Models/Request.py
+        # Default empty dicts for dict params.
+        self\
+            .cookies_(None) \
+            .headers_({}) \
+            .url_(None)
 
-class Request(RequestHooksMixin):  # ./Models/Request.py
+    def cookies_(self, *args):  # ./Models/request_base.py
+        return XUtils().get_or_set(self, 'cookies', *args)
+
+    def headers_(self, *args):  # ./Models/request_base.py
+        return XUtils().get_or_set(self, 'headers', *args)
+
+    def url_(self, *args):  # ./Models/request_base.py
+        return XUtils().get_or_set(self, 'url', *args)
+
+
+class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):
+        super(Request, self).__init__()
         # ./Models/Request.py
         # Default empty dicts for dict params.
         self\
             .auth_(None) \
-            .cookies_(None) \
             .data_([]) \
             .files_([]) \
-            .headers_({}) \
             .json_(None) \
             .method_(None) \
             .params_({}) \
-            .hooks_(Hooks().default_hooks()) \
-            .url_(None)
+            .hooks_(Hooks().default_hooks())
 
     def __repr__(self):  # ./Models/Request.py
         return '<Request [%s]>' % (self.method_())
@@ -1697,15 +1712,6 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
         self.headers_()[key] = value
         return self
 
-    def headers_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'headers', *args)
-
-    def url_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'url', *args)
-
-    def cookies_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'cookies', *args)
-
     def  auth_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'auth', *args)
 
@@ -1717,9 +1723,6 @@ class Request(RequestHooksMixin):  # ./Models/Request.py
 
     def files_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'files', *args)
-
-    def headers_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'headers', *args)
 
     def params_(self, *args):  # ./Models/Request.py
         return XUtils().get_or_set(self, 'params', *args)
@@ -1902,15 +1905,12 @@ class Header:  # ./Models/header.py
         return '%s/%s' % (name, requests_version)
 
 
-class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
+class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/PreparedRequest.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/PreparedRequest.py
+        super(PreparedRequest, self).__init__()
         self.method_(None)  #: HTTP verb to send to the server.
-        self.url_(None)  #: HTTP URL to send the request to.
-        self.headers_(None)  #: dictionary of HTTP headers.
-        self._cookies = None # The `CookieJar` (CookieJar or XCookieJar) used to create the Cookie header
-                             # will be stored here after prepare_cookies is called
         self.body_(None)  #: request body to send to the server.
         self.hooks_(Hooks().default_hooks())  #: dictionary of callback hooks, for internal usage.
         self._body_position = None  #: integer denoting starting position of a readable file-like body.
@@ -1942,7 +1942,7 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
         p.method_(self.method_())
         p.url_(self.url_())
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
-        p._cookies = CookieUtils()._copy_cookie_jar(self._cookies)
+        p.cookies_(CookieUtils()._copy_cookie_jar(self.cookies_()))
         p.body_(self.body_())
         p.hooks_(self.hooks_() )
         p._body_position = self._body_position
@@ -1969,7 +1969,7 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
 
     def prepare_cookies(self, cookies):  # ./Models/PreparedRequest.py
         c = Cookies(cookies)
-        self._cookies = c.prepare(self)
+        self.cookies_(c.prepare(self))
         cookie_header = c.cookie_header_()
         if cookie_header is not None:
             self.headers_()['Cookie'] = cookie_header
@@ -1978,12 +1978,6 @@ class PreparedRequest(RequestHooksMixin):  # ./Models/PreparedRequest.py
         hooks = hooks or []
         for event in hooks:
             self.register_hook(event, hooks[event])
-
-    def headers_(self, *args):  # ./Models/PreparedRequest.py
-        return XUtils().get_or_set(self, 'headers', *args)
-
-    def url_(self, *args):  # ./Models/PreparedRequest.py
-        return XUtils().get_or_set(self, 'url', *args)
 
     def method_(self, *args):  # ./Models/PreparedRequest.py
         return XUtils().get_or_set(self, 'method', *args)
@@ -2239,8 +2233,9 @@ class Content:  # ./Models/Content.py
         XUtils().get_or_set(self, '_content', *args)
 
 
-class Response(PicklerMixin):  # ./Models/Response/Response.py
+class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
     def __init__(self):  # ./Models/Response.py
+        super(Response, self).__init__()
 
         self.contentClass = Content(self.read_content)
         self.next_(None)
@@ -2257,9 +2252,6 @@ class Response(PicklerMixin):  # ./Models/Response/Response.py
         #: Use of ``raw`` requires that ``stream=True`` be set on the request.
         #: This requirement does not apply for use internally to Requests.
         self.raw_(None)
-
-        #: Final URL location of Response.
-        self.url_(None)
 
         #: Encoding to decode with when accessing r.text.
         self.encoding_(None)
@@ -2449,12 +2441,6 @@ class Response(PicklerMixin):  # ./Models/Response/Response.py
     def content_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'content', *args)
 
-    def headers_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'headers', *args)
-
-    def url_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'url', *args)
-
     def encoding_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'encoding', *args)
 
@@ -2463,9 +2449,6 @@ class Response(PicklerMixin):  # ./Models/Response/Response.py
 
     def reason_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'reason', *args)
-
-    def cookies_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'cookies', *args)
 
     def elapsed_(self, *args):  # ./Models/Response.py
         return XUtils().get_or_set(self, 'elapsed', *args)
@@ -2709,9 +2692,9 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             # Extract any cookies sent on the response to the cookiejar
             # in the new request. Because we've mutated our copied prepared
             # request, use the old one that we haven't yet touched.
-            CookieUtils().to_jar(prepared_request._cookies, req, resp.raw_())
-            CookieUtils().merge_cookies(prepared_request._cookies, self.cookies_())
-            prepared_request.prepare_cookies(prepared_request._cookies)
+            CookieUtils().to_jar(prepared_request.cookies_(), req, resp.raw_())
+            CookieUtils().merge_cookies(prepared_request.cookies_(), self.cookies_())
+            prepared_request.prepare_cookies(prepared_request.cookies_())
 
             # Rebuild auth and proxy information.
             proxies = self.rebuild_proxies(prepared_request, proxies)

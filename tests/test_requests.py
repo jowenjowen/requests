@@ -409,12 +409,12 @@ class TestRequests:
         resp = next(redirects)
 
         # Verify XCookieJar isn't being converted to CookieJar
-        assert isinstance(prep_req._cookies, XCookieJar)
-        assert isinstance(resp.request_()._cookies, XCookieJar)
-        assert not isinstance(resp.request_()._cookies, CookieJar)
+        assert isinstance(prep_req.cookies_(), XCookieJar)
+        assert isinstance(resp.request_().cookies_(), XCookieJar)
+        assert not isinstance(resp.request_().cookies_(), CookieJar)
 
         cookies = {}
-        for c in resp.request_()._cookies:
+        for c in resp.request_().cookies_():
             cookies[c.name] = c.value
         assert cookies['foo'] == 'bar'
         assert cookies['cookie'] == 'tasty'
@@ -2362,7 +2362,7 @@ def test_prepared_copy(kwargs):
     if kwargs:
         p.prepare(**kwargs)
     copy = p.copy()
-    for attr in ('method', 'url', 'headers', '_cookies', 'body', 'hooks'):
+    for attr in ('method', 'url', 'headers', 'cookies', 'body', 'hooks'):
         assert getattr(p, attr) == getattr(copy, attr)
 
 

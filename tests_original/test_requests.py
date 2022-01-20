@@ -430,12 +430,12 @@ class TestRequests:
         resp = next(redirects)
 
         # Verify CookieJar isn't being converted to RequestsCookieJar
-        assert isinstance(prep_req._cookies, cookielib.CookieJar)
-        assert isinstance(resp.request._cookies, cookielib.CookieJar)
-        assert not isinstance(resp.request._cookies, requests.cookies.RequestsCookieJar)
+        assert isinstance(prep_req.cookies, cookielib.CookieJar)
+        assert isinstance(resp.request.cookies, cookielib.CookieJar)
+        assert not isinstance(resp.request.cookies, requests.cookies.RequestsCookieJar)
 
         cookies = {}
-        for c in resp.request._cookies:
+        for c in resp.request.cookies:
             cookies[c.name] = c.value
         assert cookies['foo'] == 'bar'
         assert cookies['cookie'] == 'tasty'
