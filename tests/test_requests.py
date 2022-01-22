@@ -33,7 +33,7 @@ from requests.five_d.domain import Auth
 from requests.five_d.domain import XMorsel
 from requests.five_d.domain import CookieUtils
 from requests.five_d.domain import CookieConflictError
-from requests.five_d.domain import PreparedRequest
+from requests.five_d.domain import Ticket
 from requests.five_d.domain import CaseInsensitiveDict
 from requests.five_d.domain import SessionRedirectMixin
 from requests.five_d.domain import Hooks
@@ -2265,7 +2265,7 @@ class RedirectSession(SessionRedirectMixin):
 def test_json_encodes_as_bytes():
     # urllib3 expects bodies as bytes-like objects
     body = {"key": "value"}
-    p = PreparedRequest().method_('GET').url_('https://www.example.com/').json_(body).prepare()
+    p = Ticket().method_('GET').url_('https://www.example.com/').json_(body).prepare()
     assert isinstance(p.body_(), bytes)
 
 
@@ -2298,7 +2298,7 @@ def test_requests_are_updated_each_time(httpbin):
 ])
 def test_proxy_env_vars_override_default(var, url, proxy):
     session = Session()
-    prep = PreparedRequest().method_('GET').url_(url).prepare()
+    prep = Ticket().method_('GET').url_(url).prepare()
 
     kwargs = {
         var: proxy
@@ -2320,7 +2320,7 @@ def test_data_argument_accepts_tuples(data):
     """Ensure that the data argument will accept tuples of strings
     and properly encode them.
     """
-    p = PreparedRequest().method_('GET').url_('http://www.example.com')\
+    p = Ticket().method_('GET').url_('http://www.example.com')\
         .data_(data).hooks_(Hooks().default_hooks()).prepare()
     assert p.body_() == XUrl().encode(data)
 
@@ -2347,7 +2347,7 @@ def test_data_argument_accepts_tuples(data):
         },
     ))
 def test_prepared_copy(kwargs):
-    p = PreparedRequest()
+    p = Ticket()
     if kwargs:
         for key, value in kwargs.items():
             func = eval("p.%s_"%key)

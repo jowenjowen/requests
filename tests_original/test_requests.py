@@ -15,7 +15,7 @@ import requests.api as requests
 import io
 import pytest
 from requests.five_d.domain import HTTPDigestAuth
-from requests.five_d.domain import PreparedRequest
+from requests.five_d.domain import Ticket
 from requests.five_d.domain import CaseInsensitiveDict
 from requests.five_d.domain import SessionRedirectMixin
 
@@ -2322,7 +2322,7 @@ class RedirectSession(SessionRedirectMixin):
 def test_json_encodes_as_bytes():
     # urllib3 expects bodies as bytes-like objects
     body = {"key": "value"}
-    p = PreparedRequest()
+    p = Ticket()
     p.prepare(
         method='GET',
         url='https://www.example.com/',
@@ -2360,7 +2360,7 @@ def test_requests_are_updated_each_time(httpbin):
 ])
 def test_proxy_env_vars_override_default(var, url, proxy):
     session = requests.Session()
-    prep = PreparedRequest()
+    prep = Ticket()
     prep.prepare(method='GET', url=url)
 
     kwargs = {
@@ -2383,7 +2383,7 @@ def test_data_argument_accepts_tuples(data):
     """Ensure that the data argument will accept tuples of strings
     and properly encode them.
     """
-    p = PreparedRequest()
+    p = Ticket()
     p.prepare(
         method='GET',
         url='http://www.example.com',
@@ -2415,7 +2415,7 @@ def test_data_argument_accepts_tuples(data):
             },
     ))
 def test_prepared_copy(kwargs):
-    p = PreparedRequest()
+    p = Ticket()
     if kwargs:
         p.prepare(**kwargs)
     copy = p.copy()

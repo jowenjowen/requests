@@ -1693,7 +1693,7 @@ class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
 
     def prepare(self):  # ./Models/Request.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for transmission and returns it."""
-        return PreparedRequest()\
+        return Ticket()\
             .method_(self.method_())\
             .url_(self.url_())\
             .headers_(self.headers_())\
@@ -1904,16 +1904,16 @@ class Header:  # ./Models/header.py
         return '%s/%s' % (name, requests_version)
 
 
-class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/prepared_request.py
+class Ticket(CommonProperties, RequestHooksMixin):  # ./Models/ticket.py
     def help(self): Help().display(self.__class__.__name__)
 
-    def __init__(self):  # ./Models/prepared_request.py
-        super(PreparedRequest, self).__init__()
+    def __init__(self):  # ./Models/ticket.py
+        super(Ticket, self).__init__()
         self.method_(None).url_(None).headers_(None).files_(None).data_(None).params_(None)\
             .auth_(None).cookies_(None).hooks_(Hooks().default_hooks()).json_(None).body_(None)
         self._body_position = None  #: integer denoting starting position of a readable file-like body.
 
-    def prepare(self):  # ./Models/prepared_request.py
+    def prepare(self):  # ./Models/ticket.py
         """Prepares the entire request with the given parameters."""
 
         self.method_(Method(self.method_()).prepare())
@@ -1931,11 +1931,11 @@ class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/prepared
         del self.data, self.files, self.json, self.params
         return self
 
-    def __repr__(self):  # ./Models/prepared_request.py
+    def __repr__(self):  # ./Models/ticket.py
         return '<PreparedRequest [%s]>' % (self.method_())
 
-    def copy(self):  # ./Models/prepared_request.py
-        p = PreparedRequest()
+    def copy(self):  # ./Models/ticket.py
+        p = Ticket()
         p.method_(self.method_())
         p.url_(self.url_())
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
@@ -1946,14 +1946,14 @@ class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/prepared
         return p
 
     @staticmethod
-    def _get_idna_encoded_host(host):  # ./Models/prepared_request.py
+    def _get_idna_encoded_host(host):  # ./Models/ticket.py
         try:
             host = XIdna().encode(host, uts46=True).decode('utf-8')
         except XIdna().IDNAError():
             raise UnicodeError
         return host
 
-    def prepare_body(self, data, files, json=None):  # ./Models/prepared_request.py
+    def prepare_body(self, data, files, json=None):  # ./Models/ticket.py
         body = Body(self)
         self.body_(body.prepare(data, files, json))
         if body.is_stream():
@@ -1961,44 +1961,44 @@ class PreparedRequest(CommonProperties, RequestHooksMixin):  # ./Models/prepared
         headers = self.headers_()
         headers.update(body.headers())
 
-    def prepare_auth(self, auth):  # ./Models/prepared_request.py
+    def prepare_auth(self, auth):  # ./Models/ticket.py
         self.auth_(Auth(self).prepare(auth))
 
-    def prepare_cookies(self, cookies):  # ./Models/prepared_request.py
+    def prepare_cookies(self, cookies):  # ./Models/ticket.py
         c = Cookies(cookies)
         self.cookies_(c.prepare(self))
         cookie_header = c.cookie_header_()
         if cookie_header is not None:
             self.headers_()['Cookie'] = cookie_header
 
-    def prepare_hooks(self, hooks):  # ./Models/prepared_request.py
+    def prepare_hooks(self, hooks):  # ./Models/ticket.py
         self.hooks_(Hooks().default_hooks())  #: dictionary of callback hooks, for internal usage.
         hooks = hooks or []
         for event in hooks:
             self.register_hook(event, hooks[event])
 
-    def method_(self, *args):  # ./Models/prepared_request.py
+    def method_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'method', *args)
 
-    def files_(self, *args):  # ./Models/prepared_request.py
+    def files_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'files', *args)
 
-    def data_(self, *args):  # ./Models/prepared_request.py
+    def data_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'data', *args)
 
-    def json_(self, *args):  # ./Models/prepared_request.py
+    def json_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'json', *args)
 
-    def params_(self, *args):  # ./Models/prepared_request.py
+    def params_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'params', *args)
 
-    def body_(self, *args):  # ./Models/prepared_request.py
+    def body_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'body', *args)
 
-    def auth_(self, *args):  # ./Models/prepared_request.py
+    def auth_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'auth', *args)
 
-    def hooks_(self, *args):  # ./Models/prepared_request.py
+    def hooks_(self, *args):  # ./Models/ticket.py
         return XUtils().get_or_set(self, 'hooks', *args)
 
     def path_url_(self):
@@ -2895,7 +2895,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         if self.trust_env_() and not auth and not self.auth_():
             auth = Url(request.url_()).get_netrc_auth()
 
-        return PreparedRequest()\
+        return Ticket()\
             .method_(request.method_().upper())\
             .url_(request.url_())\
             .files_(request.files_())\
