@@ -155,6 +155,17 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
         return self.__dict__.get(key, default)
 
 
+class Inputs(object):
+    def list_attributes(self):
+        self.attributes = self.__dict__.keys()
+
+    def pick_out_inputs(self, kwargs):
+        for k, v in kwargs.items():
+            if (k in self.attributes):
+                setattr(self, k, v)
+        return self
+
+
 # *************************** classes in StatusCodes section *****************
 class StatusCodes:  # ./StatusCodes/status_codes.py
     def help(self): Help().display(self.__class__.__name__)
@@ -638,14 +649,20 @@ class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
 class Requests:  # ./Api/api.py
     def help(self): Help().display(self.__class__.__name__)
 
+    # , method, url,
+    #         params=None, data=None, headers=None, cookies=None, files=None,
+    #         auth=None, timeout=None, allow_redirects=True, proxies=None,
+    #         hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
+
     def __init__(self):
         self.data_(None)
         self.json_(None)
         self.params_(None)
 
+
     def request(self, method, url, **kwargs):  # ./Api/api.py
         with Sessions().session() as session:
-            return session.request(method=method, url=url, **kwargs)
+            return session.request(method, url, **kwargs)
 
     def get(self, **kwargs):  # ./Api/api.py
         return self.request('get', self.url_(), params=self.params_(), **kwargs)
@@ -670,16 +687,16 @@ class Requests:  # ./Api/api.py
         return self.request('delete', self.url_(), **kwargs)
 
     def url_(self, *args):  # ./Requests.py
-        return XUtils().get_or_set(self, 'url', *args)
+        return DomainUtils().get_or_set(self, 'url', *args)
 
     def json_(self, *args): # ./Requests.py
-        return XUtils().get_or_set(self, 'json', *args)
+        return DomainUtils().get_or_set(self, 'json', *args)
 
     def data_(self, *args):  # ./Requests.py
-        return XUtils().get_or_set(self, 'data', *args)
+        return DomainUtils().get_or_set(self, 'data', *args)
 
     def params_(self, *args):  # ./Requests.py
-        return XUtils().get_or_set(self, 'params', *args)
+        return DomainUtils().get_or_set(self, 'params', *args)
 
 
 # *************************** classes in Auth section *****************
@@ -714,7 +731,7 @@ class Auth:  # ./Auth/auth.py
         return self.auth_()
 
     def auth_(self, *args):  # ./Auth/auth.py
-        return XUtils().get_or_set(self, 'auth', *args)
+        return DomainUtils().get_or_set(self, 'auth', *args)
 
     def basic_auth_str(self, username, password):  # ./Auth/auth.py
         if not XBaseString().is_instance(username):
@@ -1663,16 +1680,16 @@ class CommonProperties(object):
             .url_(None)
 
     def cookies_(self, *args):  # ./Models/request_base.py
-        return XUtils().get_or_set(self, 'cookies', *args)
+        return DomainUtils().get_or_set(self, 'cookies', *args)
 
     def headers_(self, *args):  # ./Models/request_base.py
-        return XUtils().get_or_set(self, 'headers', *args)
+        return DomainUtils().get_or_set(self, 'headers', *args)
 
     def url_(self, *args):  # ./Models/request_base.py
-        return XUtils().get_or_set(self, 'url', *args)
+        return DomainUtils().get_or_set(self, 'url', *args)
 
 
-class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
+class Request(CommonProperties, RequestHooksMixin, Inputs):  # ./Models/Request.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/Request.py
@@ -1687,6 +1704,7 @@ class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
             .method_(None) \
             .params_({}) \
             .hooks_(Hooks().default_hooks())
+        self.list_attributes()
 
     def __repr__(self):  # ./Models/Request.py
         return '<Request [%s]>' % (self.method_())
@@ -1714,13 +1732,13 @@ class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
         return Encoding().path_url(self.url_())
 
     def auth_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'auth', *args)
+        return DomainUtils().get_or_set(self, 'auth', *args)
 
     def data_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'data', *args)
+        return DomainUtils().get_or_set(self, 'data', *args)
 
     def files_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'files', *args)
+        return DomainUtils().get_or_set(self, 'files', *args)
 
     def hooks_(self, *args):  # ./Models/Request.py
         if len(args) != 0:
@@ -1733,13 +1751,13 @@ class Request(CommonProperties, RequestHooksMixin):  # ./Models/Request.py
             return self.hooks
 
     def json_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'json', *args)
+        return DomainUtils().get_or_set(self, 'json', *args)
 
     def method_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'method', *args)
+        return DomainUtils().get_or_set(self, 'method', *args)
 
     def params_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'params', *args)
+        return DomainUtils().get_or_set(self, 'params', *args)
 
 
 class Method:  # ./Models/method.py
@@ -1753,7 +1771,7 @@ class Method:  # ./Models/method.py
         return self.method
 
     def method_(self, *args):  # ./Models/method.py
-        return XUtils().get_or_set(self, 'method', *args)
+        return DomainUtils().get_or_set(self, 'method', *args)
 
 
 class Cookies:  # ./Models/cookies.py
@@ -1772,7 +1790,7 @@ class Cookies:  # ./Models/cookies.py
         return self.cookies_()
 
     def cookies_(self, *args):  # ./Models/cookies.py
-        return XUtils().get_or_set(self, 'cookies', *args)
+        return DomainUtils().get_or_set(self, 'cookies', *args)
 
     def cookie_header_(self):  # ./Models/cookies.py
         return self.cookie_header
@@ -1797,7 +1815,7 @@ class Headers:  # ./Models/headers.py
         return self.headers_()
 
     def headers_(self, *args):  # ./Models/headers.py
-        return XUtils().get_or_set(self, 'headers', *args)
+        return DomainUtils().get_or_set(self, 'headers', *args)
 
     def get_encoding_from_headers(self):  # ./Models/headers.py
         content_type = self.headers_().get('content-type')
@@ -1978,28 +1996,28 @@ class Ticket(CommonProperties, RequestHooksMixin):  # ./Models/ticket.py
             self.register_hook(event, hooks[event])
 
     def method_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'method', *args)
+        return DomainUtils().get_or_set(self, 'method', *args)
 
     def files_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'files', *args)
+        return DomainUtils().get_or_set(self, 'files', *args)
 
     def data_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'data', *args)
+        return DomainUtils().get_or_set(self, 'data', *args)
 
     def json_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'json', *args)
+        return DomainUtils().get_or_set(self, 'json', *args)
 
     def params_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'params', *args)
+        return DomainUtils().get_or_set(self, 'params', *args)
 
     def body_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'body', *args)
+        return DomainUtils().get_or_set(self, 'body', *args)
 
     def auth_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'auth', *args)
+        return DomainUtils().get_or_set(self, 'auth', *args)
 
     def hooks_(self, *args):  # ./Models/ticket.py
-        return XUtils().get_or_set(self, 'hooks', *args)
+        return DomainUtils().get_or_set(self, 'hooks', *args)
 
     def path_url_(self):
         return Encoding().path_url(self.url_())
@@ -2099,7 +2117,7 @@ class Body:  # ./Models/body.py
         return self._headers
 
     def body_(self, *args):  # ./Models/body.py
-        return XUtils().get_or_set(self, 'body', *args)
+        return DomainUtils().get_or_set(self, 'body', *args)
 
     def is_stream(self):  # ./Models/body.py
         return self._is_stream
@@ -2239,7 +2257,7 @@ class Content:  # ./Models/Content.py
         self._content_consumed = True
 
     def internal_content(self, *args):  # ./Models/Content.py
-        XUtils().get_or_set(self, '_content', *args)
+        DomainUtils().get_or_set(self, '_content', *args)
 
 
 class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
@@ -2346,7 +2364,7 @@ class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
 
     def next_(self, *args):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
-        return XUtils().get_or_set(self, '_next', *args)
+        return DomainUtils().get_or_set(self, '_next', *args)
 
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
         return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding_())
@@ -2441,31 +2459,31 @@ class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
             release_conn()
 
     def raw_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'raw', *args)
+        return DomainUtils().get_or_set(self, 'raw', *args)
 
     def status_code_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'status_code', *args)
+        return DomainUtils().get_or_set(self, 'status_code', *args)
 
     def content_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'content', *args)
+        return DomainUtils().get_or_set(self, 'content', *args)
 
     def encoding_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'encoding', *args)
+        return DomainUtils().get_or_set(self, 'encoding', *args)
 
     def history_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'history', *args)
+        return DomainUtils().get_or_set(self, 'history', *args)
 
     def reason_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'reason', *args)
+        return DomainUtils().get_or_set(self, 'reason', *args)
 
     def elapsed_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'elapsed', *args)
+        return DomainUtils().get_or_set(self, 'elapsed', *args)
 
     def request_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'request', *args)
+        return DomainUtils().get_or_set(self, 'request', *args)
 
     def  auth_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'auth', *args)
+        return DomainUtils().get_or_set(self, 'auth', *args)
 
     def get_unicode(self):  # ./Models/Response.py
         XWarnings().warn((
@@ -2536,28 +2554,24 @@ class Packages:  # ./Packages/Packages.py
 
 
 # *************************** classes in Sessions section *****************
-class Sessions:  # ./Sessions/Sessions.py
-    def help(self): Help().display(self.__class__.__name__)
+class RequestSetting:  # ./Sessions/request_setting.py
+    def __init__(self, request_setting):
+        self.request_setting = request_setting
 
-    def preferred_clock(self):
-        return XTime().clock_method()()
-
-    def merge_setting(self, request_setting, session_setting, dict_class=XOrderedDict):  # ./Sessions/Sessions.py
+    def merge_session_setting(self, session_setting, dict_class=XOrderedDict):
         if session_setting is None:
-            return request_setting
+            return self.request_setting
 
-        if request_setting is None:
+        if self.request_setting is None:
             return session_setting
 
         # Bypass if not a dictionary (e.g. verify)
-        if not (
-                isinstance(session_setting, XMapping) and
-                isinstance(request_setting, XMapping)
-        ):
-            return request_setting
+        if not (isinstance(session_setting, XMapping) and
+                isinstance(self.request_setting, XMapping)):
+            return self.request_setting
 
         merged_setting = dict_class(CollectionsUtils().to_key_val_list(session_setting))
-        merged_setting.update(CollectionsUtils().to_key_val_list(request_setting))
+        merged_setting.update(CollectionsUtils().to_key_val_list(self.request_setting))
 
         # Remove keys that are set to None. Extract keys first to avoid altering
         # the dictionary during iteration.
@@ -2567,6 +2581,13 @@ class Sessions:  # ./Sessions/Sessions.py
 
         return merged_setting
 
+
+class Sessions:  # ./Sessions/Sessions.py
+    def help(self): Help().display(self.__class__.__name__)
+
+    def preferred_clock(self):
+        return XTime().clock_method()()
+
     def merge_hooks(self, request_hooks, session_hooks, dict_class=XOrderedDict):
         if session_hooks is None or session_hooks.get('response') == []:
             return request_hooks
@@ -2574,7 +2595,7 @@ class Sessions:  # ./Sessions/Sessions.py
         if request_hooks is None or request_hooks.get('response') == []:
             return session_hooks
 
-        return self.merge_setting(request_hooks, session_hooks, dict_class)
+        return RequestSetting(request_hooks).merge_session_setting(session_hooks, dict_class)
 
     def session(self):  # ./Sessions/Session.py
         return Session()
@@ -2826,13 +2847,13 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         prepared_request.method_(method)
 
     def cookies_(self, *args):  # ./Models/Response.py
-        return XUtils().get_or_set(self, 'cookies', *args)
+        return DomainUtils().get_or_set(self, 'cookies', *args)
 
     def trust_env_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'trust_env', *args)
+        return DomainUtils().get_or_set(self, 'trust_env', *args)
 
     def max_redirects_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'max_redirects', *args)
+        return DomainUtils().get_or_set(self, 'max_redirects', *args)
 
 
 class SessionPickle:
@@ -2852,6 +2873,55 @@ class SessionPickle:
         else:
             for attr, value in args[0].items():
                 setattr(it, attr, value)
+
+
+class SessionSendInputs(Inputs):
+    def __init__(self):
+        self.timeout = None
+        self.allow_redirects = True
+        self.list_attributes()
+
+    def merge_settings(self, settings):
+        send_kwargs = {
+            'timeout': self.timeout,
+            'allow_redirects': self.allow_redirects,
+        }
+        send_kwargs.update(settings)
+        return send_kwargs
+
+
+class SessionEnvironmentInputs(Inputs):  # ./sessions/session_environment_inputs.py
+    def __init__(self):
+        self.verify = None
+        self.proxies = None
+        self.stream = None
+        self.cert = None
+        self.list_attributes()
+
+    def merge_settings(self, url, session):  # ./sessions/session_environment_inputs.py
+        self.proxies = self.proxies or {}
+        if session.trust_env_():
+            # Set environment's proxies.
+            no_proxy = self.proxies.get('no_proxy') if self.proxies is not None else None
+            env_proxies = ProxyUtils().get_environ_proxies(url, no_proxy=no_proxy)
+            for (k, v) in env_proxies.items():
+                self.proxies.setdefault(k, v)
+
+            # Look for requests environment configuration and be compatible
+            # with cURL.
+            if self.verify is True or self.verify is None:
+                verify = (XOs().environ().get('REQUESTS_CA_BUNDLE') or
+                          XOs().environ().get('CURL_CA_BUNDLE'))
+
+        # Merge all the kwargs.
+        proxies = RequestSetting(self.proxies).merge_session_setting(session.proxies_())
+        stream = RequestSetting(self.stream).merge_session_setting(session.stream_())
+        verify = RequestSetting(self.verify).merge_session_setting(session.verify_())
+        cert = RequestSetting(self.cert).merge_session_setting(session.cert_())
+
+        return {'verify': verify, 'proxies': proxies, 'stream': stream,
+                'cert': cert}
+
 
 
 class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
@@ -2879,7 +2949,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
     def __exit__(self, *args):
         self.close()
 
-    def prepare_request(self, request):  # ./Sessions/Session.py
+    def prepare_request(self, request):  # ./sessions/session.py
         cookies = request.cookies_() or {}
 
         # Bootstrap CookieJar.
@@ -2901,45 +2971,20 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
             .files_(request.files_())\
             .data_(request.data_())\
             .json_(request.json_())\
-            .headers_(Sessions().merge_setting(request.headers_(), self.headers_(), dict_class=CaseInsensitiveDict))\
-            .params_(Sessions().merge_setting(request.params_(), self.params_()))\
-            .auth_(Sessions().merge_setting(auth, self.auth_()))\
+            .headers_(RequestSetting(request.headers_())
+                      .merge_session_setting(self.headers_(), dict_class=CaseInsensitiveDict))\
+            .params_(RequestSetting(request.params_()).merge_session_setting(self.params_()))\
+            .auth_(RequestSetting(auth).merge_session_setting(self.auth_()))\
             .cookies_(merged_cookies)\
             .hooks_(Sessions().merge_hooks(request.hooks_() , self.hooks_() )).prepare()
 
 
-    def request(self, method, url,
-                params=None, data=None, headers=None, cookies=None, files=None,
-                auth=None, timeout=None, allow_redirects=True, proxies=None,
-                hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
-        req = Request()\
-            .auth_(auth)\
-            .cookies_(cookies)\
-            .data_(data or {})\
-            .files_(files)\
-            .headers_(headers)\
-            .json_(json)\
-            .method_(method.upper())\
-            .params_(params or {})\
-            .hooks_(hooks)\
-            .url_(url)
-
+    def request(self, method, url, **kwargs):  # ./sessions/session.py
+        req = Request().url_(url).method_(method).pick_out_inputs(kwargs)
         prep = self.prepare_request(req)
-
-        proxies = proxies or {}
-
-        settings = self.merge_environment_settings(
-            prep.url_(), proxies, stream, verify, cert
-        )
-
-        # Send the request.
-        send_kwargs = {
-            'timeout': timeout,
-            'allow_redirects': allow_redirects,
-        }
-        send_kwargs.update(settings)
+        settings = SessionEnvironmentInputs().pick_out_inputs(kwargs).merge_settings(prep.url_(), self)
+        send_kwargs = SessionSendInputs().pick_out_inputs(kwargs).merge_settings(settings)
         resp = self.send(prep, **send_kwargs)
-
         return resp
 
     def get(self, url, **kwargs):  # ./Sessions/Session.py
@@ -3038,29 +3083,6 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
 
         return r
 
-    def merge_environment_settings(self, url, proxies, stream, verify, cert):  # ./Sessions/Session.py
-        if self.trust_env_():
-            # Set environment's proxies.
-            no_proxy = proxies.get('no_proxy') if proxies is not None else None
-            env_proxies = ProxyUtils().get_environ_proxies(url, no_proxy=no_proxy)
-            for (k, v) in env_proxies.items():
-                proxies.setdefault(k, v)
-
-            # Look for requests environment configuration and be compatible
-            # with cURL.
-            if verify is True or verify is None:
-                verify = (XOs().environ().get('REQUESTS_CA_BUNDLE') or
-                          XOs().environ().get('CURL_CA_BUNDLE'))
-
-        # Merge all the kwargs.
-        proxies = Sessions().merge_setting(proxies, self.proxies_())
-        stream = Sessions().merge_setting(stream, self.stream_())
-        verify = Sessions().merge_setting(verify, self.verify_())
-        cert = Sessions().merge_setting(cert, self.cert_())
-
-        return {'verify': verify, 'proxies': proxies, 'stream': stream,
-                'cert': cert}
-
     def get_adapter(self, url):  # ./Sessions/Session.py
         for (prefix, adapter) in self.adapters_().items():
 
@@ -3082,31 +3104,31 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
             self.adapters_()[key] = self.adapters_().pop(key)
 
     def headers_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'headers', *args)
+        return DomainUtils().get_or_set(self, 'headers', *args)
 
     def  auth_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'auth', *args)
+        return DomainUtils().get_or_set(self, 'auth', *args)
 
     def params_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'params', *args)
+        return DomainUtils().get_or_set(self, 'params', *args)
 
     def stream_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'stream', *args)
+        return DomainUtils().get_or_set(self, 'stream', *args)
 
     def hooks_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'hooks', *args)
+        return DomainUtils().get_or_set(self, 'hooks', *args)
 
     def adapters_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'adapters', *args)
+        return DomainUtils().get_or_set(self, 'adapters', *args)
 
     def cert_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'cert', *args)
+        return DomainUtils().get_or_set(self, 'cert', *args)
 
     def verify_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'verify', *args)
+        return DomainUtils().get_or_set(self, 'verify', *args)
 
     def proxies_(self, *args):  # ./Sessions/Session.py
-        return XUtils().get_or_set(self, 'proxies', *args)
+        return DomainUtils().get_or_set(self, 'proxies', *args)
 
 
 
@@ -3597,7 +3619,7 @@ class Url:  # ./Utils/url.py
         return self
 
     def value_(self, *args):  # ./Models/Request.py
-        return XUtils().get_or_set(self, 'value', *args)
+        return DomainUtils().get_or_set(self, 'value', *args)
 
 
 class IpUtils:  # ./Utils/ip_utils.py
@@ -3792,3 +3814,20 @@ def main():
 
 if __name__ == '__main__':
     main()
+
+class DomainUtils:
+    def get_or_set(self, instance, variable, *args):
+        if len(args) != 0:
+            setattr(instance, variable, args[0])
+            return instance
+        return getattr(instance, variable)
+
+
+    def get_or_set_class(self, instance, clazz, variable, *args):
+        if len(args) != 0:
+            if (type(args[0]) == clazz):
+                setattr(instance, variable, args[0])
+            else:
+                setattr(instance, variable, clazz(args[0]))
+            return instance
+        return getattr(instance, variable)

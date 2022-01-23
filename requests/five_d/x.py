@@ -631,19 +631,3 @@ class XUtils:  # ./InternalUtils/internal_utils.py
             return True
         except UnicodeEncodeError:
             return False
-
-    def get_or_set(self, instance, variable, *args):
-        if len(args) != 0:
-            setattr(instance, variable, args[0])
-            return instance
-        return getattr(instance, variable)
-
-
-    def get_or_set_class(self, instance, clazz, variable, *args):
-        if len(args) != 0:
-            if (type(args[0]) == clazz):
-                setattr(instance, variable, args[0])
-            else:
-                setattr(instance, variable, clazz(args[0]))
-            return instance
-        return getattr(instance, variable)
