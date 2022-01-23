@@ -152,7 +152,7 @@ class TestRequests:
         param_ordered_dict = collections.OrderedDict((('z', 1), ('a', 1), ('k', 1), ('d', 1)))
         session = requests.Session()
         request = requests.Request('GET', 'http://example.com/', params=param_ordered_dict)
-        prep = session.prepare_request(request)
+        prep = session.prepare_ticket(request)
         assert prep.url == 'http://example.com/?z=1&a=1&k=1&d=1'
 
     def test_params_bytes_are_encoded(self):
@@ -281,7 +281,7 @@ class TestRequests:
         purged_headers = ('Content-Length', 'Content-Type')
         ses = requests.Session()
         req = requests.Request('POST', httpbin('post'), data={'test': 'data'})
-        prep = ses.prepare_request(req)
+        prep = ses.prepare_ticket(req)
         resp = ses.send(prep)
 
         # Mimic a redirect response
@@ -298,7 +298,7 @@ class TestRequests:
         purged_headers = ('Transfer-Encoding', 'Content-Type')
         ses = requests.Session()
         req = requests.Request('POST', httpbin('post'), data=(b'x' for x in range(1)))
-        prep = ses.prepare_request(req)
+        prep = ses.prepare_ticket(req)
         assert 'Transfer-Encoding' in prep.headers
 
         # Create Response to avoid https://github.com/kevin1024/pytest-httpbin/issues/33
@@ -459,7 +459,7 @@ class TestRequests:
         ses = requests.Session()
         ses.headers['Accept-Encoding'] = None
         req = requests.Request('GET', httpbin('get'))
-        prep = ses.prepare_request(req)
+        prep = ses.prepare_ticket(req)
         assert 'Accept-Encoding' not in prep.headers
 
     def test_headers_preserve_order(self, httpbin):
@@ -473,7 +473,7 @@ class TestRequests:
         headers['Fifth'] = '5'
         headers['Second'] = '222'
         req = requests.Request('GET', httpbin('get'), headers=headers)
-        prep = ses.prepare_request(req)
+        prep = ses.prepare_ticket(req)
         items = list(prep.headers.items())
         assert items[0] == ('Accept-Encoding', 'identity')
         assert items[1] == ('First', '1')
@@ -582,7 +582,7 @@ class TestRequests:
             with pytest.raises(ProxyError):
                 session = requests.Session()
                 request = requests.Request('GET', httpbin())
-                prepared = session.prepare_request(request)
+                prepared = session.prepare_ticket(request)
                 session.send(prepared)
 
     def test_respect_proxy_env_on_send_with_redirects(self, httpbin):
@@ -982,7 +982,7 @@ class TestRequests:
         files = {'file': open(__file__, 'rb')}
         s = requests.Session()
         req = requests.Request(u('POST'), httpbin('post'), files=files)
-        prep = s.prepare_request(req)
+        prep = s.prepare_ticket(req)
         assert isinstance(prep.method, builtin_str)
         assert prep.method == 'POST'
 
@@ -1015,7 +1015,7 @@ class TestRequests:
 
         s = requests.Session()
         r = requests.Request('GET', httpbin(), hooks={'response': hook})
-        prep = s.prepare_request(r)
+        prep = s.prepare_ticket(r)
         s.send(prep)
 
     def test_session_hooks_are_used_with_no_request_hooks(self, httpbin):
@@ -1023,7 +1023,7 @@ class TestRequests:
         s = requests.Session()
         s.hooks['response'].append(hook)
         r = requests.Request('GET', httpbin())
-        prep = s.prepare_request(r)
+        prep = s.prepare_ticket(r)
         assert prep.hooks['response'] != []
         assert prep.hooks['response'] == [hook]
 
@@ -1034,7 +1034,7 @@ class TestRequests:
         s = requests.Session()
         s.hooks['response'].append(hook2)
         r = requests.Request('GET', httpbin(), hooks={'response': [hook1]})
-        prep = s.prepare_request(r)
+        prep = s.prepare_ticket(r)
         assert prep.hooks['response'] == [hook1]
 
     def test_prepared_request_hook(self, httpbin):
@@ -1063,7 +1063,7 @@ class TestRequests:
         s = requests.Session()
         s.auth = DummyAuth()
 
-        prep = s.prepare_request(req)
+        prep = s.prepare_ticket(req)
         resp = s.send(prep)
 
         assert resp.json()['headers'][
@@ -1072,7 +1072,7 @@ class TestRequests:
     def test_prepare_request_with_bytestring_url(self):
         req = requests.Request('GET', b'https://httpbin.org/')
         s = requests.Session()
-        prep = s.prepare_request(req)
+        prep = s.prepare_ticket(req)
         assert prep.url == "https://httpbin.org/"
 
     def test_request_with_bytestring_host(self, httpbin):

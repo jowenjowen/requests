@@ -155,9 +155,21 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
         return self.__dict__.get(key, default)
 
 
-class Inputs(object):
-    def list_attributes(self):
-        self.attributes = self.__dict__.keys()
+class Attributes(object):
+    def current_attributes(self):
+        self.attributes = list(self.__dict__.keys())
+
+    def add_accessors_for_current_attributes(self):
+        def add_fn(attr_name, cls):
+            def fn(self, *args):  # ./Requests.py
+                return DomainUtils().get_or_set(self, attr_name, *args)
+            setattr(cls, attr_name + '_', fn)
+
+        self.attributes = list(self.__dict__.keys())
+        existing = dir(self)
+        for attr in self.attributes:
+            if (attr+'_' not in existing):
+                add_fn(attr, self.__class__)
 
     def pick_out_inputs(self, kwargs):
         for k, v in kwargs.items():
@@ -646,7 +658,7 @@ class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
 
 
 # *************************** classes in Api section *****************
-class Requests:  # ./Api/api.py
+class Requests(Attributes):  # ./Api/api.py
     def help(self): Help().display(self.__class__.__name__)
 
     # , method, url,
@@ -655,10 +667,10 @@ class Requests:  # ./Api/api.py
     #         hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
 
     def __init__(self):
-        self.data_(None)
-        self.json_(None)
-        self.params_(None)
-
+        self.data= None
+        self.json= None
+        self.params= None
+        self.add_accessors_for_current_attributes()
 
     def request(self, method, url, **kwargs):  # ./Api/api.py
         with Sessions().session() as session:
@@ -1674,37 +1686,28 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
 class CommonProperties(object):
     def __init__(self):  # ./Models/Request.py
         # Default empty dicts for dict params.
-        self\
-            .cookies_(None) \
-            .headers_({}) \
-            .url_(None)
-
-    def cookies_(self, *args):  # ./Models/request_base.py
-        return DomainUtils().get_or_set(self, 'cookies', *args)
-
-    def headers_(self, *args):  # ./Models/request_base.py
-        return DomainUtils().get_or_set(self, 'headers', *args)
-
-    def url_(self, *args):  # ./Models/request_base.py
-        return DomainUtils().get_or_set(self, 'url', *args)
+        self.cookies = None
+        self.headers = {}
+        self.url = None
 
 
-class Request(CommonProperties, RequestHooksMixin, Inputs):  # ./Models/Request.py
+class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Request.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/Request.py
         super(Request, self).__init__()
         # ./Models/Request.py
         # Default empty dicts for dict params.
-        self\
-            .auth_(None) \
-            .data_([]) \
-            .files_([]) \
-            .json_(None) \
-            .method_(None) \
-            .params_({}) \
-            .hooks_(Hooks().default_hooks())
-        self.list_attributes()
+        self.auth = None
+        self.data = []
+        self.files = []
+        self.json = None
+        self.method = None
+        self.params = None
+        self.add_accessors_for_current_attributes()
+
+        self.auth = None
+        self.hooks = Hooks().default_hooks()
 
     def __repr__(self):  # ./Models/Request.py
         return '<Request [%s]>' % (self.method_())
@@ -1731,15 +1734,6 @@ class Request(CommonProperties, RequestHooksMixin, Inputs):  # ./Models/Request.
     def path_url_(self):
         return Encoding().path_url(self.url_())
 
-    def auth_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'auth', *args)
-
-    def data_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'data', *args)
-
-    def files_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'files', *args)
-
     def hooks_(self, *args):  # ./Models/Request.py
         if len(args) != 0:
             self.hooks = Hooks().default_hooks()
@@ -1749,15 +1743,6 @@ class Request(CommonProperties, RequestHooksMixin, Inputs):  # ./Models/Request.
             return self
         else:
             return self.hooks
-
-    def json_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'json', *args)
-
-    def method_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'method', *args)
-
-    def params_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'params', *args)
 
 
 class Method:  # ./Models/method.py
@@ -1922,13 +1907,20 @@ class Header:  # ./Models/header.py
         return '%s/%s' % (name, requests_version)
 
 
-class Ticket(CommonProperties, RequestHooksMixin):  # ./Models/ticket.py
+class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticket.py
     def help(self): Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/ticket.py
         super(Ticket, self).__init__()
-        self.method_(None).url_(None).headers_(None).files_(None).data_(None).params_(None)\
-            .auth_(None).cookies_(None).hooks_(Hooks().default_hooks()).json_(None).body_(None)
+        self.method = None
+        self.files = None
+        self.data = None
+        self.params = None
+        self.auth = None
+        self.hooks = Hooks().default_hooks()
+        self.json = None
+        self.body = None
+        self.add_accessors_for_current_attributes()
         self._body_position = None  #: integer denoting starting position of a readable file-like body.
 
     def prepare(self):  # ./Models/ticket.py
@@ -1994,30 +1986,6 @@ class Ticket(CommonProperties, RequestHooksMixin):  # ./Models/ticket.py
         hooks = hooks or []
         for event in hooks:
             self.register_hook(event, hooks[event])
-
-    def method_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'method', *args)
-
-    def files_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'files', *args)
-
-    def data_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'data', *args)
-
-    def json_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'json', *args)
-
-    def params_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'params', *args)
-
-    def body_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'body', *args)
-
-    def auth_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'auth', *args)
-
-    def hooks_(self, *args):  # ./Models/ticket.py
-        return DomainUtils().get_or_set(self, 'hooks', *args)
 
     def path_url_(self):
         return Encoding().path_url(self.url_())
@@ -2260,52 +2228,21 @@ class Content:  # ./Models/Content.py
         DomainUtils().get_or_set(self, '_content', *args)
 
 
-class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
+class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response/Response.py
     def __init__(self):  # ./Models/Response.py
         super(Response, self).__init__()
+        self.status_code = None
+        self.headers = CaseInsensitiveDict()
+        self.raw = None
+        self.encoding = None
+        self.history = []
+        self.reason = None
+        self.elapsed = XDateTime().timedelta(0)
+        self.request = None
+        self.auth = None
+        self.cookies = CookieUtils().cookiejar_from_dict({})
+        self.add_accessors_for_current_attributes()
         self.contentClass = Content(self.read_content)
-        self.next_(None)
-
-        #: Integer Code of responded HTTP Status, e.g. 404 or 200.
-        self.status_code_(None)
-
-        #: Case-insensitive Dictionary of Response Headers.
-        #: For example, ``headers_()['content-encoding']`` will return the
-        #: value of a ``'Content-Encoding'`` response header.
-        self.headers_(CaseInsensitiveDict())
-
-        #: File-like object representation of response (for advanced usage).
-        #: Use of ``raw`` requires that ``stream=True`` be set on the request.
-        #: This requirement does not apply for use internally to Requests.
-        self.raw_(None)
-
-        #: Encoding to decode with when accessing r.text.
-        self.encoding_(None)
-
-        #: A list of :class:`Response <Response>` objects from
-        #: the history of the Request. Any redirect responses will end
-        #: up here. The list is sorted from the oldest to the most recent request.
-        self.history_([])
-
-        #: Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
-        self.reason_(None)
-
-        #: A CookieJar (CookieJar or XCookieJar) of Cookies the server sent back.
-        self.cookies_(CookieUtils().cookiejar_from_dict({}))
-
-        #: The amount of time elapsed between sending the request
-        #: and the arrival of the response (as a timedelta).
-        #: This property specifically measures the time taken between sending
-        #: the first byte of the request and finishing parsing the headers. It
-        #: is therefore unaffected by consuming the response content or the
-        #: value of the ``stream`` keyword argument.
-        self.elapsed_(XDateTime().timedelta(0))
-
-        #: The :class:`PreparedRequest <PreparedRequest>` object to which this
-        #: is a response.
-        self.request_(None)
-
-        self.auth_(None)
 
     def read_content(self):  # ./Models/Response.py
         if self.status_code_() == 0 or self.raw_() is None:
@@ -2401,6 +2338,9 @@ class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
         """Content of the response, in bytes."""
         return self.contentClass.content()
 
+    def content_(self, *args):  # ./Models/Response.py
+        return DomainUtils().get_or_set(self, 'content', *args)
+
     @property
     def text(self):  # ./Models/Response.py
         return self.contentClass.text(self.encoding_())
@@ -2457,33 +2397,6 @@ class Response(CommonProperties, PicklerMixin):  # ./Models/Response/Response.py
         release_conn = getattr(self.raw_(), 'release_conn', None)
         if release_conn is not None:
             release_conn()
-
-    def raw_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'raw', *args)
-
-    def status_code_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'status_code', *args)
-
-    def content_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'content', *args)
-
-    def encoding_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'encoding', *args)
-
-    def history_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'history', *args)
-
-    def reason_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'reason', *args)
-
-    def elapsed_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'elapsed', *args)
-
-    def request_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'request', *args)
-
-    def  auth_(self, *args):  # ./Models/Response.py
-        return DomainUtils().get_or_set(self, 'auth', *args)
 
     def get_unicode(self):  # ./Models/Response.py
         XWarnings().warn((
@@ -2875,11 +2788,11 @@ class SessionPickle:
                 setattr(it, attr, value)
 
 
-class SessionSendInputs(Inputs):
+class SessionSendInputs(Attributes):
     def __init__(self):
         self.timeout = None
         self.allow_redirects = True
-        self.list_attributes()
+        self.current_attributes()
 
     def merge_settings(self, settings):
         send_kwargs = {
@@ -2890,13 +2803,13 @@ class SessionSendInputs(Inputs):
         return send_kwargs
 
 
-class SessionEnvironmentInputs(Inputs):  # ./sessions/session_environment_inputs.py
+class SessionEnvironmentInputs(Attributes):  # ./sessions/session_environment_inputs.py
     def __init__(self):
         self.verify = None
         self.proxies = None
         self.stream = None
         self.cert = None
-        self.list_attributes()
+        self.current_attributes()
 
     def merge_settings(self, url, session):  # ./sessions/session_environment_inputs.py
         self.proxies = self.proxies or {}
@@ -2910,7 +2823,7 @@ class SessionEnvironmentInputs(Inputs):  # ./sessions/session_environment_inputs
             # Look for requests environment configuration and be compatible
             # with cURL.
             if self.verify is True or self.verify is None:
-                verify = (XOs().environ().get('REQUESTS_CA_BUNDLE') or
+                self.verify = (XOs().environ().get('REQUESTS_CA_BUNDLE') or
                           XOs().environ().get('CURL_CA_BUNDLE'))
 
         # Merge all the kwargs.
@@ -2921,7 +2834,6 @@ class SessionEnvironmentInputs(Inputs):  # ./sessions/session_environment_inputs
 
         return {'verify': verify, 'proxies': proxies, 'stream': stream,
                 'cert': cert}
-
 
 
 class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
@@ -2949,7 +2861,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
     def __exit__(self, *args):
         self.close()
 
-    def prepare_request(self, request):  # ./sessions/session.py
+    def prepare_ticket(self, request):  # ./sessions/session.py
         cookies = request.cookies_() or {}
 
         # Bootstrap CookieJar.
@@ -2981,10 +2893,10 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
 
     def request(self, method, url, **kwargs):  # ./sessions/session.py
         req = Request().url_(url).method_(method).pick_out_inputs(kwargs)
-        prep = self.prepare_request(req)
-        settings = SessionEnvironmentInputs().pick_out_inputs(kwargs).merge_settings(prep.url_(), self)
+        ticket = self.prepare_ticket(req)
+        settings = SessionEnvironmentInputs().pick_out_inputs(kwargs).merge_settings(ticket.url_(), self)
         send_kwargs = SessionSendInputs().pick_out_inputs(kwargs).merge_settings(settings)
-        resp = self.send(prep, **send_kwargs)
+        resp = self.send(ticket, **send_kwargs)
         return resp
 
     def get(self, url, **kwargs):  # ./Sessions/Session.py
@@ -3011,33 +2923,33 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
     def delete(self, url, **kwargs):  # ./Sessions/Session.py
         return self.request('DELETE', url, **kwargs)
 
-    def send(self, request, **kwargs):  # ./Sessions/Session.py
+    def send(self, ticket, **kwargs):  # ./Sessions/Session.py
         kwargs.setdefault('stream', self.stream_())
         kwargs.setdefault('verify', self.verify_())
         kwargs.setdefault('cert', self.cert_())
         if 'proxies' not in kwargs:
             kwargs['proxies'] = ProxyUtils().resolve_proxies(
-                request, self.proxies_(), self.trust_env_()
+                ticket, self.proxies_(), self.trust_env_()
             )
 
         # It's possible that users might accidentally send a Request object.
         # Guard against that specific failure case.
-        if isinstance(request, Request):
-            raise ValueError('You can only send PreparedRequests.')
+        if isinstance(ticket, Request):
+            raise ValueError('You can only send Tickets, not Requests.')
 
         # Set up variables needed for resolve_redirects and dispatching of hooks
         allow_redirects = kwargs.pop('allow_redirects', True)
         stream = kwargs.get('stream')
-        hooks = request.hooks_()
+        hooks = ticket.hooks_()
 
         # Get the appropriate adapter to use
-        adapter = self.get_adapter(url=request.url_())
+        adapter = self.get_adapter(url=ticket.url_())
 
         # Start time (approximately) of the request
         start = Sessions().preferred_clock()
 
         # Send the request
-        r = adapter.send(request, **kwargs)
+        r = adapter.send(ticket, **kwargs)
 
         # Total elapsed time of the request (approximately)
         elapsed = Sessions().preferred_clock() - start
@@ -3053,12 +2965,12 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
             for resp in r.history_():
                 CookieUtils().to_jar(self.cookies_(), resp.request_(), resp.raw_())
 
-        CookieUtils().to_jar(self.cookies_(), request, r.raw_())
+        CookieUtils().to_jar(self.cookies_(), ticket, r.raw_())
 
         # Resolve redirects if allowed.
         if allow_redirects:
             # Redirect resolving generator.
-            gen = self.resolve_redirects(r, request, **kwargs)
+            gen = self.resolve_redirects(r, ticket, **kwargs)
             history = [resp for resp in gen]
         else:
             history = []
@@ -3074,7 +2986,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         # If redirects aren't being followed, store the response on the Request for Response.next_().
         if not allow_redirects:
             try:
-                r.next_(next(self.resolve_redirects(r, request, yield_requests=True, **kwargs)))
+                r.next_(next(self.resolve_redirects(r, ticket, yield_requests=True, **kwargs)))
             except StopIteration:
                 pass
 

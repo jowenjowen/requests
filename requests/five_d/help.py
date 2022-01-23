@@ -677,6 +677,38 @@ The built-in HTTP Connection for urllib3.
         def msg(self): return '''
     The :class:`Response <Response>` object, which contains a
     server's response to an HTTP request.
+Attributes:
+• status_code
+    Integer Code of responded HTTP Status, e.g. 404 or 200.
+• headers
+    Case-insensitive Dictionary of Response Headers.
+    For example, ``headers = ['content-encoding']`` will return the
+    value of a ``'Content-Encoding'`` response header. 
+• raw
+    File-like object representation of response (for advanced usage).
+    Use of ``raw`` requires that ``stream=True`` be set on the request.
+    This requirement does not apply for use internally to Requests.
+• encoding
+    Encoding to decode with when accessing r.text.
+• history
+    A list of :class:`Response <Response>` objects from
+    the history of the Request. Any redirect responses will end
+    up here. The list is sorted from the oldest to the most recent request.
+• reason
+    Textual reason of responded HTTP Status, e.g. "Not Found" or "OK".
+• elapsed
+    The amount of time elapsed between sending the request
+    and the arrival of the response (as a timedelta).
+    This property specifically measures the time taken between sending
+    the first byte of the request and finishing parsing the headers. It
+    is therefore unaffected by consuming the response content or the
+    value of the ``stream`` keyword argument.
+• request
+    The :class:`PreparedRequest <PreparedRequest>` object to which this
+    is a response.
+• auth
+• method cookies_
+        A CookieJar (CookieJar or XCookieJar) of Cookies the server sent back.
 • method __bool__
     Returns True if :attr:`status_code` is less than 400.
 
@@ -780,48 +812,48 @@ The built-in HTTP Connection for urllib3.
       ...     s.get('https://httpbin.org/get')
       <Response [200]>
  • method headers_
-    #: A case-insensitive dictionary of headers to be sent on each
-    #: :class:`Request <Request>` sent from this
-    #: :class:`Session <Session>`.
+    A case-insensitive dictionary of headers to be sent on each
+    :class:`Request <Request>` sent from this
+    :class:`Session <Session>`.
  • method auth_
-    #: Default Authentication tuple or object to attach to
-    #: :class:`Request <Request>`.
+    Default Authentication tuple or object to attach to
+    :class:`Request <Request>`.
  • method proxies_
-    #: Dictionary mapping protocol or protocol and host to the URL of the proxy
-    #: (e.g. {'http': 'foo.bar:3128', 'http://host.name': 'foo.bar:4012'}) to
-    #: be used on each :class:`Request <Request>`.
+    Dictionary mapping protocol or protocol and host to the URL of the proxy
+    (e.g. {'http': 'foo.bar:3128', 'http://host.name': 'foo.bar:4012'}) to
+    be used on each :class:`Request <Request>`.
  • method hooks_
-    #: Event-handling hooks.
+    Event-handling hooks.
  • method params_
-    #: Dictionary of querystring data to attach to each
-    #: :class:`Request <Request>`. The dictionary values may be lists for
-    #: representing multivalued query parameters.
+    Dictionary of querystring data to attach to each
+    :class:`Request <Request>`. The dictionary values may be lists for
+    representing multivalued query parameters.
 • method stream_
-    #: Stream response content default.
+    Stream response content default.
 • method verify_
-    #: SSL Verification default.
-    #: Defaults to `True`, requiring requests to verify the TLS certificate at the
-    #: remote end.
-    #: If verify is set to `False`, requests will accept any TLS certificate
-    #: presented by the server, and will ignore hostname mismatches and/or
-    #: expired certificates, which will make your application vulnerable to
-    #: man-in-the-middle (MitM) attacks.
-    #: Only set this to `False` for testing.
+    SSL Verification default.
+    Defaults to `True`, requiring requests to verify the TLS certificate at the
+    remote end.
+    If verify is set to `False`, requests will accept any TLS certificate
+    presented by the server, and will ignore hostname mismatches and/or
+    expired certificates, which will make your application vulnerable to
+    man-in-the-middle (MitM) attacks.
+    Only set this to `False` for testing.
 • method cert_
-    #: SSL client certificate default, if String, path to ssl client
-    #: cert file (.pem). If Tuple, ('cert', 'key') pair.
+    SSL client certificate default, if String, path to ssl client
+    cert file (.pem). If Tuple, ('cert', 'key') pair.
 • method max_redirects_
-    #: Maximum number of redirects allowed. If the request exceeds this
-    #: limit, a :class:`TooManyRedirects` exception is raised.
-    #: This defaults to requests.models.DEFAULT_REDIRECT_LIMIT, which is
-    #: 30.
+    Maximum number of redirects allowed. If the request exceeds this
+    limit, a :class:`TooManyRedirects` exception is raised.
+    This defaults to requests.models.DEFAULT_REDIRECT_LIMIT, which is
+    30.
 • method trust_env_
-    #: Trust environment settings for proxy configuration, default
-    #: authentication and similar.
+    Trust environment settings for proxy configuration, default
+    authentication and similar.
 • method cookies_
-    #: A CookieJar (CookieJar or XCookieJar) containing all currently outstanding cookies set on this
-    #: session. By default it is a
-    #: :class:`CookieJar` or `XCookieJar`
+    A CookieJar (CookieJar or XCookieJar) containing all currently outstanding cookies set on this
+    session. By default it is a
+    :class:`CookieJar` or `XCookieJar`
 • method adapters_
     # Default connection adapters.
 • method prepare_request
