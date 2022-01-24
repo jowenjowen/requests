@@ -55,7 +55,7 @@ from .x import XDateTime
 # imports needed for Models
 from requests.compat import compat_json as complexjson
 
-#imports needed for adapters
+# imports needed for adapters
 from .x import XZipfile
 import contextlib
 
@@ -89,8 +89,11 @@ requests.structures
 
 Data structures that power Requests.
 """
+
+
 class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self, data=None, **kwargs):
         self._store = XOrderedDict()
@@ -136,6 +139,7 @@ class CaseInsensitiveDict(XMutableMapping):  # ./Structures/CaseInsensitiveDict.
     def __repr__(self):
         return XStr().new(dict(self.items()))
 
+
 class LookupDict(dict):  # ./Structures/LookupDict.py
     def help(self): Help().display(self.__class__.__name__)
 
@@ -144,7 +148,7 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
         super(LookupDict, self).__init__()
 
     def __repr__(self):
-        return '<lookup \'%s\'>' % (self.name)
+        return '<lookup \'%s\'>' % self.name
 
     def __getitem__(self, key):
         # We allow fall-through here, so values default to None
@@ -156,31 +160,35 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
 
 
 class Attributes(object):
+    current_attrs = None
+
     def current_attributes(self):
-        self.attributes = list(self.__dict__.keys())
+        self.current_attrs = list(self.__dict__.keys())
 
     def add_accessors_for_current_attributes(self):
         def add_fn(attr_name, cls):
             def fn(self, *args):  # ./Requests.py
                 return DomainUtils().get_or_set(self, attr_name, *args)
+
             setattr(cls, attr_name + '_', fn)
 
-        self.attributes = list(self.__dict__.keys())
+        self.current_attrs = list(self.__dict__.keys())
         existing = dir(self)
-        for attr in self.attributes:
-            if (attr+'_' not in existing):
+        for attr in self.current_attrs:
+            if attr + '_' not in existing:
                 add_fn(attr, self.__class__)
 
     def pick_out_inputs(self, kwargs):
         for k, v in kwargs.items():
-            if (k in self.attributes):
+            if k in self.current_attrs:
                 setattr(self, k, v)
         return self
 
 
 # *************************** classes in StatusCodes section *****************
 class StatusCodes:  # ./StatusCodes/status_codes.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     _codes = {
 
@@ -280,7 +288,10 @@ class StatusCodes:  # ./StatusCodes/status_codes.py
     def get(self, name):  # ./StatusCodes/status_codes.py
         return self._codes_dict.get(name)
 
+
 # *************************** classes in Connections section *****************
+
+
 class Connections:  # ./Connections/connections.py
     def help(self): Help().display(self.__class__.__name__)
 
@@ -302,8 +313,10 @@ class Connections:  # ./Connections/connections.py
             raise InvalidSchema("Missing dependencies for SOCKS support.")
         return result
 
+
 class BaseConnections(object):  # ./Connections/BaseConnections.py
     def help(self): Help().display(self.__class__.__name__)
+
     """The Base Transport Connection"""
 
     def __init__(self):  # ./Connections/BaseConnections.py
@@ -329,7 +342,8 @@ class PicklerMixin:
 
 
 class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconnections.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self, xpool_connections=Connections().DEFAULT_XPOOLSIZE(),
                  pool_maxsize=Connections().DEFAULT_XPOOLSIZE(), max_retries=Connections().DEFAULT_RETRIES(),
@@ -349,14 +363,15 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
 
         self.init_xpoolmanager(xpool_connections, pool_maxsize, block=pool_block)
 
-    def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):  # ./Connections/HTTPconnections.py
+    def init_xpoolmanager(self, xconnections, maxsize, block=Connections().DEFAULT_XPOOLBLOCK(), **pool_kwargs):
+        # ./Connections/HTTPconnections.py
         # save these values for pickling
         self._xpool_connections = xconnections
         self._xpool_maxsize = maxsize
         self._xpool_block = block
 
         self.xpoolmanager = XUrllib3().xpoolmanager().PoolManager(num_pools=xconnections, maxsize=maxsize,
-                                       block=block, strict=True, **pool_kwargs)
+                                                                  block=block, strict=True, **pool_kwargs)
 
     def proxy_manager_for(self, proxy, **proxy_kwargs):  # ./Connections/HTTPconnections.py
         if proxy in self.proxy_manager:
@@ -506,7 +521,8 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
 
         return headers
 
-    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):  # ./Connections/HTTPconnections.py
+    def send(self, request, stream=False, timeout=None, verify=True, cert=None, proxies=None):
+        # ./Connections/HTTPconnections.py
         try:
             xconn = self.get_connection(request.url_(), proxies)
         except XUrllib3().exceptions().LocationValueError as e:
@@ -589,11 +605,11 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
                         preload_content=False,
                         decode_content=False
                     )
-                except:
+                except Exception as e:
                     # If we hit any problems here, clean up the connection.
                     # Then, reraise so that we can handle the actual exception.
                     low_conn.close()
-                    raise
+                    raise e
 
         except (XUrllib3().exceptions().ProtocolError, XSocket().error()) as err:
             raise ConnectionError(err, request=request)
@@ -642,9 +658,9 @@ class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
 
     def state_(self, *args):
         it = self.instance
-        if (len(args) == 0):
+        if len(args) == 0:
             attrs = ['max_retries', 'config', '_xpool_connections', '_xpool_maxsize',
-                         '_xpool_block']
+                     '_xpool_block']
             return {attr: getattr(it, attr, None) for attr in attrs}
         else:
             it.proxy_manager = {}
@@ -654,7 +670,7 @@ class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
                 setattr(it, attr, value)
 
             it.init_xpoolmanager(it._xpool_connections, it._xpool_maxsize,
-                                   block=it._xpool_block)
+                                 block=it._xpool_block)
 
 
 # *************************** classes in Api section *****************
@@ -667,9 +683,9 @@ class Requests(Attributes):  # ./Api/api.py
     #         hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
 
     def __init__(self):
-        self.data= None
-        self.json= None
-        self.params= None
+        self.data = None
+        self.json = None
+        self.params = None
         self.add_accessors_for_current_attributes()
 
     def request(self, method, url, **kwargs):  # ./Api/api.py
@@ -701,7 +717,7 @@ class Requests(Attributes):  # ./Api/api.py
     def url_(self, *args):  # ./Requests.py
         return DomainUtils().get_or_set(self, 'url', *args)
 
-    def json_(self, *args): # ./Requests.py
+    def json_(self, *args):  # ./Requests.py
         return DomainUtils().get_or_set(self, 'json', *args)
 
     def data_(self, *args):  # ./Requests.py
@@ -713,12 +729,13 @@ class Requests(Attributes):  # ./Api/api.py
 
 # *************************** classes in Auth section *****************
 class Auth:  # ./Auth/auth.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     CONTENT_TYPE_FORM_URLENCODED = 'application/x-www-form-urlencoded'
     CONTENT_TYPE_MULTI_PART = 'multipart/form-data'
 
-    def __init__(self, request = None):  # ./Auth/auth.py
+    def __init__(self, request=None):  # ./Auth/auth.py
         self.request = request
 
     def prepare(self, auth):  # ./Auth/auth.py
@@ -817,7 +834,8 @@ class HTTPProxyAuth(HTTPBasicAuth):  # ./Auth/HTTPProxyAuth.py
 
 
 class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self, username, password):  # ./Auth/HTTPDigestAuth.py
         self.username = username
@@ -857,27 +875,32 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
                 if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().md5(x).hexdigest()
+
             hash_utf8 = md5_utf8
         elif _algorithm == 'SHA':
             def sha_utf8(x):
                 if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha1(x).hexdigest()
+
             hash_utf8 = sha_utf8
         elif _algorithm == 'SHA-256':
             def sha256_utf8(x):
                 if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha256(x).hexdigest()
+
             hash_utf8 = sha256_utf8
         elif _algorithm == 'SHA-512':
             def sha512_utf8(x):
                 if XStr().is_instance(x):
                     x = x.encode('utf-8')
                 return XHashLib().sha512(x).hexdigest()
+
             hash_utf8 = sha512_utf8
 
-        KD = lambda s, d: hash_utf8("%s:%s" % (s, d))
+        def KD(s, d):
+            return hash_utf8("%s:%s" % (s, d))
 
         if hash_utf8 is None:
             return None
@@ -935,7 +958,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         if qop:
             base += ', qop="auth", nc=%s, cnonce="%s"' % (ncvalue, cnonce)
 
-        return 'Digest %s' % (base)
+        return 'Digest %s' % base
 
     def handle_redirect(self, r, **kwargs):  # ./Auth/HTTPDigestAuth.py
         """Reset num_401_calls counter on redirects."""
@@ -962,7 +985,6 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
         s_auth = r.headers_().get('www-authenticate', '')
 
         if 'digest' in s_auth.lower() and self._thread_local.num_401_calls < 2:
-
             self._thread_local.num_401_calls += 1
             pat = XRe().compile(r'digest ', flags=XRe().IGNORECASE())
             self._thread_local.chal = WSGIutils().parse_dict_header(pat.sub('', s_auth, count=1))
@@ -1026,7 +1048,8 @@ class Certs:  # ./Certs/Certs.py
 
 # *************************** classes in Cookies section *****************
 class CookieUtils:  # ./Cookies/CookieUtils.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def to_jar(self, jar, request, response):
         if not (hasattr(response, '_original_response') and
@@ -1180,7 +1203,8 @@ class CookieConflictError(RuntimeError):  # ./Cookies/CookieConflictError.py
 
 
 class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJar.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def get(self, name, default=None, domain=None, path=None):  # ./Cookies/CookieJar.py
         """Dict-like get() that also supports optional domain and path args in
@@ -1302,8 +1326,8 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         dictionary = {}
         for cookie in iter(self):
             if (
-                (domain is None or cookie.domain == domain) and
-                (path is None or cookie.path == path)
+                    (domain is None or cookie.domain == domain) and
+                    (path is None or cookie.path == path)
             ):
                 dictionary[cookie.name] = cookie.value
         return dictionary
@@ -1336,10 +1360,10 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         """
         CookieUtils().remove_cookie_by_name(self, name)
 
-    def set_cookie(self, cookie, *args, **kwargs):  # ./Cookies/CookieJar.py
+    def set_cookie(self, cookie):  # ./Cookies/CookieJar.py
         if hasattr(cookie.value, 'startswith') and cookie.value.startswith('"') and cookie.value.endswith('"'):
             cookie.value = cookie.value.replace('\\"', '')
-        return super(CookieJar, self).set_cookie(cookie, *args, **kwargs)
+        return super(CookieJar, self).set_cookie(cookie)
 
     def update(self, other):  # ./Cookies/CookieJar.py
         """Updates this jar with cookies from another CookieJar (CookieJar or XCookieJar) or dict-like"""
@@ -1387,7 +1411,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
                 if domain is None or cookie.domain == domain:
                     if path is None or cookie.path == path:
                         if toReturn is not None:  # if there are multiple cookies that meet passed in criteria
-                            raise CookieConflictError('There are multiple cookies with name, %r' % (name))
+                            raise CookieConflictError('There are multiple cookies with name, %r' % name)
                         toReturn = cookie.value  # we will eventually return this as long as no cookie conflict
 
         if toReturn:
@@ -1405,13 +1429,14 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         """Return the CookiePolicy instance used."""
         return self._policy
 
+
 class CookieJarPickle:  # ./Cookies/CookieJarPickle.py
     def __init__(self, instance):
         self.instance = instance
 
     def state_(self, *args):
         it = self.instance
-        if (len(args) == 0):
+        if len(args) == 0:
             """Unlike a XCookieJar, this class is picklable."""
             state = it.__dict__.copy()
             # remove the unpicklable RLock object
@@ -1424,11 +1449,11 @@ class CookieJarPickle:  # ./Cookies/CookieJarPickle.py
                 it._cookies_lock = XThreading().RLock()
 
 
-
 # *************************** classes in Help section *****************
 
 class Info:  # ./Help/info.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Help/info.py
         pass
@@ -1486,7 +1511,7 @@ class Info:  # ./Help/info.py
                 'openssl_version': '%x' % XOpenSSL().openssl_version(),
             }
         cryptography_info = {
-            'version':  XCryptography().version(),
+            'version': XCryptography().version(),
         }
         idna_info = {
             'version': XIdna().version(),
@@ -1514,10 +1539,12 @@ class Info:  # ./Help/info.py
             },
         }
 
+
 # *************************** classes in Hooks section *****************
 
 class Hooks:  # ./Hooks/hooks.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self):
         self.HOOKS = ['response']
@@ -1547,9 +1574,9 @@ class Models:  # ./Models/models.py
     def help(self): Help().display(self.__class__.__name__)
 
     _REDIRECT_STATI = (
-        StatusCodes().get('moved'),              # 301
-        StatusCodes().get('found'),               # 302
-        StatusCodes().get('other'),               # 303
+        StatusCodes().get('moved'),  # 301
+        StatusCodes().get('found'),  # 302
+        StatusCodes().get('other'),  # 303
         StatusCodes().get('temporary_redirect'),  # 307
         StatusCodes().get('permanent_redirect'),  # 308
     )
@@ -1570,8 +1597,10 @@ class Models:  # ./Models/models.py
     def ITER_CHUNK_SIZE(self):
         return self._ITER_CHUNK_SIZE
 
+
 class Encoding:  # ./Models/Encoding.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def path_url(self, url_in):  # ./Models/Encoding.py
 
@@ -1612,7 +1641,7 @@ class Encoding:  # ./Models/Encoding.py
             return data
 
     def files(self, files, data):  # ./Models/Encoding.py
-        if (not files):
+        if not files:
             raise ValueError("Files must be provided.")
         elif XBaseString().is_instance(data):
             raise ValueError("Data must not be a string.")
@@ -1668,11 +1697,12 @@ class Encoding:  # ./Models/Encoding.py
 
 
 class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def register_hook(self, event, hook):
-        if event not in self.hooks_() :
-            raise ValueError('Unsupported event specified, with event name "%s"' % (event))
+        if event not in self.hooks_():
+            raise ValueError('Unsupported event specified, with event name "%s"' % event)
 
         XCompat().append_callable_instance(self.hooks_()[event], hook)
 
@@ -1683,6 +1713,7 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
         except ValueError:
             return False
 
+
 class CommonProperties(object):
     def __init__(self):  # ./Models/Request.py
         # Default empty dicts for dict params.
@@ -1692,7 +1723,8 @@ class CommonProperties(object):
 
 
 class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Request.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/Request.py
         super(Request, self).__init__()
@@ -1714,17 +1746,17 @@ class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Requ
 
     def prepare(self):  # ./Models/Request.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for transmission and returns it."""
-        return Ticket()\
-            .method_(self.method_())\
-            .url_(self.url_())\
-            .headers_(self.headers_())\
-            .files_(self.files_())\
-            .data_(self.data_())\
-            .json_(self.json_())\
-            .params_(self.params_())\
-            .auth_(self.auth_())\
-            .cookies_(self.cookies_())\
-            .hooks_(self.hooks_() )\
+        return Ticket() \
+            .method_(self.method_()) \
+            .url_(self.url_()) \
+            .headers_(self.headers_()) \
+            .files_(self.files_()) \
+            .data_(self.data_()) \
+            .json_(self.json_()) \
+            .params_(self.params_()) \
+            .auth_(self.auth_()) \
+            .cookies_(self.cookies_()) \
+            .hooks_(self.hooks_()) \
             .prepare()
 
     def add_header(self, key, value):  # ./Models/Request.py
@@ -1782,7 +1814,8 @@ class Cookies:  # ./Models/cookies.py
 
 
 class Headers:  # ./Models/headers.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self, headers=None):  # ./Models/headers.py
         self.headers_(headers)
@@ -1903,12 +1936,12 @@ class Header:  # ./Models/header.py
                                 "bytes, not %s" % (name, value, type(value)))
 
     def default_user_agent(self, name="python-requests"):  # ./Utils/header.py
-        global requests_version
         return '%s/%s' % (name, requests_version)
 
 
 class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticket.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Models/ticket.py
         super(Ticket, self).__init__()
@@ -1951,7 +1984,7 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
         p.headers_(self.headers_().copy() if self.headers_() is not None else None)
         p.cookies_(CookieUtils()._copy_cookie_jar(self.cookies_()))
         p.body_(self.body_())
-        p.hooks_(self.hooks_() )
+        p.hooks_(self.hooks_())
         p._body_position = self._body_position
         return p
 
@@ -2092,7 +2125,8 @@ class Body:  # ./Models/body.py
 
 
 class Content:  # ./Models/Content.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self, read_func):  # ./Models/Content.py
         self._content = False
@@ -2163,7 +2197,6 @@ class Content:  # ./Models/Content.py
         if not self._content_consumed:
             self.content()
 
-
     def apparent_encoding(self):  # ./Models/Content.py
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
         return XCharDet().detect(self.content())['encoding']
@@ -2216,7 +2249,7 @@ class Content:  # ./Models/Content.py
         except XJSONDecodeError as e:
             # Catch JSON-related errors and raise as requests.JSONDecodeError
             # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
-            if XCompat().is_py2(): # e is a ValueError
+            if XCompat().is_py2():  # e is a ValueError
                 raise JSONDecodeError(e.message)
             else:
                 raise JSONDecodeError(e.msg, e.doc, e.pos)
@@ -2225,7 +2258,7 @@ class Content:  # ./Models/Content.py
         self._content_consumed = True
 
     def internal_content(self, *args):  # ./Models/Content.py
-        DomainUtils().get_or_set(self, '_content', *args)
+        return DomainUtils().get_or_set(self, '_content', *args)
 
 
 class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response/Response.py
@@ -2272,7 +2305,7 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
     @property
     def ok(self):  # ./Models/Response.py
         return self.ok_()
-        
+
     def ok_(self):  # ./Models/Response.py
         try:
             self.raise_for_status()
@@ -2285,7 +2318,7 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
         return self.is_redirect_()
 
     def is_redirect_(self):
-        return ('location' in self.headers_() and self.status_code in Models().REDIRECT_STATI())
+        return 'location' in self.headers_() and self.status_code in Models().REDIRECT_STATI()
 
     @property
     def is_permanent_redirect(self):  # ./Models/Response.py
@@ -2293,7 +2326,8 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
 
     def is_permanent_redirect_(self):
         """True if this Response one of the permanent versions of redirect."""
-        return ('location' in self.headers_() and self.status_code in (StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
+        return ('location' in self.headers_() and self.status_code in (
+            StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
     @property
     def next(self):  # ./Models/Response.py
@@ -2355,16 +2389,16 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
         header = self.headers_().get('link')
 
         # l = MultiDict()
-        l = {}
+        result = {}
 
         if header:
             links = Header().parse_header_links(header)
 
             for link in links:
                 key = link.get('rel') or link.get('url')
-                l[key] = link
+                result[key] = link
 
-        return l
+        return result
 
     def raise_for_status(self):  # ./Models/Response.py
         """Raises :class:`HTTPError`, if one occurred."""
@@ -2429,7 +2463,7 @@ class ResponsePickle:  # ./Models/Response/ResponsePickle.py
 
     def state_(self, *args):
         it = self.instance
-        if (len(args) == 0):
+        if len(args) == 0:
 
             it.contentClass.consume_everything()
             it._content = it.contentClass.internal_content()
@@ -2496,7 +2530,8 @@ class RequestSetting:  # ./Sessions/request_setting.py
 
 
 class Sessions:  # ./Sessions/Sessions.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def preferred_clock(self):
         return XTime().clock_method()()
@@ -2515,7 +2550,8 @@ class Sessions:  # ./Sessions/Sessions.py
 
 
 class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def DEFAULT_PORTS(self):  # ./Sessions/SessionRedirectMixin.py
         return {'http': 80, 'https': 443}
@@ -2621,7 +2657,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
             # https://github.com/psf/requests/issues/1084
             if resp.status_code not in (
-            StatusCodes().get('temporary_redirect'), StatusCodes().get('permanent_redirect')):
+                    StatusCodes().get('temporary_redirect'), StatusCodes().get('permanent_redirect')):
                 # https://github.com/psf/requests/issues/3490
                 purged_headers = ('Content-Length', 'Content-Type', 'Transfer-Encoding')
                 for header in purged_headers:
@@ -2646,8 +2682,8 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             # value ensures `rewindable` will be True, allowing us to raise an
             # UnrewindableBodyError, instead of hanging the xconnection.
             rewindable = (
-                prepared_request._body_position is not None and
-                ('Content-Length' in headers or 'Transfer-Encoding' in headers)
+                    prepared_request._body_position is not None and
+                    ('Content-Length' in headers or 'Transfer-Encoding' in headers)
             )
 
             # Attempt to rewind consumed file-like object.
@@ -2775,7 +2811,7 @@ class SessionPickle:
 
     def state_(self, *args):
         it = self.instance
-        if (len(args) == 0):
+        if len(args) == 0:
             attrs = [
                 'headers', 'cookies', 'auth', 'proxies', 'hooks', 'params', 'verify',
                 'cert', 'adapters', 'stream', 'trust_env',
@@ -2824,7 +2860,7 @@ class SessionEnvironmentInputs(Attributes):  # ./sessions/session_environment_in
             # with cURL.
             if self.verify is True or self.verify is None:
                 self.verify = (XOs().environ().get('REQUESTS_CA_BUNDLE') or
-                          XOs().environ().get('CURL_CA_BUNDLE'))
+                               XOs().environ().get('CURL_CA_BUNDLE'))
 
         # Merge all the kwargs.
         proxies = RequestSetting(self.proxies).merge_session_setting(session.proxies_())
@@ -2837,7 +2873,8 @@ class SessionEnvironmentInputs(Attributes):  # ./sessions/session_environment_in
 
 
 class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Sessions/Session.py
         self.headers_(Headers().default_headers())
@@ -2855,7 +2892,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         self.mount('https://', HTTPconnections())
         self.mount('http://', HTTPconnections())
 
-    def __enter__(self):   # ./Sessions/Session.py
+    def __enter__(self):  # ./Sessions/Session.py
         return self
 
     def __exit__(self, *args):
@@ -2877,19 +2914,18 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         if self.trust_env_() and not auth and not self.auth_():
             auth = Url(request.url_()).get_netrc_auth()
 
-        return Ticket()\
-            .method_(request.method_().upper())\
-            .url_(request.url_())\
-            .files_(request.files_())\
-            .data_(request.data_())\
-            .json_(request.json_())\
+        return Ticket() \
+            .method_(request.method_().upper()) \
+            .url_(request.url_()) \
+            .files_(request.files_()) \
+            .data_(request.data_()) \
+            .json_(request.json_()) \
             .headers_(RequestSetting(request.headers_())
-                      .merge_session_setting(self.headers_(), dict_class=CaseInsensitiveDict))\
-            .params_(RequestSetting(request.params_()).merge_session_setting(self.params_()))\
-            .auth_(RequestSetting(auth).merge_session_setting(self.auth_()))\
-            .cookies_(merged_cookies)\
-            .hooks_(Sessions().merge_hooks(request.hooks_() , self.hooks_() )).prepare()
-
+                      .merge_session_setting(self.headers_(), dict_class=CaseInsensitiveDict)) \
+            .params_(RequestSetting(request.params_()).merge_session_setting(self.params_())) \
+            .auth_(RequestSetting(auth).merge_session_setting(self.auth_())) \
+            .cookies_(merged_cookies) \
+            .hooks_(Sessions().merge_hooks(request.hooks_(), self.hooks_())).prepare()
 
     def request(self, method, url, **kwargs):  # ./sessions/session.py
         req = Request().url_(url).method_(method).pick_out_inputs(kwargs)
@@ -3018,7 +3054,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
     def headers_(self, *args):  # ./Sessions/Session.py
         return DomainUtils().get_or_set(self, 'headers', *args)
 
-    def  auth_(self, *args):  # ./Sessions/Session.py
+    def auth_(self, *args):  # ./Sessions/Session.py
         return DomainUtils().get_or_set(self, 'auth', *args)
 
     def params_(self, *args):  # ./Sessions/Session.py
@@ -3043,10 +3079,10 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         return DomainUtils().get_or_set(self, 'proxies', *args)
 
 
-
 # *************************** classes in Utils section *****************
 class ProxyUtils:  # ./Utils/proxy_utils.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def proxy_bypass(self, host):  # noqa  # ./Utils/proxy_utils.py
         if XSys().platform() == 'win32':
@@ -3057,7 +3093,7 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
     if XSys().platform() == 'win32':
         # provide a proxy_bypass version on Windows without DNS lookups
 
-        def proxy_bypass_registry(host):  # ./Utils/utils.py
+        def proxy_bypass_registry(self, host):  # ./Utils/utils.py
             winreg = XWinReg()
 
             try:
@@ -3097,7 +3133,8 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
                 return XCompat().proxy_bypass_registry(host)
 
     def should_bypass_proxies(self, url, no_proxy):  # ./Utils/proxy_utils.py
-        get_proxy = lambda k: XOs().environ().get(k) or XOs().environ().get(k.upper())
+        def get_proxy(k):
+            return XOs().environ().get(k) or XOs().environ().get(k.upper())
 
         # First check whether no_proxy is defined. If it is, check that the URL
         # we're getting isn't in the no_proxy list.
@@ -3221,8 +3258,10 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
                 new_proxies.setdefault(scheme, proxy)
         return new_proxies
 
+
 class CollectionsUtils:  # ./Utils/collections_utils.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def to_key_val_list(self, value):  # ./Utils/collections_utils.py
         if value is None:
@@ -3237,7 +3276,8 @@ class CollectionsUtils:  # ./Utils/collections_utils.py
 
 
 class WSGIutils:  # ./Utils/wsgi_utils.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     # From mitsuhiko/werkzeug (used with permission).
     def parse_dict_header(self, value):  # ./Utils/wsgi_utils.py
@@ -3272,7 +3312,8 @@ class WSGIutils:  # ./Utils/wsgi_utils.py
 
 
 class FileUtils:  # ./Utils/file_utils.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     def guess_filename(self, obj):  # ./Utils/file_utils.py
         """Tries to guess the filename of the given object."""
@@ -3307,10 +3348,11 @@ class FileUtils:  # ./Utils/file_utils.py
 
 
 class Uri:  # ./Utils/uri.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     _UNRESERVED_SET = frozenset(
-            "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz" + "0123456789-._~")
 
     def __init__(self, uri):
         self.uri = uri
@@ -3353,7 +3395,8 @@ class Uri:  # ./Utils/uri.py
 
 
 class Url:  # ./Utils/url.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     _NETRC_FILES = ('.netrc', '_netrc')
 
@@ -3405,7 +3448,7 @@ class Url:  # ./Utils/url.py
                 if _netrc:
                     # Return with login / password
                     login_i = (0 if _netrc[0] else 1)
-                    return (_netrc[login_i], _netrc[2])
+                    return _netrc[login_i], _netrc[2]
             except (NetrcParseError, IOError):
                 # If there was a parsing error or a permissions issue reading the file,
                 # we'll just skip netrc auth unless explicitly asked to raise errors.
@@ -3472,7 +3515,7 @@ class Url:  # ./Utils/url.py
             raise InvalidURL(*e.args)
 
         if not scheme:
-            error = ("Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?")
+            error = "Invalid URL {0!r}: No schema supplied. Perhaps you meant http://{0}?"
             error = error.format(XUtils().to_native_string(url, 'utf8'))
 
             raise MissingSchema(error)
@@ -3544,7 +3587,8 @@ class IpUtils:  # ./Utils/ip_utils.py
 
 
 class Utils:  # ./Utils/utils.py
-    def help(self): Help().display(self.__class__.__name__)
+    def help(self):
+        Help().display(self.__class__.__name__)
 
     _DEFAULT_CA_BUNDLE_PATH = Certs().where()
 
@@ -3632,7 +3676,8 @@ class Utils:  # ./Utils/utils.py
         while archive and not XOs().path().exists(archive):
             archive, prefix = XOs().path().split(archive)
             if not prefix:
-                # If we don't check for an empty prefix after the split (in other words, archive remains unchanged after the split),
+                # If we don't check for an empty prefix after the split
+                # (in other words, archive remains unchanged after the split),
                 # we _can_ end up in an infinite loop on a rare corner case affecting a small number of users
                 break
             member = '/'.join([prefix, member])
@@ -3648,7 +3693,7 @@ class Utils:  # ./Utils/utils.py
         tmp = XTempFile().gettempdir()
         extracted_path = XOs().path().join(tmp, member.split('/')[-1])
         if not XOs().path().exists(extracted_path):
-            # use read + write to avoid the creating nested folders, we only want the file, avoids mkdir racing condition
+            # use read + write to avoid creating nested folders, we only want the file, avoids mkdir racing condition
             with FileUtils().atomic_open(extracted_path) as file_handler:
                 file_handler.write(zip_file.read(member))
         return extracted_path
@@ -3727,6 +3772,7 @@ def main():
 if __name__ == '__main__':
     main()
 
+
 class DomainUtils:
     def get_or_set(self, instance, variable, *args):
         if len(args) != 0:
@@ -3734,10 +3780,9 @@ class DomainUtils:
             return instance
         return getattr(instance, variable)
 
-
     def get_or_set_class(self, instance, clazz, variable, *args):
         if len(args) != 0:
-            if (type(args[0]) == clazz):
+            if type(args[0]) == clazz:
                 setattr(instance, variable, args[0])
             else:
                 setattr(instance, variable, clazz(args[0]))
