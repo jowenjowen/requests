@@ -3,6 +3,8 @@
 # domain.py contains the code related to the domain
 # (use an ide showing class structures for navigation)
 
+import sys, inspect
+
 from requests.five_d.help import Help
 
 from .x import XPlatform, XJson, XUrllib3, XSys, XCharSetNormalizer, XCharDet, \
@@ -169,6 +171,11 @@ class Attributes(object):
         def add_fn(attr_name, cls):
             def fn(self, *args):  # ./Requests.py
                 return DomainUtils().get_or_set(self, attr_name, *args)
+
+            # clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
+            # cls_names = [x[0] for x in clsmembers]
+            # if (attr_name.capitalize() in cls_names):
+            #     setattr(cls, attr_name + '_cls', fn)
 
             setattr(cls, attr_name + '_', fn)
 
@@ -615,22 +622,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
             raise ConnectionError(err, request=request)
 
         except XUrllib3().exceptions().MaxRetryError as e:
-            if isinstance(e.reason, XUrllib3().exceptions().ConnectTimeoutError):
-                # TODO: Remove this in 3.0.0: see #2811
-                if not isinstance(e.reason, XUrllib3().exceptions().NewConnectionError):
-                    raise ConnectTimeout(e, request=request)
-
-            if isinstance(e.reason, XUrllib3().exceptions().ResponseError):
-                raise RetryError(e, request=request)
-
-            if isinstance(e.reason, XUrllib3().exceptions().ProxyError):
-                raise ProxyError(e, request=request)
-
-            if isinstance(e.reason, XUrllib3().exceptions().SSLError):
-                # This branch is for urllib3 v1.22 and later.
-                raise SSLError(e, request=request)
-
-            raise ConnectionError(e, request=request)
+            Reason(e.reason).raise_exception(e, request)
 
         except XUrllib3().exceptions().ClosedPoolError as e:
             raise ConnectionError(e, request=request)
@@ -683,6 +675,7 @@ class Requests(Attributes):  # ./Api/api.py
     #         hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
 
     def __init__(self):
+        self.url = None
         self.data = None
         self.json = None
         self.params = None
@@ -713,18 +706,6 @@ class Requests(Attributes):  # ./Api/api.py
 
     def delete(self, **kwargs):  # ./Api/api.py
         return self.request('delete', self.url_(), **kwargs)
-
-    def url_(self, *args):  # ./Requests.py
-        return DomainUtils().get_or_set(self, 'url', *args)
-
-    def json_(self, *args):  # ./Requests.py
-        return DomainUtils().get_or_set(self, 'json', *args)
-
-    def data_(self, *args):  # ./Requests.py
-        return DomainUtils().get_or_set(self, 'data', *args)
-
-    def params_(self, *args):  # ./Requests.py
-        return DomainUtils().get_or_set(self, 'params', *args)
 
 
 # *************************** classes in Auth section *****************
@@ -2404,17 +2385,7 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
         """Raises :class:`HTTPError`, if one occurred."""
 
         http_error_msg = ''
-        if XBytes().is_instance(self.reason_()):
-            # We attempt to decode utf-8 first because some servers
-            # choose to localize their reason strings. If the string
-            # isn't utf-8, we fall back to iso-8859-1 for all other
-            # encodings. (See PR #3538)
-            try:
-                reason = self.reason_().decode('utf-8')
-            except UnicodeDecodeError:
-                reason = self.reason_().decode('iso-8859-1')
-        else:
-            reason = self.reason_()
+        reason = Reason(self.reason_()).normalize()
 
         if 400 <= self.status_code < 500:
             http_error_msg = u'%s Client Error: %s for url: %s' % (self.status_code, reason, self.url_())
@@ -2455,6 +2426,42 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
             return str(self.content_(), encoding, errors='replace')
         except TypeError:
             return self.content_()
+
+class Reason:
+    def __init__(self, value):
+        self.value = value
+
+    def raise_exception(self, e, request):
+        if isinstance(self.value, XUrllib3().exceptions().ConnectTimeoutError):
+            # TODO: Remove this in 3.0.0: see #2811
+            if not isinstance(self.value, XUrllib3().exceptions().NewConnectionError):
+                raise ConnectTimeout(e, request=request)
+
+        if isinstance(self.value, XUrllib3().exceptions().ResponseError):
+            raise RetryError(e, request=request)
+
+        if isinstance(self.value, XUrllib3().exceptions().ProxyError):
+            raise ProxyError(e, request=request)
+
+        if isinstance(self.value, XUrllib3().exceptions().SSLError):
+            # This branch is for urllib3 v1.22 and later.
+            raise SSLError(e, request=request)
+
+        raise ConnectionError(e, request=request)
+
+    def normalize(self):  # ./Models/Response.py
+        if XBytes().is_instance(self.value):
+            # We attempt to decode utf-8 first because some servers
+            # choose to localize their reason strings. If the string
+            # isn't utf-8, we fall back to iso-8859-1 for all other
+            # encodings. (See PR #3538)
+            try:
+                reason = self.value.decode('utf-8')
+            except UnicodeDecodeError:
+                reason = self.value.decode('iso-8859-1')
+        else:
+            reason = self.value
+        return reason
 
 
 class ResponsePickle:  # ./Models/Response/ResponsePickle.py

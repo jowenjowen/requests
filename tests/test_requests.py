@@ -520,7 +520,7 @@ class TestRequests:
         ))
     def test_errors(self, url, exception):
         with pytest.raises(exception):
-            Requests().url_(url).get( timeout=1)
+            Requests().url_(url).get(timeout=1)
 
     def test_proxy_error(self):
         # any proxy related error (address resolution, no route to host, etc) should result in a exceptions.ProxyError
@@ -1308,6 +1308,7 @@ class TestRequests:
         pr = pickle.loads(pickle.dumps(r))
         assert r.request_().url_() == pr.request_().url_()
         assert r.request_().headers_() == pr.request_().headers_()
+        assert r.reason_() == pr.reason_()
 
     def test_prepared_request_is_pickleable(self, httpbin):
         p = Request().method_('GET').url_(httpbin('get')).prepare()
