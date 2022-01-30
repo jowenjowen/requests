@@ -159,7 +159,7 @@ class TestRequests:
     @pytest.mark.parametrize('scheme', ('http://', 'HTTP://', 'hTTp://', 'HttP://'))
     def test_mixed_case_scheme_acceptable(self, httpbin, scheme):
         s = Session().proxies_(XUrl().request().getproxies())
-        parts = XUrl().parse(httpbin('get'))
+        parts = Url(httpbin('get')).parse()
         url = scheme + parts.netloc + parts.path
         r = s.send(Request().method_('GET').url_(url).prepare())
         assert r.status_code_() == 200, 'failed for scheme {}'.format(scheme)
@@ -1393,7 +1393,7 @@ class TestRequests:
         assert headers['ACCEPT'] == 'application/json'
 
     def test_uppercase_scheme_redirect(self, httpbin):
-        parts = XUrl().parse(httpbin('html'))
+        parts = Url(httpbin('html')).parse()
         url = "HTTP://" + parts.netloc + parts.path
         r = Requests().url_(httpbin('redirect-to')).params_({'url': url}).get()
         assert r.status_code_() == 200
@@ -2304,7 +2304,7 @@ def test_proxy_env_vars_override_default(var, url, proxy):
     kwargs = {
         var: proxy
     }
-    scheme = XUrl().parse(url).scheme
+    scheme = Url(url).parse().scheme
     with override_environ(**kwargs):
         proxies = session.rebuild_proxies(prep, {})
         assert scheme in proxies

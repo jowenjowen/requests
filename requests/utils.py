@@ -11,7 +11,7 @@ This file only exists for compatibility for external users
 """
 import contextlib
 from .five_d.domain import Utils
-from .five_d.domain import ProxyUtils
+from .five_d.domain import Proxies
 from .five_d.domain import CollectionsUtils
 from .five_d.domain import FileUtils
 from .five_d.domain import WSGIutils
@@ -25,7 +25,7 @@ from .five_d.x import XWarnings
 from .five_d.x import XRe
 
 def proxy_bypass(host):
-    return ProxyUtils().proxy_bypass(host)
+    return Proxies().proxy_bypass(host)
 
 def dict_to_sequence(d):
     return DeprecatedCollectionsUtils().dict_to_sequence(d)
@@ -89,31 +89,31 @@ def requote_uri(uri):
     return Uri(uri).requote()
 
 def address_in_network(ip, net):
-    return ProxyUtils().address_in_network(ip, net)
+    return Proxies().address_in_network(ip, net)
 
 def dotted_netmask(mask):
-    return ProxyUtils().dotted_netmask(mask)
+    return Proxies().dotted_netmask(mask)
 
 def is_ipv4_address(string_ip):
     return IpUtils().is_ipv4_address(string_ip)
 
 def is_valid_cidr(string_network):
-    return ProxyUtils().is_valid_cidr(string_network)
+    return Proxies().is_valid_cidr(string_network)
 
 def set_environ(env_name, value):
     return Utils().set_environ(env_name, value)
 
 def should_bypass_proxies(url, no_proxy):
-    return ProxyUtils().should_bypass_proxies(url, no_proxy)
+    return Proxies().should_bypass_proxies(url, no_proxy)
 
 def get_environ_proxies(url, no_proxy=None):
-    return ProxyUtils().get_environ_proxies(url, no_proxy)
+    return Proxies().get_environ_proxies(url, no_proxy)
 
 def select_proxy(url, proxies):
-    return ProxyUtils().select_proxy(url, proxies)
+    return Proxies(proxies).select_proxy(url)
 
 def resolve_proxies(request, proxies, trust_env=True):
-    return ProxyUtils().resolve_proxies(request, proxies, trust_env)
+    return Proxies(proxies).resolve_proxies(request, trust_env)
 
 def default_user_agent(name="python-requests"):
     return Headers().default_user_agent(name)

@@ -679,7 +679,7 @@ def test_should_bypass_proxies_pass_only_hostname(url, expected, mocker):
     """The proxy_bypass function should be called with a hostname or IP without
     a port number or auth credentials.
     """
-    proxy_bypass = mocker.patch('requests.five_d.domain.ProxyUtils.proxy_bypass')
+    proxy_bypass = mocker.patch('requests.five_d.domain.Proxies.proxy_bypass')
     should_bypass_proxies(url, no_proxy=None)
     proxy_bypass.assert_called_once_with(expected)
 

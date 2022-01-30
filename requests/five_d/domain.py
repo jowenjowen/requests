@@ -84,6 +84,14 @@ from requests.exceptions import JSONDecodeError
 
 from requests import __version__ as requests_version
 
+class Aggregate:
+    def __init__(self, input=None):
+        self.value_(input)
+
+    def value_(self, *args):
+        return DomainUtils().get_or_set(self, 'value', *args)
+
+
 # *************************** classes in Structures section *****************
 """
 requests.structures
@@ -161,31 +169,45 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
         return self.__dict__.get(key, default)
 
 
-class Attributes(object):
-    current_attrs = None
+class Attributes(object):  # ./utils/attributes.py
+    current_attrs = []
+    def __init__(self):
+        self.cls_names = [x[0] for x in inspect.getmembers(sys.modules[__name__], inspect.isclass)]
 
-    def current_attributes(self):
-        self.current_attrs = list(self.__dict__.keys())
+    def add_attr(self, name, value):
+        if (name not in dir(self)):
+            self.current_attrs.append(name)
+        setattr(self, name, value)
 
-    def add_accessors_for_current_attributes(self):
-        def add_fn(attr_name, cls):
-            def fn(self, *args):  # ./Requests.py
-                return DomainUtils().get_or_set(self, attr_name, *args)
+    def add_accessor(self, attr):
+        def add_fn(attr_name, parent):
+            cls = parent.__class__
+            def fn(self, *args):
+                return DomainUtils().get_or_set(self, attr, *args)
+            setattr(cls, name, fn)
+        name = attr + '_'
+        if (name not in dir(self)):
+            add_fn(name, self)
 
-            # clsmembers = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-            # cls_names = [x[0] for x in clsmembers]
-            # if (attr_name.capitalize() in cls_names):
-            #     setattr(cls, attr_name + '_cls', fn)
+    def add_obj(self, attr):
+        def add_fn(class_name, attr_name, parent):
+            cls = parent.__class__
+            def fn(a):
+                input = getattr(a, attr)
+                return globals()[class_name](input)
+            setattr(cls, name, fn)
+        name = attr + '_obj'
+        class_name = attr.capitalize()
+        if (class_name in self.cls_names):
+            if (name not in dir(self)):
+                add_fn(attr.capitalize(), name, self)
 
-            setattr(cls, attr_name + '_', fn)
+    def add_attribute(self, name, value):  # ./utils/attributes.py
+        self.add_attr(name, value)
+        self.add_accessor(name)
+        self.add_obj(name)
 
-        self.current_attrs = list(self.__dict__.keys())
-        existing = dir(self)
-        for attr in self.current_attrs:
-            if attr + '_' not in existing:
-                add_fn(attr, self.__class__)
-
-    def pick_out_inputs(self, kwargs):
+    def pick_out_inputs(self, kwargs):  # ./utils/attributes.py
         for k, v in kwargs.items():
             if k in self.current_attrs:
                 setattr(self, k, v)
@@ -320,6 +342,49 @@ class Connections:  # ./Connections/connections.py
             raise InvalidSchema("Missing dependencies for SOCKS support.")
         return result
 
+class Cert(Aggregate):
+    def cert_verify(self, xconn, url, verify):  # ./Connections/HTTPconnections.py
+        if url.lower().startswith('https') and verify:
+
+            cert_loc = None
+
+            # Allow self-specified cert location.
+            if verify is not True:
+                cert_loc = verify
+
+            if not cert_loc:
+                cert_loc = Utils().extract_zipped_paths(Utils().DEFAULT_CA_BUNDLE_PATH())
+
+            if not cert_loc or not XOs().path().exists(cert_loc):
+                raise IOError("Could not find a suitable TLS CA certificate bundle, "
+                              "invalid path: {}".format(cert_loc))
+
+            xconn.cert_reqs = 'CERT_REQUIRED'
+
+            if not XOs().path().isdir(cert_loc):
+                xconn.ca_certs = cert_loc
+            else:
+                xconn.ca_cert_dir = cert_loc
+        else:
+            xconn.cert_reqs = 'CERT_NONE'
+            xconn.ca_certs = None
+            xconn.ca_cert_dir = None
+
+        cert = self.value_()
+        if cert:
+            if not XBaseString().is_instance(cert):
+                xconn.cert_file = cert[0]
+                xconn.key_file = cert[1]
+            else:
+                xconn.cert_file = cert
+                xconn.key_file = None
+            if xconn.cert_file and not XOs().path().exists(xconn.cert_file):
+                raise IOError("Could not find the TLS certificate file, "
+                              "invalid path: {}".format(xconn.cert_file))
+            if xconn.key_file and not XOs().path().exists(xconn.key_file):
+                raise IOError("Could not find the TLS key file, "
+                              "invalid path: {}".format(xconn.key_file))
+
 
 class BaseConnections(object):  # ./Connections/BaseConnections.py
     def help(self): Help().display(self.__class__.__name__)
@@ -406,47 +471,6 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
 
         return manager
 
-    def cert_verify(self, xconn, url, verify, cert):  # ./Connections/HTTPconnections.py
-        if url.lower().startswith('https') and verify:
-
-            cert_loc = None
-
-            # Allow self-specified cert location.
-            if verify is not True:
-                cert_loc = verify
-
-            if not cert_loc:
-                cert_loc = Utils().extract_zipped_paths(Utils().DEFAULT_CA_BUNDLE_PATH())
-
-            if not cert_loc or not XOs().path().exists(cert_loc):
-                raise IOError("Could not find a suitable TLS CA certificate bundle, "
-                              "invalid path: {}".format(cert_loc))
-
-            xconn.cert_reqs = 'CERT_REQUIRED'
-
-            if not XOs().path().isdir(cert_loc):
-                xconn.ca_certs = cert_loc
-            else:
-                xconn.ca_cert_dir = cert_loc
-        else:
-            xconn.cert_reqs = 'CERT_NONE'
-            xconn.ca_certs = None
-            xconn.ca_cert_dir = None
-
-        if cert:
-            if not XBaseString().is_instance(cert):
-                xconn.cert_file = cert[0]
-                xconn.key_file = cert[1]
-            else:
-                xconn.cert_file = cert
-                xconn.key_file = None
-            if xconn.cert_file and not XOs().path().exists(xconn.cert_file):
-                raise IOError("Could not find the TLS certificate file, "
-                              "invalid path: {}".format(xconn.cert_file))
-            if xconn.key_file and not XOs().path().exists(xconn.key_file):
-                raise IOError("Could not find the TLS key file, "
-                              "invalid path: {}".format(xconn.key_file))
-
     def build_response(self, req, resp):  # ./Connections/HTTPconnections.py
         response = Response()
 
@@ -457,7 +481,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
         response.headers_(CaseInsensitiveDict(getattr(resp, 'headers', {})))
 
         # Set encoding.
-        response.encoding_(Headers(response.headers_()).get_encoding_from_headers())
+        response.encoding_(response.headers_obj().get_encoding_from_headers())
         response.raw_(resp)
         response.reason_(response.raw_().reason)
 
@@ -476,7 +500,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
         return response
 
     def get_connection(self, url, proxies=None):  # ./Connections/HTTPconnections.py
-        proxy = ProxyUtils().select_proxy(url, proxies)
+        proxy = Proxies(proxies).select_proxy(url)
 
         if proxy:
             proxy = Url(proxy).prepend_scheme_if_needed('http')
@@ -488,7 +512,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
             xconn = proxy_manager.connection_from_url(url)
         else:
             # Only scheme should be lower case
-            parsed = XUrl().parse(url)
+            parsed = Url(url).parse()
             url = parsed.geturl()
             xconn = self.xpoolmanager.connection_from_url(url)
 
@@ -500,18 +524,18 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
             proxy.clear()
 
     def request_url(self, request, proxies):  # ./Connections/HTTPconnections.py
-        proxy = ProxyUtils().select_proxy(request.url_(), proxies)
-        scheme = XUrl().parse(request.url_()).scheme
+        proxy = Proxies(proxies).select_proxy(request.url_())
+        scheme = request.url_obj().parse().scheme
 
         is_proxied_http_request = (proxy and scheme != 'https')
         using_socks_proxy = False
         if proxy:
-            proxy_scheme = XUrl().parse(proxy).scheme.lower()
+            proxy_scheme = Url(proxy).parse().scheme.lower()
             using_socks_proxy = proxy_scheme.startswith('socks')
 
         url = request.path_url_()
         if is_proxied_http_request and not using_socks_proxy:
-            url = Url(request.url_()).defragauth()
+            url = request.url_obj().defragauth()
 
         return url
 
@@ -535,7 +559,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
         except XUrllib3().exceptions().LocationValueError as e:
             raise InvalidURL(e, request=request)
 
-        self.cert_verify(xconn, request.url_(), verify, cert)
+        Cert(cert).cert_verify(xconn, request.url_(), verify)
         url = self.request_url(request, proxies)
         self.add_headers(request, stream=stream, timeout=timeout, verify=verify, cert=cert, proxies=proxies)
 
@@ -669,17 +693,12 @@ class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
 class Requests(Attributes):  # ./Api/api.py
     def help(self): Help().display(self.__class__.__name__)
 
-    # , method, url,
-    #         params=None, data=None, headers=None, cookies=None, files=None,
-    #         auth=None, timeout=None, allow_redirects=True, proxies=None,
-    #         hooks=None, stream=None, verify=None, cert=None, json=None):   # ./Sessions/Session.py
-
     def __init__(self):
-        self.url = None
-        self.data = None
-        self.json = None
-        self.params = None
-        self.add_accessors_for_current_attributes()
+        super(Requests, self).__init__()
+        self.add_attribute('url', None)
+        self.add_attribute('data', None)
+        self.add_attribute('json', None)
+        self.add_attribute('params', None)
 
     def request(self, method, url, **kwargs):  # ./Api/api.py
         with Sessions().session() as session:
@@ -709,19 +728,17 @@ class Requests(Attributes):  # ./Api/api.py
 
 
 # *************************** classes in Auth section *****************
-class Auth:  # ./Auth/auth.py
+class Auth(Aggregate):  # ./Auth/auth.py
     def help(self):
         Help().display(self.__class__.__name__)
 
     CONTENT_TYPE_FORM_URLENCODED = 'application/x-www-form-urlencoded'
     CONTENT_TYPE_MULTI_PART = 'multipart/form-data'
 
-    def __init__(self, request=None):  # ./Auth/auth.py
-        self.request = request
-
-    def prepare(self, auth):  # ./Auth/auth.py
+    def prepare(self, request):  # ./Auth/auth.py
+        auth = self.value_()
         if auth is None:
-            url_auth = Url(self.request.url_()).get_auth()
+            url_auth = request.url_obj().get_auth()
             auth = url_auth if any(url_auth) else None
 
         if auth:
@@ -730,18 +747,15 @@ class Auth:  # ./Auth/auth.py
                 auth = HTTPBasicAuth(*auth)
 
             # Allow auth to make its changes.
-            r = auth(self.request)
+            r = auth(request)
 
             # Update self to reflect the auth changes.
             self.__dict__.update(r.__dict__)
 
             # Recompute Content-Length
-            self.request.headers_().update(Body(self.request).prepare_content_length().headers())
-        self.auth_(auth)
-        return self.auth_()
-
-    def auth_(self, *args):  # ./Auth/auth.py
-        return DomainUtils().get_or_set(self, 'auth', *args)
+            request.headers_().update(Body(request).prepare_content_length().headers())
+        self.value_(auth)
+        return self.value_()
 
     def basic_auth_str(self, username, password):  # ./Auth/auth.py
         if not XBaseString().is_instance(username):
@@ -888,7 +902,7 @@ class HTTPDigestAuth(AuthBase):  # ./Auth/HTTPDigestAuth.py
 
         # XXX not implemented yet
         entdig = None
-        p_parsed = XUrl().parse(url)
+        p_parsed = Url(url).parse()
         #: path is request-uri defined in RFC 2616 which should not be empty
         path = p_parsed.path or "/"
         if p_parsed.query:
@@ -1587,7 +1601,7 @@ class Encoding:  # ./Models/Encoding.py
 
         url = []
 
-        p = XUrl().split(url_in)
+        p = Url(url_in).split()
 
         path = p.path
         if not path:
@@ -1695,12 +1709,12 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
             return False
 
 
-class CommonProperties(object):
+class CommonProperties(Attributes):
     def __init__(self):  # ./Models/Request.py
-        # Default empty dicts for dict params.
-        self.cookies = None
-        self.headers = {}
-        self.url = None
+        super(CommonProperties, self).__init__()
+        self.add_attribute('cookies', None)
+        self.add_attribute('headers', {})
+        self.add_attribute('url', None)
 
 
 class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Request.py
@@ -1709,15 +1723,12 @@ class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Requ
 
     def __init__(self):  # ./Models/Request.py
         super(Request, self).__init__()
-        # ./Models/Request.py
-        # Default empty dicts for dict params.
-        self.auth = None
-        self.data = []
-        self.files = []
-        self.json = None
-        self.method = None
-        self.params = None
-        self.add_accessors_for_current_attributes()
+        self.add_attribute('auth', None)
+        self.add_attribute('data', [])
+        self.add_attribute('files', [])
+        self.add_attribute('json', None)
+        self.add_attribute('method', None)
+        self.add_attribute('params', None)
 
         self.auth = None
         self.hooks = Hooks().default_hooks()
@@ -1758,18 +1769,12 @@ class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Requ
             return self.hooks
 
 
-class Method:  # ./Models/method.py
-    def __init__(self, method):
-        self.method = method
-
+class Method(Aggregate):  # ./Models/method.py
     def prepare(self):  # ./Models/method.py
         """Prepares the given HTTP method."""
-        if self.method_() is not None:
-            self.method_(XUtils().to_native_string(self.method_().upper()))
-        return self.method
-
-    def method_(self, *args):  # ./Models/method.py
-        return DomainUtils().get_or_set(self, 'method', *args)
+        if self.value_() is not None:
+            self.value_(XUtils().to_native_string(self.value_().upper()))
+        return self.value_()
 
 
 class Cookies:  # ./Models/cookies.py
@@ -1794,30 +1799,27 @@ class Cookies:  # ./Models/cookies.py
         return self.cookie_header
 
 
-class Headers:  # ./Models/headers.py
+class Headers(Aggregate):  # ./Models/headers.py
     def help(self):
         Help().display(self.__class__.__name__)
 
     def __init__(self, headers=None):  # ./Models/headers.py
-        self.headers_(headers)
+        self.value_(headers)
 
     def prepare(self):  # ./Models/headers.py
         """Prepares the given HTTP headers."""
-        headers = self.headers_()
-        self.headers_(CaseInsensitiveDict())
+        headers = self.value_()
+        self.value_(CaseInsensitiveDict())
         if headers:
             for header in headers.items():
                 # Raise exception on invalid header value.
                 Header().check_header_validity(header)
                 name, value = header
-                self.headers_()[XUtils().to_native_string(name)] = value
-        return self.headers_()
-
-    def headers_(self, *args):  # ./Models/headers.py
-        return DomainUtils().get_or_set(self, 'headers', *args)
+                self.value_()[XUtils().to_native_string(name)] = value
+        return self.value_()
 
     def get_encoding_from_headers(self):  # ./Models/headers.py
-        content_type = self.headers_().get('content-type')
+        content_type = self.value_().get('content-type')
 
         if not content_type:
             return None
@@ -1926,26 +1928,26 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
 
     def __init__(self):  # ./Models/ticket.py
         super(Ticket, self).__init__()
-        self.method = None
-        self.files = None
-        self.data = None
-        self.params = None
-        self.auth = None
-        self.hooks = Hooks().default_hooks()
-        self.json = None
-        self.body = None
-        self.add_accessors_for_current_attributes()
+        self.add_attribute('method', None)
+        self.add_attribute('files', None)
+        self.add_attribute('data', None)
+        self.add_attribute('params', None)
+        self.add_attribute('auth', None)
+        self.add_attribute('hooks', Hooks().default_hooks())
+        self.add_attribute('json', None)
+        self.add_attribute('body', None)
         self._body_position = None  #: integer denoting starting position of a readable file-like body.
 
     def prepare(self):  # ./Models/ticket.py
         """Prepares the entire request with the given parameters."""
 
         self.method_(Method(self.method_()).prepare())
-        self.url_(Url(self.url_()).prepare(self.params_()).value_())
-        self.headers_(Headers(self.headers_()).prepare())
+
+        self.url_(self.url_obj().prepare(self.params_()).value_())
+        self.headers_(self.headers_obj().prepare())
         self.prepare_cookies(self.cookies_())
         self.prepare_body(self.data_(), self.files_(), self.json_())
-        self.auth_(Auth(self).prepare(self.auth_()))
+        self.auth_obj().prepare(self)
 
         # Note that prepare_auth must be last to enable authentication schemes
         # such as OAuth to work on a fully prepared request.
@@ -1986,7 +1988,7 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
         headers.update(body.headers())
 
     def prepare_auth(self, auth):  # ./Models/ticket.py
-        self.auth_(Auth(self).prepare(auth))
+        self.auth_(auth).auth_obj().prepare(self)
 
     def prepare_cookies(self, cookies):  # ./Models/ticket.py
         c = Cookies(cookies)
@@ -2245,17 +2247,16 @@ class Content:  # ./Models/Content.py
 class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response/Response.py
     def __init__(self):  # ./Models/Response.py
         super(Response, self).__init__()
-        self.status_code = None
-        self.headers = CaseInsensitiveDict()
-        self.raw = None
-        self.encoding = None
-        self.history = []
-        self.reason = None
-        self.elapsed = XDateTime().timedelta(0)
-        self.request = None
-        self.auth = None
-        self.cookies = CookieUtils().cookiejar_from_dict({})
-        self.add_accessors_for_current_attributes()
+        self.add_attribute('status_code', None)
+        self.add_attribute('headers', CaseInsensitiveDict())
+        self.add_attribute('raw', None)
+        self.add_attribute('encoding', None)
+        self.add_attribute('history', [])
+        self.add_attribute('reason', None)
+        self.add_attribute('elapsed', XDateTime().timedelta(0))
+        self.add_attribute('request', None)
+        self.add_attribute('auth', None)
+        self.add_attribute('cookies', CookieUtils().cookiejar_from_dict({}))
         self.contentClass = Content(self.read_content)
 
     def read_content(self):  # ./Models/Response.py
@@ -2586,8 +2587,8 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
     def should_strip_auth(self, old_url, new_url):  # ./Sessions/SessionRedirectMixin.py
         """Decide whether Authorization header should be removed when redirecting"""
-        old_parsed = XUrl().parse(old_url)
-        new_parsed = XUrl().parse(new_url)
+        old_parsed = Url(old_url).parse()
+        new_parsed = Url(new_url).parse()
         if old_parsed.hostname != new_parsed.hostname:
             return True
         # Special case: allow http -> https redirect when using the standard
@@ -2617,7 +2618,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         hist = []  # keep track of history
 
         url = self.get_redirect_target(resp)
-        previous_fragment = XUrl().parse(req.url_()).fragment
+        previous_fragment = req.url_obj().parse().fragment
         while url:
             prepared_request = req.copy()
 
@@ -2639,11 +2640,11 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
             # Handle redirection without scheme (see: RFC 1808 Section 4)
             if url.startswith('//'):
-                parsed_rurl = XUrl().parse(resp.url_())
+                parsed_rurl = resp.url_obj().parse()
                 url = ':'.join([XUtils().to_native_string(parsed_rurl.scheme), url])
 
             # Normalize url case and attach previous fragment if needed (RFC 7231 7.1.2)
-            parsed = XUrl().parse(url)
+            parsed = Url(url).parse()
             if parsed.fragment == '' and previous_fragment:
                 parsed = parsed._replace(fragment=previous_fragment)
             elif parsed.fragment:
@@ -2654,7 +2655,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             # (e.g. '/path/to/resource' instead of 'http://domain.tld/path/to/resource')
             # Compliant with RFC3986, we percent encode the url.
             if not parsed.netloc:
-                url = XUrl().join(resp.url_(), Uri(url).requote())
+                url = Url(resp.url_()).join(Uri(url).requote())
             else:
                 url = Uri(url).requote()
 
@@ -2727,15 +2728,15 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         and reapplies authentication where possible to avoid credential loss.
         """
         headers = prepared_request.headers_()
-        url = prepared_request.url_()
+        url = prepared_request.url_obj()
 
-        if 'Authorization' in headers and self.should_strip_auth(response.request_().url_(), url):
+        if 'Authorization' in headers and self.should_strip_auth(response.request_().url_(), url.value_()):
             # If we get redirected to a new host, we should strip out any
             # authentication headers.
             del headers['Authorization']
 
         # .netrc might have more auth for us on our new host.
-        new_auth = Url(url).get_netrc_auth() if self.trust_env_() else None
+        new_auth = url.get_netrc_auth() if self.trust_env_() else None
         if new_auth is not None:
             prepared_request.prepare_auth(new_auth)
 
@@ -2754,13 +2755,13 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         proxies = proxies if proxies is not None else {}
         headers = prepared_request.headers_()
         url = prepared_request.url_()
-        scheme = XUrl().parse(url).scheme
+        scheme = Url(url).parse().scheme
         new_proxies = proxies.copy()
         no_proxy = proxies.get('no_proxy')
 
-        bypass_proxy = ProxyUtils().should_bypass_proxies(url, no_proxy=no_proxy)
+        bypass_proxy = Proxies().should_bypass_proxies(url, no_proxy=no_proxy)
         if self.trust_env_() and not bypass_proxy:
-            environ_proxies = ProxyUtils().get_environ_proxies(url, no_proxy=no_proxy)
+            environ_proxies = Proxies().get_environ_proxies(url, no_proxy=no_proxy)
 
             proxy = environ_proxies.get(scheme, environ_proxies.get('all'))
 
@@ -2833,9 +2834,9 @@ class SessionPickle:
 
 class SessionSendInputs(Attributes):
     def __init__(self):
-        self.timeout = None
-        self.allow_redirects = True
-        self.current_attributes()
+        super(SessionSendInputs, self).__init__()
+        self.add_attribute('timeout', None)
+        self.add_attribute('allow_redirects', True)
 
     def merge_settings(self, settings):
         send_kwargs = {
@@ -2848,18 +2849,18 @@ class SessionSendInputs(Attributes):
 
 class SessionEnvironmentInputs(Attributes):  # ./sessions/session_environment_inputs.py
     def __init__(self):
-        self.verify = None
-        self.proxies = None
-        self.stream = None
-        self.cert = None
-        self.current_attributes()
+        super(SessionEnvironmentInputs, self).__init__()
+        self.add_attribute('verify', None)
+        self.add_attribute('proxies', None)
+        self.add_attribute('stream', None)
+        self.add_attribute('cert', None)
 
     def merge_settings(self, url, session):  # ./sessions/session_environment_inputs.py
         self.proxies = self.proxies or {}
         if session.trust_env_():
             # Set environment's proxies.
             no_proxy = self.proxies.get('no_proxy') if self.proxies is not None else None
-            env_proxies = ProxyUtils().get_environ_proxies(url, no_proxy=no_proxy)
+            env_proxies = Proxies().get_environ_proxies(url, no_proxy=no_proxy)
             for (k, v) in env_proxies.items():
                 self.proxies.setdefault(k, v)
 
@@ -2873,29 +2874,30 @@ class SessionEnvironmentInputs(Attributes):  # ./sessions/session_environment_in
         proxies = RequestSetting(self.proxies).merge_session_setting(session.proxies_())
         stream = RequestSetting(self.stream).merge_session_setting(session.stream_())
         verify = RequestSetting(self.verify).merge_session_setting(session.verify_())
-        cert = RequestSetting(self.cert).merge_session_setting(session.cert_())
+        cert = RequestSetting(self.cert_()).merge_session_setting(session.cert_())
 
         return {'verify': verify, 'proxies': proxies, 'stream': stream,
                 'cert': cert}
 
 
-class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
+class Session(SessionRedirectMixin, PicklerMixin, Attributes):  # ./Sessions/Session.py
     def help(self):
         Help().display(self.__class__.__name__)
 
     def __init__(self):  # ./Sessions/Session.py
-        self.headers_(Headers().default_headers())
-        self.auth_(None)
-        self.proxies_({})
-        self.hooks_(Hooks().default_hooks())
-        self.params_({})
-        self.stream_(False)
-        self.verify_(True)
-        self.cert_(None)
-        self.max_redirects_(Models().DEFAULT_REDIRECT_LIMIT())
-        self.trust_env_(True)
-        self.cookies_(CookieUtils().cookiejar_from_dict({}))
-        self.adapters_(XOrderedDict())
+        super(Session, self).__init__()
+        self.add_attribute('headers', Headers().default_headers())
+        self.add_attribute('auth', None)
+        self.add_attribute('proxies', {})
+        self.add_attribute('hooks', Hooks().default_hooks())
+        self.add_attribute('params', {})
+        self.add_attribute('stream', False)
+        self.add_attribute('verify', True)
+        self.add_attribute('cert', None)
+        self.add_attribute('max_redirects', Models().DEFAULT_REDIRECT_LIMIT())
+        self.add_attribute('trust_env', True)
+        self.add_attribute('cookies', CookieUtils().cookiejar_from_dict({}))
+        self.add_attribute('adapters', XOrderedDict())
         self.mount('https://', HTTPconnections())
         self.mount('http://', HTTPconnections())
 
@@ -2919,7 +2921,7 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         # Set environment's basic authentication if not explicitly set.
         auth = request.auth_()
         if self.trust_env_() and not auth and not self.auth_():
-            auth = Url(request.url_()).get_netrc_auth()
+            auth = request.url_obj().get_netrc_auth()
 
         return Ticket() \
             .method_(request.method_().upper()) \
@@ -2971,8 +2973,8 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         kwargs.setdefault('verify', self.verify_())
         kwargs.setdefault('cert', self.cert_())
         if 'proxies' not in kwargs:
-            kwargs['proxies'] = ProxyUtils().resolve_proxies(
-                ticket, self.proxies_(), self.trust_env_()
+            kwargs['proxies'] = self.proxies_obj().resolve_proxies(
+                ticket, self.trust_env_()
             )
 
         # It's possible that users might accidentally send a Request object.
@@ -3058,40 +3060,13 @@ class Session(SessionRedirectMixin, PicklerMixin):  # ./Sessions/Session.py
         for key in keys_to_move:
             self.adapters_()[key] = self.adapters_().pop(key)
 
-    def headers_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'headers', *args)
-
-    def auth_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'auth', *args)
-
-    def params_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'params', *args)
-
-    def stream_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'stream', *args)
-
-    def hooks_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'hooks', *args)
-
-    def adapters_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'adapters', *args)
-
-    def cert_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'cert', *args)
-
-    def verify_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'verify', *args)
-
-    def proxies_(self, *args):  # ./Sessions/Session.py
-        return DomainUtils().get_or_set(self, 'proxies', *args)
-
 
 # *************************** classes in Utils section *****************
-class ProxyUtils:  # ./Utils/proxy_utils.py
+class Proxies(Aggregate):  # ./Utils/proxies.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def proxy_bypass(self, host):  # noqa  # ./Utils/proxy_utils.py
+    def proxy_bypass(self, host):  # noqa  # ./Utils/proxies.py
         if XSys().platform() == 'win32':
             return self._proxy_bypass_win32(host)
         else:
@@ -3139,7 +3114,7 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
             else:
                 return XCompat().proxy_bypass_registry(host)
 
-    def should_bypass_proxies(self, url, no_proxy):  # ./Utils/proxy_utils.py
+    def should_bypass_proxies(self, url, no_proxy):  # ./Utils/proxies.py
         def get_proxy(k):
             return XOs().environ().get(k) or XOs().environ().get(k.upper())
 
@@ -3148,7 +3123,7 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         no_proxy_arg = no_proxy
         if no_proxy is None:
             no_proxy = get_proxy('no_proxy')
-        parsed = XUrl().parse(url)
+        parsed = Url(url).parse()
 
         if parsed.hostname is None:
             # URLs don't always have hostnames, e.g. file:/// urls.
@@ -3184,7 +3159,7 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
         with Utils().set_environ('no_proxy', no_proxy_arg):
             # parsed.hostname can be `None` in cases such as a file URI.
             try:
-                bypass = ProxyUtils().proxy_bypass(parsed.hostname)
+                bypass = self.proxy_bypass(parsed.hostname)
             except (TypeError, XSocket().gaierror()):
                 bypass = False
 
@@ -3193,18 +3168,18 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
 
         return False
 
-    def address_in_network(self, ip, net):  # ./Utils/proxy_utils.py
+    def address_in_network(self, ip, net):  # ./Utils/proxies.py
         ipaddr = XStruct().unpack('=L', XSocket().inet_aton(ip))[0]
         netaddr, bits = net.split('/')
         netmask = XStruct().unpack('=L', XSocket().inet_aton(self.dotted_netmask(int(bits))))[0]
         network = XStruct().unpack('=L', XSocket().inet_aton(netaddr))[0] & netmask
         return (ipaddr & netmask) == (network & netmask)
 
-    def dotted_netmask(self, mask):  # ./Utils/proxy_utils.py
+    def dotted_netmask(self, mask):  # ./Utils/proxies.py
         bits = 0xffffffff ^ (1 << 32 - mask) - 1
         return XSocket().inet_ntoa(XStruct().pack('>I', bits))
 
-    def is_valid_cidr(self, string_network):  # ./Utils/proxy_utils.py
+    def is_valid_cidr(self, string_network):  # ./Utils/proxies.py
         if string_network.count('/') == 1:
             try:
                 mask = int(string_network.split('/')[1])
@@ -3222,15 +3197,15 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
             return False
         return True
 
-    def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/proxy_utils.py
+    def get_environ_proxies(self, url, no_proxy=None):  # ./Utils/proxies.py
         if self.should_bypass_proxies(url, no_proxy=no_proxy):
             return {}
         else:
             return XUrl().request().getproxies()
 
-    def select_proxy(self, url, proxies):  # ./Utils/proxy_utils.py
-        proxies = proxies or {}
-        urlparts = XUrl().parse(url)
+    def select_proxy(self, url):  # ./Utils/proxies.py
+        proxies = self.value_() or {}
+        urlparts = Url(url).parse()
         if urlparts.hostname is None:
             return proxies.get(urlparts.scheme, proxies.get('all'))
 
@@ -3248,10 +3223,11 @@ class ProxyUtils:  # ./Utils/proxy_utils.py
 
         return proxy
 
-    def resolve_proxies(self, request, proxies, trust_env=True):  # ./Utils/proxy_utils.py
+    def resolve_proxies(self, request, trust_env=True):  # ./Utils/proxies.py
+        proxies = self.value_()
         proxies = proxies if proxies is not None else {}
         url = request.url_()
-        scheme = XUrl().parse(url).scheme
+        scheme = Url(url).parse().scheme
         no_proxy = proxies.get('no_proxy')
         new_proxies = proxies.copy()
 
@@ -3401,14 +3377,11 @@ class Uri:  # ./Utils/uri.py
             return XUrl().quote(self.uri, safe=safe_without_percent)
 
 
-class Url:  # ./Utils/url.py
+class Url(Aggregate):  # ./Utils/url.py
     def help(self):
         Help().display(self.__class__.__name__)
 
     _NETRC_FILES = ('.netrc', '_netrc')
-
-    def __init__(self, url):
-        self.value_(url)
 
     def get_netrc_auth(self, raise_errors=False):  # ./Utils/url.py
         """Returns the Requests tuple auth for a given url from netrc."""
@@ -3441,12 +3414,12 @@ class Url:  # ./Utils/url.py
             if netrc_path is None:
                 return
 
-            ri = XUrl().parse(self.value)
+            ri = self.parse()
 
             # Strip port numbers from netloc. This weird `if...encode`` dance is
             # used for Python 3.2, which doesn't support unicode literals.
             splitstr = b':'
-            if XStr().is_instance(self.value):
+            if XStr().is_instance(self.value_()):
                 splitstr = splitstr.decode('ascii')
             host = ri.netloc.split(splitstr)[0]
 
@@ -3467,7 +3440,7 @@ class Url:  # ./Utils/url.py
             pass
 
     def prepend_scheme_if_needed(self, new_scheme):  # ./Utils/url.py
-        scheme, netloc, path, params, query, fragment = XUrl().parse(self.value, new_scheme)
+        scheme, netloc, path, params, query, fragment = self.parse(new_scheme)
 
         # urlparse is a finicky beast, and sometimes decides that there isn't a
         # netloc present. Assume that it's being over-cautious, and switch netloc
@@ -3478,7 +3451,7 @@ class Url:  # ./Utils/url.py
         return XUrl().unparse((scheme, netloc, path, params, query, fragment))
 
     def get_auth(self):  # ./Utils/url.py
-        parsed = XUrl().parse(self.value)
+        parsed = self.parse()
 
         try:
             auth = (XUrl().unquote(parsed.username), XUrl().unquote(parsed.password))
@@ -3488,8 +3461,7 @@ class Url:  # ./Utils/url.py
         return auth
 
     def defragauth(self):  # ./Utils/url.py
-        scheme, netloc, path, params, query, fragment = XUrl().parse(self.value)
-
+        scheme, netloc, path, params, query, fragment = self.parse()
         # see func:`prepend_scheme_if_needed`
         if not netloc:
             netloc, path = path, netloc
@@ -3580,8 +3552,14 @@ class Url:  # ./Utils/url.py
         self.value_(url)
         return self
 
-    def value_(self, *args):  # ./Models/Request.py
-        return DomainUtils().get_or_set(self, 'value', *args)
+    def parse(self, *args):
+        return XUrl().parse(self.value_(), *args)
+
+    def split(self, *args):
+        return XUrl().split(self.value_(), *args)
+
+    def join(self, *args):
+        return XUrl().join(self.value_(), *args)
 
 
 class IpUtils:  # ./Utils/ip_utils.py
