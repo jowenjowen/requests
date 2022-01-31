@@ -35,7 +35,7 @@ from requests.five_d.domain import CookieUtils
 from requests.five_d.domain import CookieConflictError
 from requests.five_d.domain import Ticket
 from requests.five_d.domain import CaseInsensitiveDict
-from requests.five_d.domain import SessionRedirectMixin
+from requests.five_d.domain import SessionRedirect
 from requests.five_d.domain import Hooks
 from requests.five_d.domain import FileUtils
 from requests.five_d.domain import XMutableMapping
@@ -2231,7 +2231,7 @@ class TestTimeout:
 SendCall = collections.namedtuple('SendCall', ('args', 'kwargs'))
 
 
-class RedirectSession(SessionRedirectMixin):
+class RedirectSession(SessionRedirect):
     def __init__(self, order_of_redirects):
         self.redirects = order_of_redirects
         self.calls = []

@@ -24,7 +24,7 @@ from .x import XTime
 from .x import XOs
 from .x import XRe
 
-# classes needed for InternalUtilitites
+# classes needed for InternalUtilities
 from .x import XCompat, XThreading
 
 # imports needed for Utils
@@ -403,7 +403,7 @@ class BaseConnections(object):  # ./Connections/BaseConnections.py
         raise NotImplementedError
 
 
-class PicklerMixin:
+class Pickler:
     def __getstate__(self):  # ./Connections/HTTPconnections.py
         pickler = eval(self.__class__.__name__ + 'Pickle(self)')
         return pickler.state_()
@@ -413,7 +413,7 @@ class PicklerMixin:
         return pickler.state_(state)
 
 
-class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconnections.py
+class HTTPconnections(BaseConnections, Pickler):  # ./Connections/HTTPconnections.py
     def help(self):
         Help().display(self.__class__.__name__)
 
@@ -668,7 +668,7 @@ class HTTPconnections(BaseConnections, PicklerMixin):  # ./Connections/HTTPconne
         return self.build_response(request, resp)
 
 
-class HTTPconnectionsPickle:  # ./Models/Connections/HTTPconnectionsPickle.py
+class HTTPconnectionsPickle:  # ./models/Connections/HTTPconnectionsPickle.py
     def __init__(self, instance):
         self.instance = instance
 
@@ -1042,7 +1042,7 @@ class Certs:  # ./Certs/Certs.py
 
 
 # *************************** classes in Cookies section *****************
-class CookieUtils:  # ./Cookies/CookieUtils.py
+class CookieUtils:  # ./cookies/CookieUtils.py
     def help(self):
         Help().display(self.__class__.__name__)
 
@@ -1056,12 +1056,12 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         res = XCookieJarResponse(response._original_response.msg)
         jar.extract_cookies(res, req)
 
-    def get_cookie_header(self, jar, request):  # ./Cookies/CookieUtils.py
+    def get_cookie_header(self, jar, request):  # ./cookies/CookieUtils.py
         r = XCookieJarRequest(request)
         jar.add_cookie_header(r)
         return r.added_headers().get('Cookie')
 
-    def remove_cookie_by_name(self, cookiejar, name, domain=None, path=None):  # ./Cookies/CookieUtils.py
+    def remove_cookie_by_name(self, cookiejar, name, domain=None, path=None):  # ./cookies/CookieUtils.py
         """Unsets a cookie by name, by default over all domains and paths.
 
         Wraps CookieJar.clear() (CookieJar or XCookieJar), is O(n).
@@ -1079,7 +1079,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
         for domain, path, name in clearables:
             cookiejar.clear(domain, path, name)
 
-    def _copy_cookie_jar(self, jar):  # ./Cookies/CookieUtils.py
+    def _copy_cookie_jar(self, jar):  # ./cookies/CookieUtils.py
         if jar is None:
             return None
 
@@ -1093,7 +1093,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
             new_jar.set_cookie(XCopy().copy(cookie))
         return new_jar
 
-    def create_cookie(self, name, value, **kwargs):  # ./Cookies/CookieUtils.py
+    def create_cookie(self, name, value, **kwargs):  # ./cookies/CookieUtils.py
         result = {
             'version': 0,
             'name': name,
@@ -1123,7 +1123,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
 
         return XCookie(**result)
 
-    def morsel_to_cookie(self, morsel):  # ./Cookies/CookieUtils.py
+    def morsel_to_cookie(self, morsel):  # ./cookies/CookieUtils.py
         """Convert a Morsel object into a Cookie containing the one k/v pair."""
 
         expires = None
@@ -1153,7 +1153,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
             version=morsel['version'] or 0,
         )
 
-    def cookiejar_from_dict(self, cookie_dict, cookiejar=None, overwrite=True):  # ./Cookies/CookieUtils.py
+    def cookiejar_from_dict(self, cookie_dict, cookiejar=None, overwrite=True):  # ./cookies/CookieUtils.py
         if cookiejar is None:
             cookiejar = CookieJar()
 
@@ -1165,7 +1165,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
 
         return cookiejar
 
-    def merge_cookies(self, cookiejar, cookies):  # ./Cookies/CookieUtils.py
+    def merge_cookies(self, cookiejar, cookies):  # ./cookies/CookieUtils.py
         if not isinstance(cookiejar, XCookieJar):
             raise ValueError('You can only merge into CookieJar')
 
@@ -1181,7 +1181,7 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
 
         return cookiejar
 
-    def dict_from_cookiejar(self, cj):  # ./Cookies/CookieUtils.py
+    def dict_from_cookiejar(self, cj):  # ./cookies/CookieUtils.py
         cookie_dict = {}
 
         for cookie in cj:
@@ -1189,19 +1189,19 @@ class CookieUtils:  # ./Cookies/CookieUtils.py
 
         return cookie_dict
 
-    def add_dict_to_cookiejar(self, cj, cookie_dict):  # ./Cookies/CookieUtils.py
+    def add_dict_to_cookiejar(self, cj, cookie_dict):  # ./cookies/CookieUtils.py
         return self.cookiejar_from_dict(cookie_dict, cj)
 
 
-class CookieConflictError(RuntimeError):  # ./Cookies/CookieConflictError.py
+class CookieConflictError(RuntimeError):  # ./cookies/CookieConflictError.py
     def help(self): Help().display(self.__class__.__name__)
 
 
-class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJar.py
+class CookieJar(XCookieJar, XMutableMapping, Pickler):  # ./cookies/cookie_jar.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def get(self, name, default=None, domain=None, path=None):  # ./Cookies/CookieJar.py
+    def get(self, name, default=None, domain=None, path=None):  # ./cookies/cookie_jar.py
         """Dict-like get() that also supports optional domain and path args in
         order to resolve naming collisions from using one cookie jar over
         multiple domains.
@@ -1213,7 +1213,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         except KeyError:
             return default
 
-    def set(self, name, value, **kwargs):  # ./Cookies/CookieJar.py
+    def set(self, name, value, **kwargs):  # ./cookies/cookie_jar.py
         """Dict-like set() that also supports optional domain and path args in
         order to resolve naming collisions from using one cookie jar over
         multiple domains.
@@ -1230,7 +1230,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         self.set_cookie(c)
         return c
 
-    def iterkeys(self):  # ./Cookies/CookieJar.py
+    def iterkeys(self):  # ./cookies/cookie_jar.py
         """Dict-like iterkeys() that returns an iterator of names of cookies
         from the jar.
 
@@ -1239,7 +1239,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         for cookie in iter(self):
             yield cookie.name
 
-    def keys(self):  # ./Cookies/CookieJar.py
+    def keys(self):  # ./cookies/cookie_jar.py
         """Dict-like keys() that returns a list of names of cookies from the
         jar.
 
@@ -1247,7 +1247,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         """
         return list(self.iterkeys())
 
-    def itervalues(self):  # ./Cookies/CookieJar.py
+    def itervalues(self):  # ./cookies/cookie_jar.py
         """Dict-like itervalues() that returns an iterator of values of cookies
         from the jar.
 
@@ -1256,7 +1256,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         for cookie in iter(self):
             yield cookie.value
 
-    def values(self):  # ./Cookies/CookieJar.py
+    def values(self):  # ./cookies/cookie_jar.py
         """Dict-like values() that returns a list of values of cookies from the
         jar.
 
@@ -1264,7 +1264,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         """
         return list(self.itervalues())
 
-    def iteritems(self):  # ./Cookies/CookieJar.py
+    def iteritems(self):  # ./cookies/cookie_jar.py
         """Dict-like iteritems() that returns an iterator of name-value tuples
         from the jar.
 
@@ -1273,7 +1273,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         for cookie in iter(self):
             yield cookie.name, cookie.value
 
-    def items(self):  # ./Cookies/CookieJar.py
+    def items(self):  # ./cookies/cookie_jar.py
         """Dict-like items() that returns a list of name-value tuples from the
         jar. Allows client-code to call ``dict(CookieJar)`` and get a
         vanilla python dict of key value pairs.
@@ -1282,7 +1282,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         """
         return list(self.iteritems())
 
-    def list_domains(self):  # ./Cookies/CookieJar.py
+    def list_domains(self):  # ./cookies/cookie_jar.py
         """Utility method to list all the domains in the jar."""
         domains = []
         for cookie in iter(self):
@@ -1290,7 +1290,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
                 domains.append(cookie.domain)
         return domains
 
-    def list_paths(self):  # ./Cookies/CookieJar.py
+    def list_paths(self):  # ./cookies/cookie_jar.py
         """Utility method to list all the paths in the jar."""
         paths = []
         for cookie in iter(self):
@@ -1298,7 +1298,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
                 paths.append(cookie.path)
         return paths
 
-    def multiple_domains(self):  # ./Cookies/CookieJar.py
+    def multiple_domains(self):  # ./cookies/cookie_jar.py
         """Returns True if there are multiple domains in the jar.
         Returns False otherwise.
 
@@ -1311,7 +1311,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
             domains.append(cookie.domain)
         return False  # there is only one domain in jar
 
-    def get_dict(self, domain=None, path=None):  # ./Cookies/CookieJar.py
+    def get_dict(self, domain=None, path=None):  # ./cookies/cookie_jar.py
         """Takes as an argument an optional domain and path and returns a plain
         old Python dict of name-value pairs of cookies that meet the
         requirements.
@@ -1327,13 +1327,13 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
                 dictionary[cookie.name] = cookie.value
         return dictionary
 
-    def __contains__(self, name):  # ./Cookies/CookieJar.py
+    def __contains__(self, name):  # ./cookies/cookie_jar.py
         try:
             return super(CookieJar, self).__contains__(name)
         except CookieConflictError:
             return True
 
-    def __getitem__(self, name):  # ./Cookies/CookieJar.py
+    def __getitem__(self, name):  # ./cookies/cookie_jar.py
         """Dict-like __getitem__() for compatibility with client code. Throws
         exception if there are more than one cookie with name. In that case,
         use the more explicit get() method instead.
@@ -1342,25 +1342,25 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         """
         return self._find_no_duplicates(name)
 
-    def __setitem__(self, name, value):  # ./Cookies/CookieJar.py
+    def __setitem__(self, name, value):  # ./cookies/cookie_jar.py
         """Dict-like __setitem__ for compatibility with client code. Throws
         exception if there is already a cookie of that name in the jar. In that
         case, use the more explicit set() method instead.
         """
         self.set(name, value)
 
-    def __delitem__(self, name):  # ./Cookies/CookieJar.py
+    def __delitem__(self, name):  # ./cookies/cookie_jar.py
         """Deletes a cookie given a name. Wraps ``cookielib.CookieJar``'s
         ``remove_cookie_by_name()``.
         """
         CookieUtils().remove_cookie_by_name(self, name)
 
-    def set_cookie(self, cookie):  # ./Cookies/CookieJar.py
+    def set_cookie(self, cookie):  # ./cookies/cookie_jar.py
         if hasattr(cookie.value, 'startswith') and cookie.value.startswith('"') and cookie.value.endswith('"'):
             cookie.value = cookie.value.replace('\\"', '')
         return super(CookieJar, self).set_cookie(cookie)
 
-    def update(self, other):  # ./Cookies/CookieJar.py
+    def update(self, other):  # ./cookies/cookie_jar.py
         """Updates this jar with cookies from another CookieJar (CookieJar or XCookieJar) or dict-like"""
         if isinstance(other, XCookieJar):
             for cookie in other:
@@ -1368,7 +1368,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
         else:
             super(CookieJar, self).update(other)
 
-    def _find(self, name, domain=None, path=None):  # ./Cookies/CookieJar.py
+    def _find(self, name, domain=None, path=None):  # ./cookies/cookie_jar.py
         """Requests uses this method internally to get cookie values.
 
         If there are conflicting cookies, _find arbitrarily chooses one.
@@ -1388,7 +1388,7 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
 
         raise KeyError('name=%r, domain=%r, path=%r' % (name, domain, path))
 
-    def _find_no_duplicates(self, name, domain=None, path=None):  # ./Cookies/CookieJar.py
+    def _find_no_duplicates(self, name, domain=None, path=None):  # ./cookies/cookie_jar.py
         """Both ``__get_item__`` and ``get`` call this function: it's never
         used elsewhere in Requests.
 
@@ -1413,19 +1413,19 @@ class CookieJar(XCookieJar, XMutableMapping, PicklerMixin):  # ./Cookies/CookieJ
             return toReturn
         raise KeyError('name=%r, domain=%r, path=%r' % (name, domain, path))
 
-    def copy(self):  # ./Cookies/CookieJar.py
+    def copy(self):  # ./cookies/cookie_jar.py
         """Return a copy of this CookieJar."""
         new_cj = CookieJar()
         new_cj.set_policy(self.get_policy())
         new_cj.update(self)
         return new_cj
 
-    def get_policy(self):  # ./Cookies/CookieJar.py
+    def get_policy(self):  # ./cookies/cookie_jar.py
         """Return the CookiePolicy instance used."""
         return self._policy
 
 
-class CookieJarPickle:  # ./Cookies/CookieJarPickle.py
+class CookieJarPickle:  # ./cookies/cookie_jar_pickle.py
     def __init__(self, instance):
         self.instance = instance
 
@@ -1565,7 +1565,7 @@ class Hooks:  # ./Hooks/hooks.py
 
 # *************************** classes in Models section *****************
 
-class Models:  # ./Models/models.py
+class Models:  # ./models/models.py
     def help(self): Help().display(self.__class__.__name__)
 
     _REDIRECT_STATI = (
@@ -1593,11 +1593,11 @@ class Models:  # ./Models/models.py
         return self._ITER_CHUNK_SIZE
 
 
-class Encoding:  # ./Models/Encoding.py
+class Encoding:  # ./models/Encoding.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def path_url(self, url_in):  # ./Models/Encoding.py
+    def path_url(self, url_in):  # ./models/Encoding.py
 
         url = []
 
@@ -1616,7 +1616,7 @@ class Encoding:  # ./Models/Encoding.py
 
         return ''.join(url)
 
-    def params(self, data):  # ./Models/Encoding.py
+    def params(self, data):  # ./models/Encoding.py
         if isinstance(data, (XStr().clazz(), XBytes().clazz())):
             return data
         elif hasattr(data, 'read'):
@@ -1635,7 +1635,7 @@ class Encoding:  # ./Models/Encoding.py
         else:
             return data
 
-    def files(self, files, data):  # ./Models/Encoding.py
+    def files(self, files, data):  # ./models/Encoding.py
         if not files:
             raise ValueError("Files must be provided.")
         elif XBaseString().is_instance(data):
@@ -1691,7 +1691,7 @@ class Encoding:  # ./Models/Encoding.py
         return body, content_type
 
 
-class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
+class RequestHooks:  # ./models/RequestHooks.py
     def help(self):
         Help().display(self.__class__.__name__)
 
@@ -1710,18 +1710,18 @@ class RequestHooksMixin:  # ./Models/RequestHooksMixin.py
 
 
 class CommonProperties(Attributes):
-    def __init__(self):  # ./Models/Request.py
+    def __init__(self):  # ./models/Request.py
         super(CommonProperties, self).__init__()
         self.add_attribute('cookies', None)
         self.add_attribute('headers', {})
         self.add_attribute('url', None)
 
 
-class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Request.py
+class Request(CommonProperties, RequestHooks, Attributes):  # ./models/Request.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def __init__(self):  # ./Models/Request.py
+    def __init__(self):  # ./models/Request.py
         super(Request, self).__init__()
         self.add_attribute('auth', None)
         self.add_attribute('data', [])
@@ -1733,10 +1733,10 @@ class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Requ
         self.auth = None
         self.hooks = Hooks().default_hooks()
 
-    def __repr__(self):  # ./Models/Request.py
+    def __repr__(self):  # ./models/Request.py
         return '<Request [%s]>' % (self.method_())
 
-    def prepare(self):  # ./Models/Request.py
+    def prepare(self):  # ./models/Request.py
         """Constructs a :class:`PreparedRequest <PreparedRequest>` for transmission and returns it."""
         return Ticket() \
             .method_(self.method_()) \
@@ -1751,14 +1751,14 @@ class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Requ
             .hooks_(self.hooks_()) \
             .prepare()
 
-    def add_header(self, key, value):  # ./Models/Request.py
+    def add_header(self, key, value):  # ./models/Request.py
         self.headers_()[key] = value
         return self
 
     def path_url_(self):
         return Encoding().path_url(self.url_())
 
-    def hooks_(self, *args):  # ./Models/Request.py
+    def hooks_(self, *args):  # ./models/Request.py
         if len(args) != 0:
             self.hooks = Hooks().default_hooks()
             hooks = args[0] if args[0] else {}
@@ -1769,19 +1769,35 @@ class Request(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/Requ
             return self.hooks
 
 
-class Method(Aggregate):  # ./Models/method.py
-    def prepare(self):  # ./Models/method.py
+class Method(Aggregate):  # ./models/method.py
+    def prepare(self):  # ./models/method.py
         """Prepares the given HTTP method."""
         if self.value_() is not None:
             self.value_(XUtils().to_native_string(self.value_().upper()))
         return self.value_()
 
+    def rebuild(self, status_code):
+        # https://tools.ietf.org/html/rfc7231#section-6.4.4
+        if status_code == StatusCodes().get('see_other') and self.value_() != 'HEAD':
+            self.value_('GET')
 
-class Cookies:  # ./Models/cookies.py
+        # Do what the browsers do, despite standards...
+        # First, turn 302s into GETs.
+        if status_code == StatusCodes().get('found') and self.value_() != 'HEAD':
+            self.value_('GET')
+
+        # Second, if a POST is responded to with a 301, turn it into a GET.
+        # This bizarre behaviour is explained in Issue 1704.
+        if status_code == StatusCodes().get('moved') and self.value_() == 'POST':
+            self.value_('GET')
+        return self.value_()
+
+
+class Cookies:  # ./models/cookies.py
     def __init__(self, cookies):
         self.cookies_(cookies)
 
-    def prepare(self, request):  # ./Models/cookies.py
+    def prepare(self, request):  # ./models/cookies.py
         cookies = self.cookies_()
         if isinstance(cookies, XCookieJar):
             self.cookies_(cookies)
@@ -1792,21 +1808,21 @@ class Cookies:  # ./Models/cookies.py
 
         return self.cookies_()
 
-    def cookies_(self, *args):  # ./Models/cookies.py
+    def cookies_(self, *args):  # ./models/cookies.py
         return DomainUtils().get_or_set(self, 'cookies', *args)
 
-    def cookie_header_(self):  # ./Models/cookies.py
+    def cookie_header_(self):  # ./models/cookies.py
         return self.cookie_header
 
 
-class Headers(Aggregate):  # ./Models/headers.py
+class Headers(Aggregate):  # ./models/headers.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def __init__(self, headers=None):  # ./Models/headers.py
+    def __init__(self, headers=None):  # ./models/headers.py
         self.value_(headers)
 
-    def prepare(self):  # ./Models/headers.py
+    def prepare(self):  # ./models/headers.py
         """Prepares the given HTTP headers."""
         headers = self.value_()
         self.value_(CaseInsensitiveDict())
@@ -1818,7 +1834,7 @@ class Headers(Aggregate):  # ./Models/headers.py
                 self.value_()[XUtils().to_native_string(name)] = value
         return self.value_()
 
-    def get_encoding_from_headers(self):  # ./Models/headers.py
+    def get_encoding_from_headers(self):  # ./models/headers.py
         content_type = self.value_().get('content-type')
 
         if not content_type:
@@ -1845,7 +1861,7 @@ class Headers(Aggregate):  # ./Models/headers.py
         })
 
 
-class Header:  # ./Models/header.py
+class Header:  # ./models/header.py
     # Ensure that ', ' is used to preserve previous delimiter behavior.
     _DEFAULT_ACCEPT_ENCODING = ", ".join(
         XRe().split(r",\s*", XUrllib3().util().make_headers(accept_encoding=True)["accept-encoding"])
@@ -1858,7 +1874,7 @@ class Header:  # ./Models/header.py
     def DEFAULT_ACCEPT_ENCODING(self):  # ./Utils/header.py
         return self._DEFAULT_ACCEPT_ENCODING
 
-    def _parse_content_type_header(self, header):  # ./Models/header.py
+    def _parse_content_type_header(self, header):  # ./models/header.py
         tokens = header.split(';')
         content_type, params = tokens[0].strip(), tokens[1:]
         params_dict = {}
@@ -1922,11 +1938,11 @@ class Header:  # ./Models/header.py
         return '%s/%s' % (name, requests_version)
 
 
-class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticket.py
+class Ticket(CommonProperties, RequestHooks, Attributes):  # ./models/ticket.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def __init__(self):  # ./Models/ticket.py
+    def __init__(self):  # ./models/ticket.py
         super(Ticket, self).__init__()
         self.add_attribute('method', None)
         self.add_attribute('files', None)
@@ -1938,10 +1954,10 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
         self.add_attribute('body', None)
         self._body_position = None  #: integer denoting starting position of a readable file-like body.
 
-    def prepare(self):  # ./Models/ticket.py
+    def prepare(self):  # ./models/ticket.py
         """Prepares the entire request with the given parameters."""
 
-        self.method_(Method(self.method_()).prepare())
+        self.method_(self.method_obj().prepare())
 
         self.url_(self.url_obj().prepare(self.params_()).value_())
         self.headers_(self.headers_obj().prepare())
@@ -1957,10 +1973,10 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
         del self.data, self.files, self.json, self.params
         return self
 
-    def __repr__(self):  # ./Models/ticket.py
+    def __repr__(self):  # ./models/ticket.py
         return '<PreparedRequest [%s]>' % (self.method_())
 
-    def copy(self):  # ./Models/ticket.py
+    def copy(self):  # ./models/ticket.py
         p = Ticket()
         p.method_(self.method_())
         p.url_(self.url_())
@@ -1972,14 +1988,14 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
         return p
 
     @staticmethod
-    def _get_idna_encoded_host(host):  # ./Models/ticket.py
+    def _get_idna_encoded_host(host):  # ./models/ticket.py
         try:
             host = XIdna().encode(host, uts46=True).decode('utf-8')
         except XIdna().IDNAError():
             raise UnicodeError
         return host
 
-    def prepare_body(self, data, files, json=None):  # ./Models/ticket.py
+    def prepare_body(self, data, files, json=None):  # ./models/ticket.py
         body = Body(self)
         self.body_(body.prepare(data, files, json))
         if body.is_stream():
@@ -1987,17 +2003,17 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
         headers = self.headers_()
         headers.update(body.headers())
 
-    def prepare_auth(self, auth):  # ./Models/ticket.py
+    def prepare_auth(self, auth):  # ./models/ticket.py
         self.auth_(auth).auth_obj().prepare(self)
 
-    def prepare_cookies(self, cookies):  # ./Models/ticket.py
+    def prepare_cookies(self, cookies):  # ./models/ticket.py
         c = Cookies(cookies)
         self.cookies_(c.prepare(self))
         cookie_header = c.cookie_header_()
         if cookie_header is not None:
             self.headers_()['Cookie'] = cookie_header
 
-    def prepare_hooks(self, hooks):  # ./Models/ticket.py
+    def prepare_hooks(self, hooks):  # ./models/ticket.py
         self.hooks_(Hooks().default_hooks())  #: dictionary of callback hooks, for internal usage.
         hooks = hooks or []
         for event in hooks:
@@ -2006,15 +2022,24 @@ class Ticket(CommonProperties, RequestHooksMixin, Attributes):  # ./Models/ticke
     def path_url_(self):
         return Encoding().path_url(self.url_())
 
+class Data:
+    def __init__(self, data):
+        self.data = data
 
-class Body:  # ./Models/body.py
-    def __init__(self, request):  # ./Models/body.py
+    def is_stream(self):
+        return all([
+            hasattr(self.data, '__iter__'),
+            not isinstance(self.data, (XBaseString().clazz(), list, tuple, XMapping))
+        ])
+
+class Body:  # ./models/body.py
+    def __init__(self, request):  # ./models/body.py
         self.request = request
         self.body = request.body_()
         self._body_position = None
         self._headers = {}
 
-    def prepare(self, data, files, json):  # ./Models/body.py
+    def prepare(self, data, files, json):  # ./models/body.py
         self.body = None
         content_type = None
 
@@ -2031,10 +2056,7 @@ class Body:  # ./Models/body.py
             if not XBytes().is_instance(self.body):
                 self.body = self.body.encode('utf-8')
 
-        self._is_stream = all([
-            hasattr(data, '__iter__'),
-            not isinstance(data, (XBaseString().clazz(), list, tuple, XMapping))
-        ])
+        self._is_stream = Data(data).is_stream()
 
         if self._is_stream:
             try:
@@ -2081,7 +2103,7 @@ class Body:  # ./Models/body.py
                 self._headers['Content-Type'] = content_type
         return self.body
 
-    def prepare_content_length(self):  # ./Models/body.py
+    def prepare_content_length(self):  # ./models/body.py
         if self.body is not None:
             length = Utils().super_len(self.body)
             if length:
@@ -2094,36 +2116,36 @@ class Body:  # ./Models/body.py
             self._headers['Content-Length'] = '0'
         return self
 
-    def body_position(self):  # ./Models/body.py
+    def body_position(self):  # ./models/body.py
         return self._body_position
 
-    def headers(self):  # ./Models/body.py
+    def headers(self):  # ./models/body.py
         return self._headers
 
-    def body_(self, *args):  # ./Models/body.py
+    def body_(self, *args):  # ./models/body.py
         return DomainUtils().get_or_set(self, 'body', *args)
 
-    def is_stream(self):  # ./Models/body.py
+    def is_stream(self):  # ./models/body.py
         return self._is_stream
 
 
-class Content:  # ./Models/Content.py
+class Content:  # ./models/Content.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def __init__(self, read_func):  # ./Models/Content.py
+    def __init__(self, read_func):  # ./models/Content.py
         self._content = False
         self._content_consumed = False
         self._read = read_func
 
-    def check_for_consistency(self, chunk_size):  # ./Models/Content.py
+    def check_for_consistency(self, chunk_size):  # ./models/Content.py
         if self._content_consumed and isinstance(self._content, bool):
             raise StreamConsumedError()
         elif chunk_size is not None and not isinstance(chunk_size, int):
             raise TypeError("chunk_size must be an int, it is instead a %s." % type(chunk_size))
 
-    def iterate(self, chunk_size, decode_unicode, raw, encoding):  # ./Models/Content.py
-        def generate():  # ./Models/Content.py
+    def iterate(self, chunk_size, decode_unicode, raw, encoding):  # ./models/Content.py
+        def generate():  # ./models/Content.py
             # Special case for urllib3.
             if hasattr(raw, 'stream'):
                 try:
@@ -2158,11 +2180,11 @@ class Content:  # ./Models/Content.py
 
         return chunks
 
-    def close(self, raw):  # ./Models/Content.py
+    def close(self, raw):  # ./models/Content.py
         if not self._content_consumed:
             raw.close()
 
-    def content(self):  # ./Models/Content.py
+    def content(self):  # ./models/Content.py
         if self._content is False:
             # Read the contents.
             if self._content_consumed:
@@ -2176,15 +2198,15 @@ class Content:  # ./Models/Content.py
         # since we exhausted the data.
         return self._content
 
-    def consume_everything(self):  # ./Models/Content.py
+    def consume_everything(self):  # ./models/Content.py
         if not self._content_consumed:
             self.content()
 
-    def apparent_encoding(self):  # ./Models/Content.py
+    def apparent_encoding(self):  # ./models/Content.py
         """The apparent encoding, provided by the charset_normalizer or chardet libraries."""
         return XCharDet().detect(self.content())['encoding']
 
-    def text(self, encoding):  # ./Models/Content.py
+    def text(self, encoding):  # ./models/Content.py
         content = None
 
         if not self.content():
@@ -2208,7 +2230,7 @@ class Content:  # ./Models/Content.py
 
         return content
 
-    def json(self, encoding, **kwargs):  # ./Models/Content.py
+    def json(self, encoding, **kwargs):  # ./models/Content.py
         if not encoding and self.content and len(self.content()) > 3:
             # No encoding set. JSON RFC 4627 section 3 states we should expect
             # UTF-8, -16 or -32. Detect which one to use; If the detection or
@@ -2237,15 +2259,15 @@ class Content:  # ./Models/Content.py
             else:
                 raise JSONDecodeError(e.msg, e.doc, e.pos)
 
-    def reset_content_consumed(self):  # ./Models/Content.py
+    def reset_content_consumed(self):  # ./models/Content.py
         self._content_consumed = True
 
-    def internal_content(self, *args):  # ./Models/Content.py
+    def internal_content(self, *args):  # ./models/Content.py
         return DomainUtils().get_or_set(self, '_content', *args)
 
 
-class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response/Response.py
-    def __init__(self):  # ./Models/Response.py
+class Response(CommonProperties, Pickler, Attributes):  # ./models/Response/Response.py
+    def __init__(self):  # ./models/Response.py
         super(Response, self).__init__()
         self.add_attribute('status_code', None)
         self.add_attribute('headers', CaseInsensitiveDict())
@@ -2259,36 +2281,36 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
         self.add_attribute('cookies', CookieUtils().cookiejar_from_dict({}))
         self.contentClass = Content(self.read_content)
 
-    def read_content(self):  # ./Models/Response.py
+    def read_content(self):  # ./models/Response.py
         if self.status_code_() == 0 or self.raw_() is None:
             return None
         else:
             return b''.join(self.iter_content(Models().CONTENT_CHUNK_SIZE())) or b''
 
-    def __enter__(self):  # ./Models/Response.py
+    def __enter__(self):  # ./models/Response.py
         return self
 
-    def __exit__(self, *args):  # ./Models/Response.py
+    def __exit__(self, *args):  # ./models/Response.py
         self.close()
 
-    def __repr__(self):  # ./Models/Response.py
+    def __repr__(self):  # ./models/Response.py
         return '<Response [%s]>' % (self.status_code_())
 
-    def __bool__(self):  # ./Models/Response.py
+    def __bool__(self):  # ./models/Response.py
         return self.ok_()
 
-    def __nonzero__(self):  # ./Models/Response.py
+    def __nonzero__(self):  # ./models/Response.py
         return self.ok_()
 
-    def __iter__(self):  # ./Models/Response.py
+    def __iter__(self):  # ./models/Response.py
         """Allows you to use a response as an iterator."""
         return self.iter_content(128)
 
     @property
-    def ok(self):  # ./Models/Response.py
+    def ok(self):  # ./models/Response.py
         return self.ok_()
 
-    def ok_(self):  # ./Models/Response.py
+    def ok_(self):  # ./models/Response.py
         try:
             self.raise_for_status()
         except HTTPError:
@@ -2296,14 +2318,14 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
         return True
 
     @property
-    def is_redirect(self):  # ./Models/Response.py
+    def is_redirect(self):  # ./models/Response.py
         return self.is_redirect_()
 
     def is_redirect_(self):
         return 'location' in self.headers_() and self.status_code in Models().REDIRECT_STATI()
 
     @property
-    def is_permanent_redirect(self):  # ./Models/Response.py
+    def is_permanent_redirect(self):  # ./models/Response.py
         return self.is_permanent_redirect_()
 
     def is_permanent_redirect_(self):
@@ -2312,17 +2334,17 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
             StatusCodes().get('moved_permanently'), StatusCodes().get('permanent_redirect')))
 
     @property
-    def next(self):  # ./Models/Response.py
+    def next(self):  # ./models/Response.py
         return self.next_()
 
     def next_(self, *args):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
         return DomainUtils().get_or_set(self, '_next', *args)
 
-    def iter_content(self, chunk_size=1, decode_unicode=False):  # ./Models/Response.py
+    def iter_content(self, chunk_size=1, decode_unicode=False):  # ./models/Response.py
         return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding_())
 
-    def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./Models/Response.py
+    def iter_lines(self, chunk_size=-1, decode_unicode=False, delimiter=None):  # ./models/Response.py
         if chunk_size == -1:
             chunk_size = Models().ITER_CHUNK_SIZE()
 
@@ -2350,22 +2372,22 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
             yield pending
 
     @property
-    def content(self):  # ./Models/Response.py
+    def content(self):  # ./models/Response.py
         """Content of the response, in bytes."""
         return self.contentClass.content()
 
-    def content_(self, *args):  # ./Models/Response.py
+    def content_(self, *args):  # ./models/Response.py
         return DomainUtils().get_or_set(self, 'content', *args)
 
     @property
-    def text(self):  # ./Models/Response.py
+    def text(self):  # ./models/Response.py
         return self.contentClass.text(self.encoding_())
 
-    def json(self, **kwargs):  # ./Models/Response.py
+    def json(self, **kwargs):  # ./models/Response.py
         return self.contentClass.json(self.encoding_(), **kwargs)
 
     @property
-    def links(self):  # ./Models/Response.py
+    def links(self):  # ./models/Response.py
         """Returns the parsed header links of the response, if any."""
 
         header = self.headers_().get('link')
@@ -2382,7 +2404,7 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
 
         return result
 
-    def raise_for_status(self):  # ./Models/Response.py
+    def raise_for_status(self):  # ./models/Response.py
         """Raises :class:`HTTPError`, if one occurred."""
 
         http_error_msg = ''
@@ -2397,14 +2419,14 @@ class Response(CommonProperties, PicklerMixin, Attributes):  # ./Models/Response
         if http_error_msg:
             raise HTTPError(http_error_msg, response=self)
 
-    def close(self):  # ./Models/Response.py
+    def close(self):  # ./models/Response.py
         self.contentClass.close(self.raw_())
 
         release_conn = getattr(self.raw_(), 'release_conn', None)
         if release_conn is not None:
             release_conn()
 
-    def get_unicode(self):  # ./Models/Response.py
+    def get_unicode(self):  # ./models/Response.py
         XWarnings().warn((
             'In requests 3.0, get_unicode will be removed. For '
             'more information, please see the discussion on issue #2266. (This'
@@ -2450,7 +2472,7 @@ class Reason:
 
         raise ConnectionError(e, request=request)
 
-    def normalize(self):  # ./Models/Response.py
+    def normalize(self):  # ./models/Response.py
         if XBytes().is_instance(self.value):
             # We attempt to decode utf-8 first because some servers
             # choose to localize their reason strings. If the string
@@ -2465,7 +2487,7 @@ class Reason:
         return reason
 
 
-class ResponsePickle:  # ./Models/Response/ResponsePickle.py
+class ResponsePickle:  # ./models/Response/ResponsePickle.py
     def __init__(self, instance):
         self.instance = instance
 
@@ -2557,11 +2579,11 @@ class Sessions:  # ./Sessions/Sessions.py
         return Session()
 
 
-class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
+class SessionRedirect:  # ./Sessions/SessionRedirect.py
     def help(self):
         Help().display(self.__class__.__name__)
 
-    def DEFAULT_PORTS(self):  # ./Sessions/SessionRedirectMixin.py
+    def DEFAULT_PORTS(self):  # ./Sessions/SessionRedirect.py
         return {'http': 80, 'https': 443}
 
     def get_redirect_target(self, resp):
@@ -2585,7 +2607,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
             return XUtils().to_native_string(location, 'utf8')
         return None
 
-    def should_strip_auth(self, old_url, new_url):  # ./Sessions/SessionRedirectMixin.py
+    def should_strip_auth(self, old_url, new_url):  # ./Sessions/SessionRedirect.py
         """Decide whether Authorization header should be removed when redirecting"""
         old_parsed = Url(old_url).parse()
         new_parsed = Url(new_url).parse()
@@ -2612,7 +2634,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
     def resolve_redirects(self, resp, req, stream=False, timeout=None,
                           verify=True, cert=None, proxies=None, yield_requests=False, **adapter_kwargs):
-        # ./Sessions/SessionRedirectMixin.py
+        # ./Sessions/SessionRedirect.py
         """Receives a Response. Returns a generator of Responses or Requests."""
 
         hist = []  # keep track of history
@@ -2722,7 +2744,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
                 url = self.get_redirect_target(resp)
                 yield resp
 
-    def rebuild_auth(self, prepared_request, response):  # ./Sessions/SessionRedirectMixin.py
+    def rebuild_auth(self, prepared_request, response):  # ./Sessions/SessionRedirect.py
         """When being redirected we may want to strip authentication from the
         request to avoid leaking credentials. This method intelligently removes
         and reapplies authentication where possible to avoid credential loss.
@@ -2740,7 +2762,7 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
         if new_auth is not None:
             prepared_request.prepare_auth(new_auth)
 
-    def rebuild_proxies(self, prepared_request, proxies):  # ./Sessions/SessionRedirectMixin.py
+    def rebuild_proxies(self, prepared_request, proxies):  # ./Sessions/SessionRedirect.py
         """This method re-evaluates the proxy configuration by considering the
         environment variables. If we are redirected to a URL covered by
         NO_PROXY, we strip the proxy configuration. Otherwise, we set missing
@@ -2781,29 +2803,14 @@ class SessionRedirectMixin:  # ./Sessions/SessionRedirectMixin.py
 
         return new_proxies
 
-    def rebuild_method(self, prepared_request, response):  # ./Sessions/SessionRedirectMixin.py
+    def rebuild_method(self, prepared_request, response):  # ./Sessions/SessionRedirect.py
         """When being redirected we may want to change the method of the request
         based on certain specs or browser behavior.
         """
-        method = prepared_request.method_()
-
-        # https://tools.ietf.org/html/rfc7231#section-6.4.4
-        if response.status_code_() == StatusCodes().get('see_other') and method != 'HEAD':
-            method = 'GET'
-
-        # Do what the browsers do, despite standards...
-        # First, turn 302s into GETs.
-        if response.status_code_() == StatusCodes().get('found') and method != 'HEAD':
-            method = 'GET'
-
-        # Second, if a POST is responded to with a 301, turn it into a GET.
-        # This bizarre behaviour is explained in Issue 1704.
-        if response.status_code_() == StatusCodes().get('moved') and method == 'POST':
-            method = 'GET'
-
+        method = prepared_request.method_obj().rebuild(response.status_code_())
         prepared_request.method_(method)
 
-    def cookies_(self, *args):  # ./Models/Response.py
+    def cookies_(self, *args):  # ./models/Response.py
         return DomainUtils().get_or_set(self, 'cookies', *args)
 
     def trust_env_(self, *args):  # ./Sessions/Session.py
@@ -2880,7 +2887,7 @@ class SessionEnvironmentInputs(Attributes):  # ./sessions/session_environment_in
                 'cert': cert}
 
 
-class Session(SessionRedirectMixin, PicklerMixin, Attributes):  # ./Sessions/Session.py
+class Session(SessionRedirect, Pickler, Attributes):  # ./Sessions/Session.py
     def help(self):
         Help().display(self.__class__.__name__)
 
