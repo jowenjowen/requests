@@ -17,11 +17,11 @@ def test_idna_without_version_attribute(mocker):
     """Older versions of IDNA don't provide a __version__ attribute, verify
     that if we have such a package, we don't blow up.
     """
-    mocker.patch('requests.five_d.x.idna', new=None)
+    mocker.patch('requests.doop.x.idna', new=None)
     assert info()['idna'] == {'version': ''}
 
 
 def test_idna_with_version_attribute(mocker):
     """Verify we're actually setting idna version when it should be available."""
-    mocker.patch('requests.five_d.x.idna', new=VersionedPackage('2.6'))
+    mocker.patch('requests.doop.x.idna', new=VersionedPackage('2.6'))
     assert info()['idna'] == {'version': '2.6'}

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import contextlib
-from requests.five_d.x import XOs
+from requests.doop.x import XOs
 
 
 @contextlib.contextmanager

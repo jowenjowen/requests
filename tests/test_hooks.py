@@ -2,7 +2,7 @@
 
 import pytest
 
-from requests.five_d.domain import Hooks
+from requests.doop.domain import Hooks
 
 
 def hook(value):

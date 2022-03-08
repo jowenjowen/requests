@@ -10,19 +10,19 @@ These functions have been moved to the .domain.Utils class - see documentation t
 This file only exists for compatibility for external users
 """
 import contextlib
-from .five_d.domain import Utils
-from .five_d.domain import Proxies
-from .five_d.domain import CollectionsUtils
-from .five_d.domain import FileUtils
-from .five_d.domain import WSGIutils
-from .five_d.domain import CookieUtils
-from .five_d.domain import Headers
-from .five_d.domain import Header
-from .five_d.domain import IpUtils
-from .five_d.domain import Url
-from .five_d.domain import Uri
-from .five_d.x import XWarnings
-from .five_d.x import XRe
+from .doop.domain import Utils
+from .doop.domain import Proxies
+from .doop.domain import CollectionsUtils
+from .doop.domain import FileUtils
+from .doop.domain import WSGIutils
+from .doop.domain import CookieUtils
+from .doop.domain import Headers
+from .doop.domain import Header
+from .doop.domain import IpUtils
+from .doop.domain import Url
+from .doop.domain import Uri
+from .doop.x import XWarnings
+from .doop.x import XRe
 
 def proxy_bypass(host):
     return Proxies().proxy_bypass(host)

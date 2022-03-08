@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from requests.five_d.x import XOs, XCookieJar, XUtils
+from requests.doop.x import XOs, XCookieJar, XUtils
 import copy
 import filecmp
 from io import BytesIO
@@ -10,8 +10,8 @@ from collections import deque
 
 import pytest
 from requests import compat
-from requests.five_d.domain import CookieJar
-from requests.five_d.domain import CaseInsensitiveDict
+from requests.doop.domain import CookieJar
+from requests.doop.domain import CaseInsensitiveDict
 from requests.utils import (
     address_in_network, dotted_netmask, extract_zipped_paths,
     get_auth_from_url, get_encoding_from_headers,
@@ -24,8 +24,8 @@ from requests.utils import (
     unquote_header_value, unquote_unreserved,
     urldefragauth, add_dict_to_cookiejar, set_environ)
 
-from requests.five_d.domain import Headers
-from requests.five_d.domain import Header
+from requests.doop.domain import Headers
+from requests.doop.domain import Header
 
 from .compat import CompatStringIO, Compat_cStringIO
 
@@ -679,7 +679,7 @@ def test_should_bypass_proxies_pass_only_hostname(url, expected, mocker):
     """The proxy_bypass function should be called with a hostname or IP without
     a port number or auth credentials.
     """
-    proxy_bypass = mocker.patch('requests.five_d.domain.Proxies.proxy_bypass')
+    proxy_bypass = mocker.patch('requests.doop.domain.Proxies.proxy_bypass')
     should_bypass_proxies(url, no_proxy=None)
     proxy_bypass.assert_called_once_with(expected)
 
@@ -753,10 +753,7 @@ def test_should_bypass_proxies_win_registry(url, expected, override,
     """
     if override is None:
         override = '192.168.*;127.0.0.1;localhost.localdomain;172.16.1.1'
-    if compat.is_py3:
-        import winreg
-    else:
-        import _winreg as winreg
+    import winreg
 
     class RegHandle:
         def Close(self):

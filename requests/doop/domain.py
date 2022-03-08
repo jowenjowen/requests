@@ -5,7 +5,7 @@
 
 import sys, inspect
 
-from requests.five_d.help import Help
+from requests.doop.help import Help
 
 from .x import XPlatform, XJson, XUrllib3, XSys, XCharSetNormalizer, XCharDet, \
     XOpenSSL, XIdna, XCryptography, XSsl, XPyOpenSsl, XMutableMapping, XOrderedDict, XMapping, XUtils
@@ -2254,10 +2254,7 @@ class Content:  # ./models/Content.py
         except XJSONDecodeError as e:
             # Catch JSON-related errors and raise as requests.JSONDecodeError
             # This aliases json.JSONDecodeError and simplejson.JSONDecodeError
-            if XCompat().is_py2():  # e is a ValueError
-                raise JSONDecodeError(e.message)
-            else:
-                raise JSONDecodeError(e.msg, e.doc, e.pos)
+            raise JSONDecodeError(e.msg, e.doc, e.pos)
 
     def reset_content_consumed(self):  # ./models/Content.py
         self._content_consumed = True
@@ -2602,8 +2599,7 @@ class SessionRedirect:  # ./Sessions/SessionRedirect.py
             # It is more likely to get UTF8 header rather than latin1.
             # This causes incorrect handling of UTF8 encoded location headers.
             # To solve this, we re-encode the location in latin1.
-            if XCompat().is_py3():
-                location = location.encode('latin1')
+            location = location.encode('latin1')
             return XUtils().to_native_string(location, 'utf8')
         return None
 
@@ -3482,7 +3478,7 @@ class Url(Aggregate):  # ./Utils/url.py
         if XBytes().is_instance(url):
             url = url.decode('utf8')
         else:
-            url = unicode(url) if XCompat().is_py2() else XStr().new(url)
+            url = XStr().new(url)
 
         # Remove leading whitespaces from url
         url = url.lstrip()
@@ -3532,18 +3528,6 @@ class Url(Aggregate):  # ./Utils/url.py
         # Bare domains aren't valid URLs.
         if not path:
             path = '/'
-
-        if XCompat().is_py2():
-            if XStr().is_instance(scheme):
-                scheme = scheme.encode('utf-8')
-            if XStr().is_instance(netloc):
-                netloc = netloc.encode('utf-8')
-            if XStr().is_instance(path):
-                path = path.encode('utf-8')
-            if XStr().is_instance(query):
-                query = query.encode('utf-8')
-            if XStr().is_instance(fragment):
-                fragment = fragment.encode('utf-8')
 
         if isinstance(params, (XStr().clazz(), XBytes().clazz())):
             params = XUtils().to_native_string(params)

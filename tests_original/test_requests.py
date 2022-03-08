@@ -14,12 +14,12 @@ import requests.api as requests
 
 import io
 import pytest
-from requests.five_d.domain import HTTPDigestAuth
-from requests.five_d.domain import Ticket
-from requests.five_d.domain import CaseInsensitiveDict
-from requests.five_d.domain import SessionRedirect
+from requests.doop.domain import HTTPDigestAuth
+from requests.doop.domain import Ticket
+from requests.doop.domain import CaseInsensitiveDict
+from requests.doop.domain import SessionRedirect
 
-from requests.five_d.domain import CookieUtils
+from requests.doop.domain import CookieUtils
 cookiejar_from_dict = CookieUtils().cookiejar_from_dict
 
 from requests.exceptions import MissingSchema
@@ -30,7 +30,7 @@ from requests.exceptions import ProxyError
 from requests.exceptions import InvalidProxyURL
 from requests.exceptions import SSLError
 
-from requests.five_d.domain import Hooks
+from requests.doop.domain import Hooks
 default_hooks = Hooks().default_hooks
 
 from requests.compat import compat_cookielib as cookielib
@@ -45,10 +45,10 @@ from requests.compat import compat_str as str
 # from requests.compat import compat_ as
 # from requests.compat import compat_ as
 from .compat import StringIO, u
-from requests.five_d.domain import Auth
+from requests.doop.domain import Auth
 _basic_auth_str = Auth().basic_auth_str
 
-from requests.five_d.x import XMutableMapping as MutableMapping
+from requests.doop.x import XMutableMapping as MutableMapping
 from .compat import u
 from .utils import override_environ
 

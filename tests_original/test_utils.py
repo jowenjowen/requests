@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-from requests.five_d.x import XOs
+from requests.doop.x import XOs
 import copy
 import filecmp
 from io import BytesIO
@@ -747,10 +747,7 @@ def test_should_bypass_proxies_win_registry(url, expected, override,
     """
     if override is None:
         override = '192.168.*;127.0.0.1;localhost.localdomain;172.16.1.1'
-    if compat.is_py3:
-        import winreg
-    else:
-        import _winreg as winreg
+    import winreg
 
     class RegHandle:
         def Close(self):

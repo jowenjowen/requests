@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 import threading
-from requests.five_d.x import XSocket
+from requests.doop.x import XSocket
 import select
 
 

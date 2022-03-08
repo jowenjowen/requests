@@ -15,7 +15,7 @@ import warnings
 from base64 import b64encode
 
 # imports for XWarnings, XBase64, XCompat, XThreading, XHashLib
-from requests.compat import is_py2, compat_builtin_str, compat_str, compat_bytes
+from requests.compat import compat_builtin_str, compat_str, compat_bytes
 import threading
 import hashlib
 
@@ -33,7 +33,7 @@ import copy
 import calendar
 
 #imports for sessions
-from requests.compat import is_py3, compat_quote
+from requests.compat import compat_quote
 from datetime import timedelta
 
 #imports for models
@@ -328,12 +328,6 @@ class XUrl:
 
 
 class XCompat:
-    def is_py2(self):
-        return is_py2
-
-    def is_py3(self):
-        return is_py3
-
     def integer_types(self):
         return integer_types
 
@@ -491,10 +485,7 @@ if XSys().platform() == 'win32':
     class XWinReg:
         def __init__(self):
             try:
-                if XCompat().is_py3():
-                    import winreg
-                else:
-                    import _winreg as winreg
+                import winreg
                 return winreg
 
             except ImportError:
@@ -611,10 +602,7 @@ class XUtils:  # ./InternalUtils/internal_utils.py
         if XBuiltinStr().is_instance(string):
             out = string
         else:
-            if XCompat().is_py2():
-                out = string.encode(encoding)
-            else:
-                out = string.decode(encoding)
+            out = string.decode(encoding)
 
         return out
 

@@ -20,32 +20,32 @@ from urllib3.util import Timeout as Urllib3Timeout
 
 from requests import exceptions
 
-from requests.five_d.x import XStr
-from requests.five_d.x import XCookieJar
-from requests.five_d.x import XDefaultCookiePolicy
-from requests.five_d.x import XOs
-from requests.five_d.x import XUrl
-from requests.five_d.x import XBuiltinStr
+from requests.doop.x import XStr
+from requests.doop.x import XCookieJar
+from requests.doop.x import XDefaultCookiePolicy
+from requests.doop.x import XOs
+from requests.doop.x import XUrl
+from requests.doop.x import XBuiltinStr
 
-from requests.five_d.domain import HTTPconnections
-from requests.five_d.domain import HTTPDigestAuth
-from requests.five_d.domain import Auth
-from requests.five_d.domain import XMorsel
-from requests.five_d.domain import CookieUtils
-from requests.five_d.domain import CookieConflictError
-from requests.five_d.domain import Ticket
-from requests.five_d.domain import CaseInsensitiveDict
-from requests.five_d.domain import SessionRedirect
-from requests.five_d.domain import Hooks
-from requests.five_d.domain import FileUtils
-from requests.five_d.domain import XMutableMapping
-from requests.five_d.domain import CookieJar
-from requests.five_d.domain import Request
-from requests.five_d.domain import Session
-from requests.five_d.domain import Requests
-from requests.five_d.domain import Response
-from requests.five_d.domain import AuthBase
-from requests.five_d.domain import Url
+from requests.doop.domain import HTTPconnections
+from requests.doop.domain import HTTPDigestAuth
+from requests.doop.domain import Auth
+from requests.doop.domain import XMorsel
+from requests.doop.domain import CookieUtils
+from requests.doop.domain import CookieConflictError
+from requests.doop.domain import Ticket
+from requests.doop.domain import CaseInsensitiveDict
+from requests.doop.domain import SessionRedirect
+from requests.doop.domain import Hooks
+from requests.doop.domain import FileUtils
+from requests.doop.domain import XMutableMapping
+from requests.doop.domain import CookieJar
+from requests.doop.domain import Request
+from requests.doop.domain import Session
+from requests.doop.domain import Requests
+from requests.doop.domain import Response
+from requests.doop.domain import AuthBase
+from requests.doop.domain import Url
 
 # Requests to this URL should always fail with a connection timeout (nothing
 # listening on that port)

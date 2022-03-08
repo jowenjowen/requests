@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
-from .five_d.domain import Requests
-from .five_d.domain import Session
-from .five_d.domain import Request
+from .doop.domain import Requests
+from .doop.domain import Session
+from .doop.domain import Request
 
 class Request2(Request):
     def __init__(self,
@@ -25,7 +25,7 @@ class DummyClass1:
     HTTPError = HTTPErrorUnused
 exceptions = DummyClass1()
 
-from .five_d.domain import CookieJar as RequestsCookieJarUnused
+from .doop.domain import CookieJar as RequestsCookieJarUnused
 class DummyClass2:
     RequestsCookieJar = RequestsCookieJarUnused
 cookies = DummyClass2()
