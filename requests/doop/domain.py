@@ -84,12 +84,51 @@ from requests.exceptions import JSONDecodeError
 
 from requests import __version__ as requests_version
 
-class Aggregate:
-    def __init__(self, input=None):
-        self.value_(input)
+class Accessor:
+    def __init__(self, value):
+        self._accessor = value
+        if value.endswith('_'):
+            self._variable = value[:-1]
+        else:
+            self._variable = '_' + value
+        self._initial_value = None
 
-    def value_(self, *args):
-        return DomainUtils().get_or_set(self, 'value', *args)
+    def variable(self, value):
+        self._variable = value
+        return self
+
+    def initial_value(self, value):
+        self._initial_value = value
+        return self
+
+    def add_get_to(self, instance):
+        self._add_accessor(-1, instance)
+
+    def add_set_to(self, instance):
+        self._add_accessor(1, instance)
+
+    def add_get_and_set_to(self, instance):
+        self._add_accessor(0, instance)
+
+    def _add_accessor(self, access, instance):
+        def add_fn(attr_name, parent):
+            cls = parent.__class__
+
+            def fn(instance, *args):
+                if len(args) != 0:
+                    if access < 0:
+                        raise AttributeError
+                    setattr(instance, self._variable, args[0])
+                    return instance
+                if access > 0:
+                    raise AttributeError
+                return getattr(instance, self._variable)
+
+            setattr(cls, self._accessor, fn)
+
+        if (self._accessor not in dir(self)):
+            setattr(instance, self._variable, self._initial_value)
+            add_fn(self._accessor, instance)
 
 
 # *************************** classes in Structures section *****************
@@ -171,23 +210,9 @@ class LookupDict(dict):  # ./Structures/LookupDict.py
 
 class Attributes(object):  # ./utils/attributes.py
     current_attrs = []
+
     def __init__(self):
         self.cls_names = [x[0] for x in inspect.getmembers(sys.modules[__name__], inspect.isclass)]
-
-    def add_attr(self, name, value):
-        if (name not in dir(self)):
-            self.current_attrs.append(name)
-        setattr(self, name, value)
-
-    def add_accessor(self, attr):
-        def add_fn(attr_name, parent):
-            cls = parent.__class__
-            def fn(self, *args):
-                return DomainUtils().get_or_set(self, attr, *args)
-            setattr(cls, name, fn)
-        name = attr + '_'
-        if (name not in dir(self)):
-            add_fn(name, self)
 
     def add_obj(self, attr):
         def add_fn(class_name, attr_name, parent):
@@ -203,8 +228,9 @@ class Attributes(object):  # ./utils/attributes.py
                 add_fn(attr.capitalize(), name, self)
 
     def add_attribute(self, name, value):  # ./utils/attributes.py
-        self.add_attr(name, value)
-        self.add_accessor(name)
+        if (name not in dir(self)):
+            self.current_attrs.append(name)
+        Accessor(name + '_').initial_value(value).add_get_and_set_to(self)
         self.add_obj(name)
 
     def pick_out_inputs(self, kwargs):  # ./utils/attributes.py
@@ -342,7 +368,10 @@ class Connections:  # ./Connections/connections.py
             raise InvalidSchema("Missing dependencies for SOCKS support.")
         return result
 
-class Cert(Aggregate):
+class Cert:
+    def __init__(self, input):
+        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+
     def cert_verify(self, xconn, url, verify):  # ./Connections/HTTPconnections.py
         if url.lower().startswith('https') and verify:
 
@@ -728,7 +757,10 @@ class Requests(Attributes):  # ./Api/api.py
 
 
 # *************************** classes in Auth section *****************
-class Auth(Aggregate):  # ./Auth/auth.py
+class Auth:  # ./Auth/auth.py
+    def __init__(self, input=None):
+        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+
     def help(self):
         Help().display(self.__class__.__name__)
 
@@ -1769,7 +1801,10 @@ class Request(CommonProperties, RequestHooks, Attributes):  # ./models/Request.p
             return self.hooks
 
 
-class Method(Aggregate):  # ./models/method.py
+class Method:  # ./models/method.py
+    def __init__(self, input):
+        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+
     def prepare(self):  # ./models/method.py
         """Prepares the given HTTP method."""
         if self.value_() is not None:
@@ -1815,12 +1850,12 @@ class Cookies:  # ./models/cookies.py
         return self.cookie_header
 
 
-class Headers(Aggregate):  # ./models/headers.py
+class Headers:  # ./models/headers.py
     def help(self):
         Help().display(self.__class__.__name__)
 
     def __init__(self, headers=None):  # ./models/headers.py
-        self.value_(headers)
+        Accessor('value_').initial_value(headers).add_get_and_set_to(self)
 
     def prepare(self):  # ./models/headers.py
         """Prepares the given HTTP headers."""
@@ -2035,8 +2070,8 @@ class Data:
 class Body:  # ./models/body.py
     def __init__(self, request):  # ./models/body.py
         self.request = request
-        self.body = request.body_()
-        self._body_position = None
+        Accessor('body_').initial_value(request.body_()).add_get_and_set_to(self)
+        Accessor('body_position').add_get_and_set_to(self)
         self._headers = {}
 
     def prepare(self, data, files, json):  # ./models/body.py
@@ -2116,14 +2151,8 @@ class Body:  # ./models/body.py
             self._headers['Content-Length'] = '0'
         return self
 
-    def body_position(self):  # ./models/body.py
-        return self._body_position
-
     def headers(self):  # ./models/body.py
         return self._headers
-
-    def body_(self, *args):  # ./models/body.py
-        return DomainUtils().get_or_set(self, 'body', *args)
 
     def is_stream(self):  # ./models/body.py
         return self._is_stream
@@ -3065,7 +3094,10 @@ class Session(SessionRedirect, Pickler, Attributes):  # ./Sessions/Session.py
 
 
 # *************************** classes in Utils section *****************
-class Proxies(Aggregate):  # ./Utils/proxies.py
+class Proxies:  # ./Utils/proxies.py
+    def __init__(self, input=None):
+        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+
     def help(self):
         Help().display(self.__class__.__name__)
 
@@ -3380,7 +3412,10 @@ class Uri:  # ./Utils/uri.py
             return XUrl().quote(self.uri, safe=safe_without_percent)
 
 
-class Url(Aggregate):  # ./Utils/url.py
+class Url:  # ./Utils/url.py
+    def __init__(self, input):
+        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+
     def help(self):
         Help().display(self.__class__.__name__)
 
