@@ -2163,7 +2163,7 @@ class Content:  # ./models/Content.py
         Help().display(self.__class__.__name__)
 
     def __init__(self, read_func):  # ./models/Content.py
-        self._content = False
+        Accessor('internal_content').variable('_content').initial_value(False).add_get_and_set_to(self)
         self._content_consumed = False
         self._read = read_func
 
@@ -2288,9 +2288,6 @@ class Content:  # ./models/Content.py
     def reset_content_consumed(self):  # ./models/Content.py
         self._content_consumed = True
 
-    def internal_content(self, *args):  # ./models/Content.py
-        return DomainUtils().get_or_set(self, '_content', *args)
-
 
 class Response(CommonProperties, Pickler, Attributes):  # ./models/Response/Response.py
     def __init__(self):  # ./models/Response.py
@@ -2306,6 +2303,7 @@ class Response(CommonProperties, Pickler, Attributes):  # ./models/Response/Resp
         self.add_attribute('auth', None)
         self.add_attribute('cookies', CookieUtils().cookiejar_from_dict({}))
         self.contentClass = Content(self.read_content)
+        Accessor('next_').variable('next_').add_get_and_set_to(self)
 
     def read_content(self):  # ./models/Response.py
         if self.status_code_() == 0 or self.raw_() is None:
@@ -2361,11 +2359,8 @@ class Response(CommonProperties, Pickler, Attributes):  # ./models/Response/Resp
 
     @property
     def next(self):  # ./models/Response.py
-        return self.next_()
-
-    def next_(self, *args):
         """Returns a PreparedRequest for the next request in a redirect chain, if there is one."""
-        return DomainUtils().get_or_set(self, '_next', *args)
+        return self.next_()
 
     def iter_content(self, chunk_size=1, decode_unicode=False):  # ./models/Response.py
         return self.contentClass.iterate(chunk_size, decode_unicode, self.raw_(), self.encoding_())
