@@ -1,3 +1,4 @@
+#! /usr/bin/python
 # -*- coding: utf-8 -*-
 
 # domain.py contains the code related to the domain
@@ -84,14 +85,22 @@ from requests.exceptions import JSONDecodeError
 
 from requests import __version__ as requests_version
 
-class Accessor:
+
+class Resource:
+    """
+    class for adding to a class both an internal variable, and a fluent accessor function to set and get such variable.
+    """
+
     def __init__(self, value):
-        self._accessor = value
+        self._resource = value
         if value.endswith('_'):
             self._variable = value[:-1]
         else:
             self._variable = '_' + value
         self._initial_value = None
+        self._get = True
+        self._set = True
+
 
     def variable(self, value):
         self._variable = value
@@ -101,16 +110,21 @@ class Accessor:
         self._initial_value = value
         return self
 
-    def add_get_to(self, instance):
-        self._add_accessor(-1, instance)
+    def remove_get(self):
+        self._get = False
 
-    def add_set_to(self, instance):
-        self._add_accessor(1, instance)
+    def remove_set(self):
+        self._set = False
 
-    def add_get_and_set_to(self, instance):
-        self._add_accessor(0, instance)
+    def add_to(self, instance):
+        if self._get and self._set:
+            self._add_resource(0, instance)
+        elif self._set:
+            self._add_resource(1, instance)
+        else:
+            self._add_resource(-1, instance)
 
-    def _add_accessor(self, access, instance):
+    def _add_resource(self, access, instance):
         def add_fn(attr_name, parent):
             cls = parent.__class__
 
@@ -124,11 +138,11 @@ class Accessor:
                     raise AttributeError
                 return getattr(instance, self._variable)
 
-            setattr(cls, self._accessor, fn)
+            setattr(cls, self._resource, fn)
 
-        if (self._accessor not in dir(self)):
+        if (self._resource not in dir(self)):
             setattr(instance, self._variable, self._initial_value)
-            add_fn(self._accessor, instance)
+            add_fn(self._resource, instance)
 
 
 # *************************** classes in Structures section *****************
@@ -230,7 +244,7 @@ class Attributes(object):  # ./utils/attributes.py
     def add_attribute(self, name, value):  # ./utils/attributes.py
         if (name not in dir(self)):
             self.current_attrs.append(name)
-        Accessor(name + '_').initial_value(value).add_get_and_set_to(self)
+        Resource(name + '_').initial_value(value).add_get_and_set_to(self)
         self.add_obj(name)
 
     def pick_out_inputs(self, kwargs):  # ./utils/attributes.py
@@ -370,7 +384,7 @@ class Connections:  # ./Connections/connections.py
 
 class Cert:
     def __init__(self, input):
-        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+        Resource('value_').initial_value(input).add_get_and_set_to(self)
 
     def cert_verify(self, xconn, url, verify):  # ./Connections/HTTPconnections.py
         if url.lower().startswith('https') and verify:
@@ -759,7 +773,7 @@ class Requests(Attributes):  # ./Api/api.py
 # *************************** classes in Auth section *****************
 class Auth:  # ./Auth/auth.py
     def __init__(self, input=None):
-        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+        Resource('value_').initial_value(input).add_get_and_set_to(self)
 
     def help(self):
         Help().display(self.__class__.__name__)
@@ -1803,7 +1817,7 @@ class Request(CommonProperties, RequestHooks, Attributes):  # ./models/Request.p
 
 class Method:  # ./models/method.py
     def __init__(self, input):
-        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+        Resource('value_').initial_value(input).add_get_and_set_to(self)
 
     def prepare(self):  # ./models/method.py
         """Prepares the given HTTP method."""
@@ -1855,7 +1869,7 @@ class Headers:  # ./models/headers.py
         Help().display(self.__class__.__name__)
 
     def __init__(self, headers=None):  # ./models/headers.py
-        Accessor('value_').initial_value(headers).add_get_and_set_to(self)
+        Resource('value_').initial_value(headers).add_get_and_set_to(self)
 
     def prepare(self):  # ./models/headers.py
         """Prepares the given HTTP headers."""
@@ -2070,8 +2084,8 @@ class Data:
 class Body:  # ./models/body.py
     def __init__(self, request):  # ./models/body.py
         self.request = request
-        Accessor('body_').initial_value(request.body_()).add_get_and_set_to(self)
-        Accessor('body_position').add_get_and_set_to(self)
+        Resource('body_').initial_value(request.body_()).add_get_and_set_to(self)
+        Resource('body_position').add_get_and_set_to(self)
         self._headers = {}
 
     def prepare(self, data, files, json):  # ./models/body.py
@@ -2163,7 +2177,7 @@ class Content:  # ./models/Content.py
         Help().display(self.__class__.__name__)
 
     def __init__(self, read_func):  # ./models/Content.py
-        Accessor('internal_content').variable('_content').initial_value(False).add_get_and_set_to(self)
+        Resource('internal_content').variable('_content').initial_value(False).add_get_and_set_to(self)
         self._content_consumed = False
         self._read = read_func
 
@@ -2303,7 +2317,7 @@ class Response(CommonProperties, Pickler, Attributes):  # ./models/Response/Resp
         self.add_attribute('auth', None)
         self.add_attribute('cookies', CookieUtils().cookiejar_from_dict({}))
         self.contentClass = Content(self.read_content)
-        Accessor('next_').variable('next_').add_get_and_set_to(self)
+        Resource('next_').variable('next_').add_get_and_set_to(self)
 
     def read_content(self):  # ./models/Response.py
         if self.status_code_() == 0 or self.raw_() is None:
@@ -3091,7 +3105,7 @@ class Session(SessionRedirect, Pickler, Attributes):  # ./Sessions/Session.py
 # *************************** classes in Utils section *****************
 class Proxies:  # ./Utils/proxies.py
     def __init__(self, input=None):
-        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+        Resource('value_').initial_value(input).add_get_and_set_to(self)
 
     def help(self):
         Help().display(self.__class__.__name__)
@@ -3409,7 +3423,7 @@ class Uri:  # ./Utils/uri.py
 
 class Url:  # ./Utils/url.py
     def __init__(self, input):
-        Accessor('value_').initial_value(input).add_get_and_set_to(self)
+        Resource('value_').initial_value(input).add_get_and_set_to(self)
 
     def help(self):
         Help().display(self.__class__.__name__)
